@@ -35,7 +35,7 @@ void main() {
 	vec3 bitangent = normalize(cross(normalize(tangent), normalize(norm)));
 	outTBN = mat3(normalize(tangent), bitangent, normalize(norm));
 
-	outPos = pos.xyz;// * 0.05;
+	outPos = pos.xyz * 0.05;
 	outNormal = norm.xyz;
 	outUV = uv;
     gl_Position = cam.proj * cam.view * vec4(outPos, 1.0);

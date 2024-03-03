@@ -62,7 +62,7 @@ V předchozích API, jako OpenGL nebo DirectX 11, se příkazy takto neshlukoval
 // Definovat snímek, ovladač
 
 
-== Posílání
+== Posílání (Submit)
 
 === Fronta
 

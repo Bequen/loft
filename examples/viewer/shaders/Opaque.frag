@@ -42,11 +42,15 @@ layout(set = 2, binding = 3) uniform sampler2DArray pbrTextures;
 
 
 void main() {
+
+
 	Material material = materials.materials[PushConstants.materialIdx];
-	vec3 color = texture(colorTextures, vec3(inUV, material.colorTexture)).rgb;
-	vec3 normal = texture(normalTextures, vec3(inUV, material.normalTexture)).rgb;
+	vec2 uv = inUV;
+
+	vec3 color = texture(colorTextures, vec3(uv, material.colorTexture)).rgb;
+	vec3 normal = texture(normalTextures, vec3(uv, material.normalTexture)).rgb;
 	normal = normalize(normal * 2.0 - 1.0);
-	vec2 pbr = texture(pbrTextures, vec3(inUV, material.pbrTexture)).bg;
+	vec2 pbr = texture(pbrTextures, vec3(uv, material.pbrTexture)).bg;
 
 	fragColor = vec4(mix(material.albedo.rgb, color, material.colorTextureBlend), 1.0);
 	fragNormal = vec4(mix(inNormal, normalize(inTBN * normalize(normal)), 1.0), 1.0);

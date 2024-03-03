@@ -54,7 +54,7 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION ${CMAKE_CURRENT_BINARY_
 
 add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
 
-file(GLOB FILES src/*.cpp src/mesh/*.cpp src/io/*.cpp src/runtime/*.cpp)
+file(GLOB FILES src/*.cpp src/mesh/*.cpp src/io/*.cpp src/runtime/*.cpp src/scene/*.cpp)
 
 
 

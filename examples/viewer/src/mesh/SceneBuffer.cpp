@@ -8,7 +8,7 @@
 
 
 SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
-        m_materialBuffer(pGpu, {2048, 2048}, pData) {
+        m_materialBuffer(pGpu, {1024, 1024}, pData) {
 
     MemoryAllocationInfo memoryAllocationInfo = {
             .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,

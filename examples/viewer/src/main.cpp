@@ -28,6 +28,8 @@
 #include "RenderGraphBuilder.h"
 #include "FramebufferBuilder.hpp"
 #include "RenderGraph.hpp"
+#include "scene/Light.h"
+#include "runtime/FrameLock.h"
 
 struct MeshInfo {
   uint32_t materialIdx;
@@ -87,34 +89,7 @@ struct ShadingPassContext {
   }
 };
 
-struct Light {
-  mat4 view;
-  vec4 color;
-  vec4 position;
 
-  static Light directional(float near, float far, vec3 position, vec3 direction, vec4 color) {
-      mat4 projection = {};
-      glm_mat4_identity(projection);
-      glm_perspective(glm_rad(90.0f), 1.0f, 1.0f, 1000.0f, projection);
-
-      mat4 view = {};
-      glm_mat4_identity(view);
-
-      vec3 center = {};
-      glm_vec3_add(position, direction, center);
-
-      vec3 up = {0.0f, 0.0f, 1.0f};
-      glm_lookat(position, center, up, view);
-
-      Light light = {};
-      glm_mat4_mul(projection, view, light.view);
-      glm_vec4_copy(color, light.color);
-      glm_vec3_copy(position, light.position);
-      light.position[3] = 1.0f;
-
-      return light;
-  }
-};
 
 struct GeometryContext {
     std::vector<VkDescriptorSet> inputSets;
@@ -199,7 +174,7 @@ main(int32_t argc, char** argv) {
      */
     Window *window = new SDLWindow("loft", (VkRect2D) {
             0, 0,
-            2880, 1800
+            1200, 800
     });
 
     /**
@@ -238,7 +213,7 @@ main(int32_t argc, char** argv) {
      * Creates new frame graph.
      * Frame graph manages renderpass dependencies and synchronization.
      */
-    RenderGraphBuilder renderGraphBuilder({2880, 1800});
+    RenderGraphBuilder renderGraphBuilder({1200, 800});
 
 
 	auto scene = GltfSceneLoader().from_file(argv[1]);
@@ -707,31 +682,9 @@ main(int32_t argc, char** argv) {
     bool isOpen = true;
     vec3 velocity = {0.0f, 0.0f, 0.0f};
 
-    struct timespec currentTimeSpec;
-    if(clock_gettime(CLOCK_MONOTONIC_RAW, &currentTimeSpec) == -1) {
-        printf("Failed to get time\n");
-        return 1;
-    }
-
-    uint64_t prevTimeInNS = (currentTimeSpec.tv_sec * 1000000000UL) + currentTimeSpec.tv_nsec;
-    uint64_t currentTimeInNS = prevTimeInNS;
-    uint64_t maxFrameTimeInNS = 1000000000UL / 60L;
-
+    FrameLock frameLock(60);
     while(isOpen) {
-        clock_gettime(CLOCK_MONOTONIC_RAW, &currentTimeSpec);
-        currentTimeInNS = (currentTimeSpec.tv_sec * 1000000000UL) + currentTimeSpec.tv_nsec;
-
-        uint64_t deltaTime = currentTimeInNS - prevTimeInNS;
-        prevTimeInNS = currentTimeInNS;
-        if(deltaTime < maxFrameTimeInNS) {
-            auto sleepTimeInNS = maxFrameTimeInNS - deltaTime;
-            const timespec tim {
-                    .tv_sec = 0,
-                    .tv_nsec = (long)sleepTimeInNS
-            };
-            struct timespec tim2{};
-            nanosleep(&tim, &tim2);
-        }
+        frameLock.update();
 
         SDL_Event event;
 
