@@ -8,13 +8,11 @@ Vykreslovací engine je většinou součástí nějakého většího systému, n
 
 Vykreslovací engine, který pracuje v reálném čase znamená, že tyto obrázky dokáže vykreslovat takovou rychlostí, že pro lidské oko se jeví jako pohyb. 
 
-== Rasterizace
+== Scéna
 
-Je proces, jak tyto obrázky ze scény vytvářet.
+Vykreslovací engine potřebuje vstup, který bude říkat, co má vykreslit. Takovým vstupem bude scéna, která bude obsahovat množinu objektů a světel.
 
-== Mesh
-
-Ve 3D vykreslovacích enginech se pro reprezentaci objektů používá nějaká množina _polygonů_. _Polygon_ je n-tice vrcholů. V rasterových enginech se používá vždy polygon se třemi vrcholy. Je to z toho důvodu, že jedině tak bude existovat rovina ve 3 rozměrném prostoru, na které budou ležet všechny vrcholy.
+Objekt zadefinujeme jako
 
 === Projekce
 

@@ -24,15 +24,26 @@ Very basic implementation of windowing system. Will be improved in the future.
 
 ## Building
 
-To initialize and build everything into `./build/` directory, use 
+Building is done using CMake.
+
+### Windows
+
+You need to have installed:
+- CMake: Either as part of Visual Studio or https://cmake.org/download/
+- Vulkan: Use LunarG SDK package here https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe
+    - NOTE: Make sure that you have SDL2 selected in Components
+    - After installation, make sure you have environment variable VULKAN_SDK set to the path with Vulkan installed.
+
+Then you can build with cmake:
+
+In developer console, go to this directory and use:
 
 ```bash
-$ cmake -S . -B build
-$ cmake --build build 
+$ cmake -S . -B build/
+$ cmake --build build/
 ```
 
-
-There is one example prepared, the viewer. It takes the path to some glTF file as it's first argument.
+It will build the project into `build/` directory.
 
 If you have built everything into `./build/` directory, use
 

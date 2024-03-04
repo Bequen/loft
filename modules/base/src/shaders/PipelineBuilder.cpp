@@ -17,7 +17,7 @@ m_inputAssemblyInfo({
                             .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
                             .primitiveRestartEnable = false
                     }),
-m_rasterInfo((VkPipelineRasterizationStateCreateInfo){
+m_rasterInfo({
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .depthClampEnable = false,
         .rasterizerDiscardEnable = false,
@@ -27,7 +27,7 @@ m_rasterInfo((VkPipelineRasterizationStateCreateInfo){
         .depthBiasEnable = false,
         .lineWidth = 1.0f
 }),
-m_depthStencilInfo((VkPipelineDepthStencilStateCreateInfo) {
+m_depthStencilInfo({
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable = true,
         .depthWriteEnable = true,
@@ -35,7 +35,7 @@ m_depthStencilInfo((VkPipelineDepthStencilStateCreateInfo) {
         .depthBoundsTestEnable = false,
         .stencilTestEnable = false
 }),
-m_vertexInputInfo((VkPipelineVertexInputStateCreateInfo) {
+m_vertexInputInfo({
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 }),
 m_blendingInfo(numAttachments)

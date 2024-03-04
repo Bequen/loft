@@ -7,32 +7,14 @@ project(loft_viewer)
 
 # Please set default paths for vulkan and SDL2
 set(VULKAN_PATH ENV{VULKAN_SDK} CACHE STRING "Path to vulkan directory")
-set(SDL2_PATH "./external/SDL2-2.28.5/cmake/" CACHE STRING "Path to SDL cmake directory")
 
 option(TRACY_ENABLED 0)
 
 
 # Compile parameters
 
-if(WIN32)
-    set(SDL2_DIR ${SDL2_PATH})
-    set(ENV{VULKAN_SDK} ${VULKAN_PATH})
-    include_directories(${SDL2_INCLUDE_DIRS})
-else()
-
-endif()
-
 
 find_package(Vulkan REQUIRED)
-find_package(SDL2 REQUIRED)
-
-if(UNIX)
-    set(Vulkan_GLSLC_EXECUTABLE glslangValidator)
-    set(SDL2_LIBRARIES SDL2)
-    set(Vulkan_LIBRARIES vulkan X11)
-endif ()
-
-# set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-static")
 
 
 # Shader compiling
@@ -44,7 +26,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 foreach(SHADER IN LISTS SHADERS)
     get_filename_component(FILENAME ${SHADER} NAME)
     add_custom_command(OUTPUT ${SHADER_DIR}/build/${FILENAME}.spirv
-            COMMAND ${Vulkan_GLSLC_EXECUTABLE} -g -V ${SHADER} -o ${CMAKE_CURRENT_BINARY_DIR}/shaders/${FILENAME}.spirv
+            COMMAND ${Vulkan_GLSLC_EXECUTABLE} -g ${SHADER} -o ${CMAKE_CURRENT_BINARY_DIR}/shaders/${FILENAME}.spirv
             DEPENDS ${SHADER}
             COMMENT "Compiling ${FILENAME}")
     list(APPEND SPV_SHADERS ${SHADER_DIR}/build/${FILENAME}.spirv)
@@ -94,6 +76,9 @@ file(DOWNLOAD https://raw.githubusercontent.com/nothings/stb/master/stb_image.h 
 
 add_subdirectory(external/imgui/)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 
 # Executable
 add_definitions(-DTRACY_ENABLE=1)
@@ -109,6 +94,8 @@ target_include_directories(
 		${PROJECT_SOURCE_DIR}/external
 		${PROJECT_SOURCE_DIR}/external/imgui
 		${VMA_SOURCE_DIR}/include/
+		${Vulkan_INCLUDE_DIR}
+		${SDL2_INCLUDE_DIR}
 )
 
 target_link_libraries(

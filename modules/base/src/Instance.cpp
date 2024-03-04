@@ -41,7 +41,7 @@ vk_dbg_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
 #if VULKAN_SIGTRAP_ON_ERROR
     if(IS_INITIALIZED && (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ||
                           severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)) {
-        raise(SIGTRAP);
+        /// raise(SIGTRAP);
     }
 #endif
 

@@ -7,7 +7,7 @@ VkSurfaceFormatKHR Swapchain::choose_format() {
 	vkGetPhysicalDeviceSurfaceFormatsKHR(m_pGpu->gpu(), m_surface, &formatCount, nullptr);
 	assert(formatCount > 0);
 
-	VkSurfaceFormatKHR formats[formatCount];
+	auto formats = new VkSurfaceFormatKHR[formatCount];
 	vkGetPhysicalDeviceSurfaceFormatsKHR(m_pGpu->gpu(), m_surface, &formatCount, formats);
 
 	for(uint32_t i = 0; i < formatCount; i++) {
@@ -17,24 +17,33 @@ VkSurfaceFormatKHR Swapchain::choose_format() {
 		}
 	}
 
-	return formats[0];
+    auto result = formats[0];
+
+    delete [] formats;
+
+	return result;
 }
 
 VkPresentModeKHR Swapchain::choose_present_mode() {
 	uint32_t presentModeCount = 0;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(m_pGpu->gpu(), m_surface, 
-											  &presentModeCount, NULL);
-	VkPresentModeKHR presentModes[presentModeCount];
+	vkGetPhysicalDeviceSurfacePresentModesKHR(m_pGpu->gpu(), m_surface,
+											  &presentModeCount, nullptr);
+
+    VkPresentModeKHR presentModeResult = VK_PRESENT_MODE_FIFO_KHR;
+
+	auto presentModes = new VkPresentModeKHR[presentModeCount];
 	vkGetPhysicalDeviceSurfacePresentModesKHR(m_pGpu->gpu(), m_surface, 
 											  &presentModeCount, presentModes);
 
 	for(uint32_t i = 0; i < presentModeCount; i++) {
 		if(presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
-			return presentModes[i];
+            presentModeResult = presentModes[i];
 		}
 	}
 
-	return VK_PRESENT_MODE_FIFO_KHR;
+    delete [] presentModes;
+
+	return presentModeResult;
 }
 
 VkExtent2D Swapchain::choose_extent() {
