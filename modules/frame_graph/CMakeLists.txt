@@ -14,4 +14,10 @@ target_link_libraries(${PROJECT_NAME}
         loft_window
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/)
+target_include_directories(${PROJECT_NAME}
+        PUBLIC
+        ${PROJECT_SOURCE_DIR}/include/
+        ${loft_base_SOURCE_DIR}/include/
+        ${loft_window_SOURCE_DIR}/include
+        ${VMA_SOURCE_DIR}/include
+)

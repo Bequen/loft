@@ -14,16 +14,135 @@
 #include "RenderGraphBuilderCache.h"
 #include "RenderGraphNode.h"
 
+
+
 struct Frame {
 	VkFence readyFence;
 	VkFence imageReadyFence;
 };
 
+struct RenderGraphVkRenderPass {
+    VkRenderPass renderpass;
+    std::vector<VkClearValue> clearValues;
+    VkExtent2D extent;
+    std::vector<VkFramebuffer> framebuffers;
+
+    RenderPass *pRenderPass;
+
+    RenderGraphVkRenderPass(RenderPass *pRenderPass,
+                            VkRenderPass renderpass,
+                            VkExtent2D extent,
+                            const std::vector<VkClearValue>& clearValues,
+                            const std::vector<Framebuffer>& framebuffers) :
+
+                            renderpass(renderpass),
+                            pRenderPass(pRenderPass),
+                            extent(extent),
+                            clearValues(clearValues),
+                            framebuffers(framebuffers.size()) {
+        assert(renderpass != VK_NULL_HANDLE &&
+               pRenderPass != nullptr);
+
+        for(uint32_t i = 0; i < framebuffers.size(); i++) {
+            this->framebuffers[i] = framebuffers[i].framebuffer;
+        }
+    }
+
+    void begin(VkCommandBuffer cmdbuf, uint32_t imageIdx) {
+        VkRenderPassBeginInfo renderPassInfo = {
+                .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                .renderPass = renderpass,
+                .framebuffer = framebuffers[imageIdx],
+                .renderArea = {
+                        .offset = { 0, 0 },
+                        .extent = extent
+                },
+                .clearValueCount = (uint32_t)clearValues.size(),
+                .pClearValues = clearValues.data()
+        };
+
+        vkCmdBeginRenderPass(cmdbuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    }
+
+    void end(VkCommandBuffer cmdbuf) {
+        vkCmdEndRenderPass(cmdbuf);
+    }
+};
+
+struct RenderGraphVkCommandBuffer {
+    Gpu *pGpu;
+
+    std::vector<RenderGraphVkRenderPass> renderpasses;
+    std::vector<VkSemaphore> perImageSignal;
+    std::vector<VkCommandBuffer> perImageCommandBuffer;
+
+    std::vector<RenderGraphVkCommandBuffer*> dependencies;
+
+    std::vector<VkSemaphore> create_signals(Gpu *pGpu, uint32_t numImagesInFlight) {
+        std::vector<VkSemaphore> signals(numImagesInFlight);
+
+        VkSemaphoreCreateInfo semaphoreInfo = {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        };
+
+        for(uint32_t i = 0; i < numImagesInFlight; i++) {
+            vkCreateSemaphore(pGpu->dev(), &semaphoreInfo, nullptr, &signals[i]);
+        }
+
+        return signals;
+    }
+
+    std::vector<VkCommandBuffer> create_command_buffers(Gpu *pGpu, uint32_t numImagesInFlight) {
+        std::vector<VkCommandBuffer> commandBuffers(numImagesInFlight);
+
+        VkCommandBufferAllocateInfo cmdBufInfo = {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                .commandPool = pGpu->graphics_command_pool(),
+                .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                .commandBufferCount = numImagesInFlight
+        };
+
+        if(vkAllocateCommandBuffers(pGpu->dev(), &cmdBufInfo, commandBuffers.data())) {
+            throw std::runtime_error("Failed to create command buffer");
+        }
+
+        return commandBuffers;
+    }
+
+    RenderGraphVkCommandBuffer(Gpu *pGpu, uint32_t numImagesInFlight) :
+        perImageCommandBuffer(create_command_buffers(pGpu, numImagesInFlight)),
+        perImageSignal(create_signals(pGpu, numImagesInFlight)),
+        pGpu(pGpu) {
+
+    }
+
+    void add_render_pass(RenderGraphVkRenderPass renderpass) {
+        renderpasses.push_back(renderpass);
+    }
+
+    void add_dependency(RenderGraphVkCommandBuffer *pDependency) {
+        dependencies.push_back(pDependency);
+    }
+
+    void begin(uint32_t imageIdx) {
+        VkCommandBufferBeginInfo cmdBeginInfo = {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+        };
+
+        vkBeginCommandBuffer(perImageCommandBuffer[imageIdx], &cmdBeginInfo);
+    }
+
+    void end(uint32_t imageIdx) {
+        vkEndCommandBuffer(perImageCommandBuffer[imageIdx]);
+    }
+};
+
 class RenderGraph {
 private:
 	Gpu *m_pGpu;
-	
-	RenderGraphNode* m_root;
+
+    RenderGraphVkCommandBuffer m_root;
 	Swapchain *m_pSwapchain;
 
 	/* Information about frame index */
@@ -37,11 +156,11 @@ private:
 
 	void prepare_frames();
 
-    void run_swapchain_node(RenderGraphNode *pNode,
+    void run_swapchain_node(RenderGraphVkCommandBuffer *pNode,
                             const uint32_t imageIdx, const uint32_t frameIdx,
                             VkFence fence) const;
 
-	void run_tree(const RenderGraphNode *pNode, const uint32_t imageIdx) const;
+	void run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const;
 
     void print_dot_node(RenderGraphNode *pNode, RenderGraphNode *pParent, FILE *pOut) {
         if(pParent != nullptr) {
@@ -54,12 +173,12 @@ private:
     }
 
 public:
-	RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, RenderGraphNode* root, uint32_t numFrames);
+	RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, RenderGraphVkCommandBuffer root, uint32_t numFrames);
 	
 	void run();
 
 	void print() {
-		print(m_root);
+		// print(m_root);
 	}
 
 	void print(const RenderGraphNode *pPass) {
@@ -80,16 +199,12 @@ public:
                       "rankdir = \"LR\"\n"
                       "];\n");
 
-        print_dot_node(m_root, nullptr, pOut);
+        // print_dot_node(m_root, nullptr, pOut);
         fprintf(pOut, "}\n");
     }
 
-    void
-    record_node(const RenderGraphNode *pNode, VkCommandBuffer cmdbuf, Framebuffer framebuffer,
-                uint32_t imageIdx) const;
-
     std::vector<VkSemaphore>
-    run_dependencies(const RenderGraphNode *pNode, const uint32_t imageIdx) const;
+    run_dependencies(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const;
 };
 
 

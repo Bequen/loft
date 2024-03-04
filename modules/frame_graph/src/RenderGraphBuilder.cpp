@@ -1,6 +1,8 @@
 #include "RenderGraphBuilder.h"
 #include "RenderGraph.hpp"
 
+#include <queue>
+
 
 RenderGraphBuilder::RenderGraphBuilder(VkExtent2D extent) :
         m_extent(extent), m_numFrames(1), m_numRenderpasses(0) {
@@ -258,35 +260,43 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
         framebuffers[f] = FramebufferBuilder(rp,
                                              extent_for(pPass->renderpass()),
                                              attachments[f])
-                .build(pGpu);
+                                .build(pGpu);
     }
 
     return framebuffers;
 }
 
 
-void RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass) {
+void RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass) {
     if(pPass->is_visited()) return;
 
     auto dependencies = get_dependencies(pPass);
 
-    pPass->set_extent(extent_for(pPass->renderpass()));
-    auto rp = create_renderpass_for(pGpu, pPass);
+    for(const auto& dependency : dependencies) {
+        auto dependencyCmdBuf = new RenderGraphVkCommandBuffer(pGpu, num_frames());
+        build_renderpass(pGpu, pCache, dependencyCmdBuf, dependency);
 
-    // TODO: Remove recursion with queue
-    for(auto & dependency : dependencies) {
-        build_renderpass(pGpu, pCache, dependency);
-        pPass->add_dependency(dependency);
+        pCmdBuf->add_dependency(dependencyCmdBuf);
     }
 
     /* does not matter, how many framebuffers returns */
+    auto rp = create_renderpass_for(pGpu, pPass);
     auto framebuffers = collect_attachments(pGpu, rp, pCache, pPass);
+    auto extent = extent_for(pPass->renderpass());
 
-    pPass->create_command_buffers(pGpu, m_numFrames);
-    pPass->create_semaphores(pGpu, m_numFrames);
+    pCmdBuf->add_render_pass({
+                                 pPass->renderpass(),
+                                 rp,
+                                 extent,
+                                 pPass->clear_values(),
+                                 framebuffers
+                            });
 
-    pPass->set_renderpass(rp);
-    pPass->set_framebuffers(framebuffers);
+    // pPass->create_command_buffers(pGpu, m_numFrames);
+    // pPass->create_semaphores(pGpu, m_numFrames);
+
+    // pPass->set_renderpass(rp);
+    // pPass->set_framebuffers(framebuffers);
 
     // wrap it into single structure
     auto outputInfo = RenderPassOutputInfo(rp, framebuffers, extent_for(pPass->renderpass()));
@@ -297,13 +307,19 @@ void RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pC
     pPass->mark_visited();
 }
 
-void RenderGraphBuilder::build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphNode *pSwapchainNode) {
+RenderGraphVkCommandBuffer RenderGraphBuilder::build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphNode *pSwapchainNode) {
     auto dependencies = get_dependencies(pSwapchainNode);
 
+    auto root = RenderGraphVkCommandBuffer(pGpu, num_frames());
+
     for(auto dependency : dependencies) {
-        build_renderpass(pGpu, pCache, dependency);
-        pSwapchainNode->add_dependency(dependency);
+        auto dependencyCmdBuf = new RenderGraphVkCommandBuffer(pGpu, num_frames());
+        build_renderpass(pGpu, pCache, dependencyCmdBuf, dependency);
+
+        root.add_dependency(dependencyCmdBuf);
     }
+
+    return root;
 }
 
 RenderGraph RenderGraphBuilder::build(Gpu *pGpu, Swapchain *pSwapchain) {
@@ -313,11 +329,11 @@ RenderGraph RenderGraphBuilder::build(Gpu *pGpu, Swapchain *pSwapchain) {
 
     auto swapchainNode = new RenderGraphNode(m_pSwapchainPass);
 
-    build_swapchain_renderpass(pGpu, &cache, swapchainNode);
+    auto queue = build_swapchain_renderpass(pGpu, &cache, swapchainNode);
 
     cache.transfer_layout(pGpu);
 
-    return { pGpu, pSwapchain, swapchainNode, m_numFrames };
+    return { pGpu, pSwapchain, queue, m_numFrames };
 }
 
 

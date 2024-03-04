@@ -15,4 +15,4 @@ target_include_directories(${PROJECT_NAME} PUBLIC ./include/)
 
 target_link_libraries(${PROJECT_NAME} loft_base)
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${Vulkan_INCLUDE_DIR} ${SDL2_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${loft_base_SOURCE_DIR}/include ${Vulkan_INCLUDE_DIR} ${VMA_SOURCE_DIR}/include ${SDL2_INCLUDE_DIR})

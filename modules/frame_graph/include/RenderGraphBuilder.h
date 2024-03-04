@@ -2,6 +2,7 @@
 
 #include "RenderGraphNode.h"
 #include "RenderPass.hpp"
+#include "RenderGraph.hpp"
 
 #include <map>
 #include <vector>
@@ -42,13 +43,15 @@ private:
      * @param pCache Used for caching resources while building.
      * @param pSwapchainNode Root node.
      */
-    void build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphNode *pSwapchainNode);
+    RenderGraphVkCommandBuffer
+    build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphNode *pSwapchainNode);
 
     /*
      * Prepares single node
      * Marks the renderpass as visited.
      */
-    void build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass);
+    void build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+                          RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass);
 
     std::vector<Framebuffer>
     collect_attachments(Gpu *pGpu, VkRenderPass rp, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass);
