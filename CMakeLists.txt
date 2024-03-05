@@ -3,14 +3,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 cmake_minimum_required(VERSION 3.5)
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
-project(loft)
-
-add_subdirectory(modules)
-add_subdirectory(examples)
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 include(FetchContent)
 
 FetchContent_Declare(
@@ -22,4 +14,12 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(VMA)
+
+project(loft)
+
+add_subdirectory(modules)
+add_subdirectory(examples)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

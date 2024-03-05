@@ -11,6 +11,8 @@ add_library(${PROJECT_NAME} ${FILES}
         src/SDLWindow.cpp
         include/SDLWindow.h)
 
+find_package(SDL2 REQUIRED)
+
 target_include_directories(${PROJECT_NAME} PUBLIC ./include/)
 
 target_link_libraries(${PROJECT_NAME} loft_base)

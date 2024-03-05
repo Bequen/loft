@@ -11,7 +11,7 @@ Camera::Camera(Gpu *pGpu):
     glm_mat4_identity(data.view);
     glm_mat4_identity(data.projection);
     vec3 eye = {0.0f, 1.0f, 0.0f};
-    vec3 center = {0.0f, 0.0f, 0.0f};
+    vec3 center = {0.0f, 1.0f, 0.0f};
     vec3 up = {0.0f, 1.0f, 0.0f};
     glm_lookat(eye, center, up, data.view);
     glm_perspective(glm_rad(60.0f), 1.0f, 0.1f, 1000.0f, data.projection);
@@ -40,8 +40,8 @@ Camera::Camera(Gpu *pGpu):
             .set_size(sizeof(data));
 
     glm_quat(m_rotation, 0, 0.0f, 0.0f, 1.0f);
-    glm_vec3_zero(m_position);
-    glm_vec3_zero(data.position);
+    glm_vec3_copy(center, m_position);
+    glm_vec3_copy(center, data.position);
 }
 
 void Camera::update() {
