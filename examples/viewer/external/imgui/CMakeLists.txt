@@ -10,7 +10,9 @@ include_directories(backends ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(${PROJECT_NAME} ${FILES})
 
+target_link_libraries(${PROJECT_NAME} PRIVATE ${SDL2_LIBRARIES})
+
 target_include_directories(${PROJECT_NAME}
-        PRIVATE
+        PUBLIC
         ${Vulkan_INCLUDE_DIRS}
         ${SDL2_INCLUDE_DIRS})

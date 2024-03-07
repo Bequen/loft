@@ -252,8 +252,8 @@ void Gpu::enqueue_present(VkPresentInfoKHR *pPresentInfo) const {
     vkQueuePresentKHR(m_presentQueue, pPresentInfo);
 }
 
-void Gpu::enqueue_graphics(VkSubmitInfo *pSubmitInfo, VkFence fence) const {
-    vkQueueSubmit(m_graphicsQueue, 1, pSubmitInfo, fence);
+void Gpu::enqueue_graphics(VkSubmitInfo2 *pSubmitInfo, VkFence fence) const {
+    vkQueueSubmit2(m_graphicsQueue, 1, pSubmitInfo, fence);
 }
 
 void Gpu::enqueue_transfer(VkSubmitInfo *pSubmitInfo, VkFence fence) const {

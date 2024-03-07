@@ -203,7 +203,7 @@ public:
         fprintf(pOut, "}\n");
     }
 
-    std::vector<VkSemaphore>
+    std::vector<VkSemaphoreSubmitInfoKHR>
     run_dependencies(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const;
 };
 
