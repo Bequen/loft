@@ -122,7 +122,7 @@ void transfer_layout(Gpu *pGpu, const std::vector<Image*>& images,
             .pCommandBuffers = &stagingCommandBuffer,
     };
 
-    pGpu->enqueue_graphics(&submitInfo, VK_NULL_HANDLE);
+    pGpu->enqueue_transfer(&submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(pGpu->graphics_queue());
 }
 

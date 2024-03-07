@@ -17,7 +17,6 @@ option(TRACY_ENABLED 0)
 find_package(Vulkan REQUIRED)
 find_package(SDL2 REQUIRED)
 
-
 # Shader compiling
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
 # Find all the shaders

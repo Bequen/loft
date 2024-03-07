@@ -16,12 +16,17 @@ RenderGraph::RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, RenderGraphVkCommandB
     prepare_frames();
 }
 
-std::vector<VkSemaphore> RenderGraph::run_dependencies(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const {
-    std::vector<VkSemaphore> waitSemaphores(pNode->dependencies.size());
+std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::run_dependencies(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const {
+    std::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(pNode->dependencies.size());
     uint32_t i = 0;
     for(auto& dependency : pNode->dependencies) {
         run_tree(dependency, imageIdx);
-        waitSemaphores[i++] = dependency->perImageSignal[imageIdx];
+        waitSemaphores[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+        waitSemaphores[i].semaphore = dependency->perImageSignal[imageIdx];
+        waitSemaphores[i].value = 1;
+        waitSemaphores[i].deviceIndex = 0;
+        waitSemaphores[i].stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
+        i++;
     }
 
     return waitSemaphores;
@@ -56,16 +61,29 @@ void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32
 
     auto signal = pNode->perImageSignal[imageIdx];
 
-    VkPipelineStageFlags stageFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    VkSubmitInfo submitInfo = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .waitSemaphoreCount = (uint32_t)pNode->dependencies.size(),
-            .pWaitSemaphores = waitSemaphores.data(),
-            .pWaitDstStageMask = &stageFlags,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &pNode->perImageCommandBuffer[imageIdx],
-            .signalSemaphoreCount = 1,
-            .pSignalSemaphores = &signal,
+    VkSemaphoreSubmitInfo signalInfo = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .semaphore = signal,
+            .value = 1,
+            .stageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT,
+            .deviceIndex = 0
+    };
+
+    VkCommandBufferSubmitInfo commandBufferInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+            .commandBuffer = pNode->perImageCommandBuffer[imageIdx],
+            .deviceMask = 0
+    };
+
+    VkPipelineStageFlags stageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo2 submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .waitSemaphoreInfoCount = (uint32_t)pNode->dependencies.size(),
+            .pWaitSemaphoreInfos = waitSemaphores.data(),
+            .commandBufferInfoCount = 1,
+            .pCommandBufferInfos = &commandBufferInfo,
+            .signalSemaphoreInfoCount = 1,
+            .pSignalSemaphoreInfos = &signalInfo,
     };
 
     m_pGpu->enqueue_graphics(&submitInfo, VK_NULL_HANDLE);
@@ -82,16 +100,28 @@ void RenderGraph::run_swapchain_node(RenderGraphVkCommandBuffer *pNode, const ui
 
     auto signal = pNode->perImageSignal[imageIdx];
 
-    VkPipelineStageFlags stageFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    VkSubmitInfo submitInfo = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .waitSemaphoreCount = (uint32_t)pNode->dependencies.size(),
-            .pWaitSemaphores = waitSemaphores.data(),
-            .pWaitDstStageMask = &stageFlags,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &pNode->perImageCommandBuffer[imageIdx],
-            .signalSemaphoreCount = 1,
-            .pSignalSemaphores = &signal
+    VkSemaphoreSubmitInfo signalInfo = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .semaphore = signal,
+            .value = 1,
+            .stageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT,
+            .deviceIndex = 0
+    };
+
+    VkCommandBufferSubmitInfo commandBufferInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+            .commandBuffer = pNode->perImageCommandBuffer[imageIdx],
+            .deviceMask = 0
+    };
+
+    VkSubmitInfo2 submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .waitSemaphoreInfoCount = (uint32_t)pNode->dependencies.size(),
+            .pWaitSemaphoreInfos = waitSemaphores.data(),
+            .commandBufferInfoCount = 1,
+            .pCommandBufferInfos = &commandBufferInfo,
+            .signalSemaphoreInfoCount = 1,
+            .pSignalSemaphoreInfos = &signalInfo,
     };
 
     m_pGpu->enqueue_graphics(&submitInfo, fence);

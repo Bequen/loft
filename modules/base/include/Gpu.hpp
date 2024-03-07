@@ -73,6 +73,6 @@ public:
 
 
     void enqueue_present(VkPresentInfoKHR *pPresentInfo) const;
-    void enqueue_graphics(VkSubmitInfo *pSubmitInfo, VkFence fence) const;
+    void enqueue_graphics(VkSubmitInfo2 *pSubmitInfo, VkFence fence) const;
     void enqueue_transfer(VkSubmitInfo *pSubmitInfo, VkFence fence) const;
 };
