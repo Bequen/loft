@@ -164,6 +164,11 @@ main(int32_t argc, char** argv) {
         return 0;
     }
 
+    VkExtent2D extent = {
+            .width = 1200,
+            .height = 800
+    };
+
     /**
      * Sets the executable path to find shaders and assets
      */
@@ -174,7 +179,7 @@ main(int32_t argc, char** argv) {
      */
     Window *window = new SDLWindow("loft", (VkRect2D) {
             0, 0,
-            1200, 800
+            extent.width, extent.height
     });
 
     /**
@@ -213,7 +218,7 @@ main(int32_t argc, char** argv) {
      * Creates new frame graph.
      * Frame graph manages renderpass dependencies and synchronization.
      */
-    RenderGraphBuilder renderGraphBuilder({1200, 800});
+    RenderGraphBuilder renderGraphBuilder(extent);
 
 
 	auto scene = GltfSceneLoader().from_file(argv[1]);
@@ -303,7 +308,7 @@ main(int32_t argc, char** argv) {
 
                 pContext->pSceneBuffer->draw_opaque(info.command_buffer(), pContext->layout);
         });
-    geometry.add_color_output("col_gbuf", VK_FORMAT_R8G8B8A8_UNORM, { 1.0f, 0.0f, 0.0f, 1.0f })
+    geometry.add_color_output("col_gbuf", VK_FORMAT_R8G8B8A8_UNORM, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("norm_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("pos_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("pbr_gbuf", VK_FORMAT_R8G8B8A8_UNORM, { 0.0f, 0.0f, 0.0f, 1.0f })
@@ -359,87 +364,22 @@ main(int32_t argc, char** argv) {
 
             vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
     });
-    shading.add_color_output("swapchain", swapchain.format().format)
-           // .add_color_output("bloom_threshold", VK_FORMAT_R32G32B32A32_SFLOAT)
+    shading.add_color_output("hdr", VK_FORMAT_R32G32B32A32_SFLOAT)
+           .add_color_output("bloom_threshold", VK_FORMAT_R32G32B32A32_SFLOAT)
            .add_input("col_gbuf")
            .add_input("norm_gbuf");
 
 
-    /**
-     * Downsample
-     */
-    uint32_t numIters = 4;
+
+    uint32_t numIters = 6;
+    assert(numIters > 0);
+
     std::vector<LambdaRenderPass<DownsampleContext>*> downsamples(numIters);
     auto downsamplePerPassInputSetLayout = ShaderInputSetLayoutBuilder(4)
             .binding(0,
                      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                      1, VK_SHADER_STAGE_FRAGMENT_BIT)
             .build(&gpu);
-
-    std::string previous = "bloom_threshold";
-
-    auto bloomShader = shaderBuilder.from_file(io::path::shader("Bloom.frag.spirv"));
-
-    for(uint32_t i = 1; i < 1 + numIters; i++) {
-        auto downsampleContext = new DownsampleContext();
-        downsampleContext->extent.width = 1200 >> i;
-        downsampleContext->extent.height = 800 >> i;
-        downsampleContext->attachmentName = std::string("downsample_").append(std::to_string(i));
-        downsampleContext->source = std::string(previous);
-        std::cout << "Attachment: " << downsampleContext->attachmentName << std::endl;
-
-
-        downsamples[i - 1] = new LambdaRenderPass<DownsampleContext>(std::string("downscale_").append(std::to_string(i)), downsampleContext,
-            [&](DownsampleContext *pContext, RenderPassBuildInfo info) {
-                pContext->inputSets.resize(info.num_images_in_flights());
-
-                /* create input set */
-                for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                    pContext->inputSets[i] = ShaderInputSetBuilder(1)
-                            .image(0, info.get_image(pContext->source, i)->view, info.sampler())
-                            .build(info.gpu(), downsamplePerPassInputSetLayout);
-                }
-
-                auto layout = PipelineLayoutBuilder()
-                        .input_set(0, globalInputSetLayout)
-                        .input_set(1, downsamplePerPassInputSetLayout)
-                        .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
-                        .build(info.gpu());
-
-                pContext->pipeline = PipelineBuilder(info.gpu(),
-                                                     info.output().viewport(),
-                                                     layout,
-                                                     info.output().renderpass(),
-                                                     1, offscr, bloomShader)
-                        .set_vertex_input_info({}, {})
-                        .build()
-                        .value();
-            },
-            [&](DownsampleContext *pContext, RenderPassRecordInfo recordInfo) {
-                vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                  pContext->pipeline.pipeline());
-                vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        pContext->pipeline.pipeline_layout(),
-                                        0, 1, &globalInputSet, 0, nullptr);
-
-                vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        pContext->pipeline.pipeline_layout(),
-                                        1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
-
-                vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                   0, sizeof(VkExtent2D), &pContext->extent);
-
-                vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
-            });
-
-        downsamples[i - 1]->add_color_output(downsampleContext->attachmentName, VK_FORMAT_R32G32B32A32_SFLOAT)
-            .add_input(previous)
-            .set_extent(downsampleContext->extent);
-
-        previous = downsampleContext->attachmentName;
-
-        // renderGraphBuilder.add_graphics_pass(downsamples[i - 1]);
-    }
 
     std::vector<LambdaRenderPass<UpsampleContext>*> upsamples(numIters);
     auto upsamplePerPassInputSetLayout = ShaderInputSetLayoutBuilder(4)
@@ -451,60 +391,124 @@ main(int32_t argc, char** argv) {
                      1, VK_SHADER_STAGE_FRAGMENT_BIT) /* upsampling */
             .build(&gpu);
 
+    auto bloomShader = shaderBuilder.from_file(io::path::shader("Bloom.frag.spirv"));
     auto upscaleShader = shaderBuilder.from_file(io::path::shader("Upsample.frag.spirv"));
+    std::string previous = "bloom_threshold";
 
-    for(int32_t i = numIters - 2; i >= 0; i--) {
+    for(uint32_t i = 0; i < numIters; i++) {
+        /* create downscale pass */
+        {
+            auto downsampleContext = new DownsampleContext();
+            downsampleContext->extent.width = extent.width >> i;
+            downsampleContext->extent.height = extent.height >> i;
+
+            downsampleContext->attachmentName = std::string("downsample_").append(std::to_string(i));
+            downsampleContext->source = std::string(previous);
+
+            downsamples[i] = new LambdaRenderPass<DownsampleContext>(std::string("downscale_").append(std::to_string(i)), downsampleContext,
+                                                                         [&](DownsampleContext *pContext, RenderPassBuildInfo info) {
+                                                                             pContext->inputSets.resize(info.num_images_in_flights());
+
+                                                                             /* create input set */
+                                                                             for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
+                                                                                 pContext->inputSets[i] = ShaderInputSetBuilder(1)
+                                                                                         .image(0, info.get_image(pContext->source, i)->view, info.sampler())
+                                                                                         .build(info.gpu(), downsamplePerPassInputSetLayout);
+                                                                             }
+
+                                                                             auto layout = PipelineLayoutBuilder()
+                                                                                     .input_set(0, globalInputSetLayout)
+                                                                                     .input_set(1, downsamplePerPassInputSetLayout)
+                                                                                     .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
+                                                                                     .build(info.gpu());
+
+                                                                             pContext->pipeline = PipelineBuilder(info.gpu(),
+                                                                                                                  info.output().viewport(),
+                                                                                                                  layout,
+                                                                                                                  info.output().renderpass(),
+                                                                                                                  1, offscr, bloomShader)
+                                                                                     .set_vertex_input_info({}, {})
+                                                                                     .build()
+                                                                                     .value();
+                                                                         },
+                                                                         [&](DownsampleContext *pContext, RenderPassRecordInfo recordInfo) {
+                                                                             vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                                               pContext->pipeline.pipeline());
+                                                                             vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                                                     pContext->pipeline.pipeline_layout(),
+                                                                                                     0, 1, &globalInputSet, 0, nullptr);
+
+                                                                             vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                                                     pContext->pipeline.pipeline_layout(),
+                                                                                                     1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
+
+                                                                             vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                                                0, sizeof(VkExtent2D), &pContext->extent);
+
+                                                                             vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
+                                                                         });
+
+            downsamples[i]->add_color_output(downsampleContext->attachmentName, VK_FORMAT_R32G32B32A32_SFLOAT)
+                    .add_input(previous)
+                    .set_extent(downsampleContext->extent);
+
+            previous = downsampleContext->attachmentName;
+
+            renderGraphBuilder.add_graphics_pass(downsamples[i]);
+        }
+    }
+
+    for(uint32_t i = 0; i < numIters - 1; i++) {
         auto upsampleContext = new UpsampleContext();
-        upsampleContext->extent.width = 1200 >> i;
-        upsampleContext->extent.height = 800 >> i;
+        upsampleContext->extent.width = extent.width >> (numIters - i - 1);
+        upsampleContext->extent.height = extent.height >> (numIters - i - 1);
         upsampleContext->attachmentName = std::string("upsample_").append(std::to_string(i));
-        upsampleContext->source = std::string("downsample_").append(std::to_string(i + 1));
+        upsampleContext->source = std::string("downsample_").append(std::to_string(numIters - i - 2));
         upsampleContext->blur = std::string(previous);
-        std::cout << "Attachment: " << upsampleContext->attachmentName << " = " << upsampleContext->source << " + " << upsampleContext->blur << std::endl;
 
         upsamples[i] = new LambdaRenderPass<UpsampleContext>(std::string("upscale_").append(std::to_string(i)), upsampleContext,
-               [&](UpsampleContext *pContext, RenderPassBuildInfo info) {
-                     pContext->inputSets.resize(info.num_images_in_flights());
+                                                             [&](UpsampleContext *pContext, RenderPassBuildInfo info) {
+                                                                 pContext->inputSets.resize(info.num_images_in_flights());
 
-                     /* create input set */
-                     for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                         pContext->inputSets[i] = ShaderInputSetBuilder(2)
-                                 .image(0, info.get_image(pContext->source, i)->view, info.sampler())
-                                 .image(1, info.get_image(pContext->blur, i)->view, info.sampler())
-                                 .build(info.gpu(), upsamplePerPassInputSetLayout);
-                     }
+                                                                 /* create input set */
+                                                                 for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
+                                                                     pContext->inputSets[i] = ShaderInputSetBuilder(2)
+                                                                             .image(0, info.get_image(pContext->source, i)->view, info.sampler())
+                                                                             .image(1, info.get_image(pContext->blur, i)->view, info.sampler())
+                                                                             .build(info.gpu(), upsamplePerPassInputSetLayout);
+                                                                 }
 
-                     auto layout = PipelineLayoutBuilder()
-                             .input_set(0, globalInputSetLayout)
-                             .input_set(1, upsamplePerPassInputSetLayout)
-                             .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
-                             .build(info.gpu());
+                                                                 auto layout = PipelineLayoutBuilder()
+                                                                         .input_set(0, globalInputSetLayout)
+                                                                         .input_set(1, upsamplePerPassInputSetLayout)
+                                                                         .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
+                                                                         .build(info.gpu());
 
-                     pContext->pipeline = PipelineBuilder(info.gpu(),
-                                                          info.output().viewport(),
-                                                          layout,
-                                                          info.output().renderpass(),
-                                                          1, offscr, upscaleShader)
-                             .set_vertex_input_info({}, {})
-                             .build()
-                             .value();
-                 },
-               [&](UpsampleContext *pContext, RenderPassRecordInfo recordInfo) {
-                     vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                       pContext->pipeline.pipeline());
-                     vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                             pContext->pipeline.pipeline_layout(),
-                                             0, 1, &globalInputSet, 0, nullptr);
+                                                                 pContext->pipeline = PipelineBuilder(info.gpu(),
+                                                                                                      info.output().viewport(),
+                                                                                                      layout,
+                                                                                                      info.output().renderpass(),
+                                                                                                      1, offscr, upscaleShader)
+                                                                         .set_vertex_input_info({}, {})
+                                                                         .build()
+                                                                         .value();
+                                                             },
+                                                             [&](UpsampleContext *pContext, RenderPassRecordInfo recordInfo) {
+                                                                 vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                                   pContext->pipeline.pipeline());
+                                                                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                                         pContext->pipeline.pipeline_layout(),
+                                                                                         0, 1, &globalInputSet, 0, nullptr);
 
-                     vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                             pContext->pipeline.pipeline_layout(),
-                                             1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
+                                                                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                                         pContext->pipeline.pipeline_layout(),
+                                                                                         1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
 
-                     vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                        0, sizeof(VkExtent2D), &pContext->extent);
+                                                                 vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                                    0, sizeof(VkExtent2D), &pContext->extent);
 
-                     vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
-                 });
+                                                                 vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
+                                                             });
 
         upsamples[i]->add_color_output(upsampleContext->attachmentName, VK_FORMAT_R32G32B32A32_SFLOAT)
                 .add_input(upsampleContext->blur)
@@ -513,7 +517,7 @@ main(int32_t argc, char** argv) {
 
         previous = upsampleContext->attachmentName;
 
-        // renderGraphBuilder.add_graphics_pass(upsamples[i]);
+        renderGraphBuilder.add_graphics_pass(upsamples[i]);
     }
 
 
@@ -531,7 +535,7 @@ main(int32_t argc, char** argv) {
             for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
                 pContext->inputSets[i] = ShaderInputSetBuilder(2)
                         .image(0, info.get_image("hdr", i)->view, info.sampler())
-                        .image(1, info.get_image("upsample_2", i)->view, info.sampler())
+                        .image(1, info.get_image(previous, i)->view, info.sampler())
                         .build(info.gpu(), upsamplePerPassInputSetLayout);
             }
 
@@ -569,7 +573,7 @@ main(int32_t argc, char** argv) {
         .add_input(previous)
         .add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f});
 
-    // renderGraphBuilder.add_graphics_pass(&compositionPass);
+    renderGraphBuilder.add_graphics_pass(&compositionPass);
 
     auto imguiPassContext = ImGuiContext();
     auto imguiPass = LambdaRenderPass<ImGuiContext>("shading", &imguiPassContext,
@@ -604,47 +608,10 @@ main(int32_t argc, char** argv) {
     );
     imguiPass.add_color_output("imgui", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f});
 
-
-
-    /* auto blitPass = LambdaRenderPass<BlitContext>("blit", nullptr,
-        [&](BlitContext* pContext, RenderPassBuildInfo info) {
-            pContext->images.resize(info.num_images_in_flights());
-            for(uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                pContext->images[i].resize(2);
-                pContext->images[i][0] = info.get_image("hdr", i)->image;
-                pContext->images[i][1] = info.get_image("imgui", i)->image;
-            }
-        },
-        [&](BlitContext* pContext, RenderPassRecordInfo recordInfo) {
-            VkImageMemoryBarrier barrier = {
-                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                    .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                    .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-                    .oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .image = ,
-                    .subresourceRange = {
-                            .aspectMask = range.aspectMask,
-                            .baseMipLevel = 0,
-                            .levelCount = 1,
-                            .baseArrayLayer = 0,
-                            .layerCount = range.layerCount,
-                    },
-            };
-        }
-    );
-    blitPass.add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f})
-            .add_input("imgui")
-            .add_input("hdr"); */
-
     auto renderGraph = renderGraphBuilder
             .add_graphics_pass(&geometry)
             .add_graphics_pass(&shading)
             .add_graphics_pass(&imguiPass)
-            //.add_pass(&shadow)
-            //.add_pass(&bloom)
             .build(&gpu, &swapchain);
 
     renderGraph.print_dot(stdout);

@@ -26,7 +26,7 @@ float ggx_smith_correlated(float NoV, float NoL, float a) {
 	float a2 = a * a;
 	float GGXL = NoV * sqrt((-NoL * a2 + NoL) * NoL + a2);
 	float GGXV = NoL * sqrt((-NoV * a2 + NoV) * NoV + a2);
-	return 0.5 / (GGXV + GGXL);
+	return 0.5 / (GGXV + GGXL + 0.0001);
 }
 
 
@@ -141,7 +141,7 @@ vec3 bsdf(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 baseColor, float metall
 vec3 bloom_threshold(vec3 base) {
 	float threshold = 0.8f;
 	float knee = 0.5f;
-	float intensity = 0.5f;
+	float intensity = 0.4f;
 	vec4 curveThreshold = vec4(threshold - knee, knee * 2.0f, 0.25f / max(1e-5f, knee), threshold);
 
 	/* Pixel brightness */
@@ -168,7 +168,7 @@ void main() {
 	float metallic = texture(inPbr, inUV).r;
 	float roughness = texture(inPbr, inUV).g;
 	roughness *= roughness;
-	vec3 normal = normalize(texture(inNormal, inUV).rgb);
+	vec3 normal = texture(inNormal, inUV).rgb;
 	vec3 position = texture(inPosition, inUV).rgb;
 
 	vec3 viewDir = normalize(-cam.position.xyz - position);
@@ -179,10 +179,10 @@ void main() {
 
 	float occlusion = 0.0f; //get_shadow(lights.lights[0], vec4(position, 1.0));
 
-	float lightIntensity = 3.0f;
+	float lightIntensity = 1.0f;
 	vec3 Lo = bsdf(normal, viewDir, lightDir, color, metallic, roughness);
 
-	vec3 ambient = vec3(0.5) * color;
+	vec3 ambient = vec3(0.2) * color;
 	vec3 prd = ambient + Lo * (1.0 - occlusion) * lightIntensity;
 
 	outColor = vec4(prd, 1.0);

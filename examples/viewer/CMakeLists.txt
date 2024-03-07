@@ -26,7 +26,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 foreach(SHADER IN LISTS SHADERS)
     get_filename_component(FILENAME ${SHADER} NAME)
     add_custom_command(OUTPUT ${SHADER_DIR}/build/${FILENAME}.spirv
-            COMMAND ${Vulkan_GLSLC_EXECUTABLE} -g ${SHADER} -o ${CMAKE_CURRENT_BINARY_DIR}/shaders/${FILENAME}.spirv
+            COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} -gVS ${SHADER} -V -o ${CMAKE_CURRENT_BINARY_DIR}/shaders/${FILENAME}.spirv
             DEPENDS ${SHADER}
             COMMENT "Compiling ${FILENAME}")
     list(APPEND SPV_SHADERS ${SHADER_DIR}/build/${FILENAME}.spirv)

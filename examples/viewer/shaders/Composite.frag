@@ -44,6 +44,27 @@ vec3 ACESFitted(vec3 color)
     return color;
 }
 
+vec4 upscale() {
+    vec2 srcTexelSize = 1.0f / vec2(1200, 800) * 2.0f;
+    float x = srcTexelSize.x;
+    float y = srcTexelSize.y;
+
+    vec3
+    color  = texture(inBloom, vec2(inUV.x + x, inUV.y + y)).rgb;
+    color += texture(inBloom, vec2(inUV.x + x, inUV.y - y)).rgb;
+    color += texture(inBloom, vec2(inUV.x - x, inUV.y + y)).rgb;
+    color += texture(inBloom, vec2(inUV.x - x, inUV.y - y)).rgb;
+
+    color += 2.0f * texture(inBloom, vec2(inUV.x + x, inUV.y)).rgb;
+    color += 2.0f * texture(inBloom, vec2(inUV.x - x, inUV.y)).rgb;
+    color += 2.0f * texture(inBloom, vec2(inUV.x, inUV.y + y)).rgb;
+    color += 2.0f * texture(inBloom, vec2(inUV.x, inUV.y - y)).rgb;
+
+    color += 4.0f * texture(inBloom, inUV).rgb;
+
+    return vec4(color * (1.0f / 16.0f), 1.0f);
+}
+
 void main() {
-    fragColor = vec4(ACESFitted(texture(inHdr, inUV).rgb + texture(inBloom, inUV).rgb), 1.0f);
+    fragColor = vec4(ACESFitted(texture(inHdr, inUV).rgb + upscale().rgb), 1.0f);
 }
