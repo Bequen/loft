@@ -3,6 +3,7 @@
 #include "RenderGraphNode.h"
 #include "RenderPass.hpp"
 #include "RenderGraph.hpp"
+#include "AdjacencyMatrix.h"
 
 #include <map>
 #include <vector>
@@ -75,6 +76,8 @@ public:
     GET(m_extent, extent);
     VkExtent2D extent_for(RenderPass* pPass) const;
 
+    GET(m_renderpasses, renderpasses);
+
     RenderGraphBuilder& set_num_frames(uint32_t value) {
         m_numFrames = value;
         return *this;
@@ -97,6 +100,17 @@ public:
     }
 
     RenderGraph build(Gpu *pGpu, Swapchain *pSwapchain);
+
+    std::map<std::string, RenderPass*>* build_outputs_table();
+
+    void
+    find_dft(std::vector<std::vector<bool>> adjacencyMatrix, uint32_t node, uint32_t lookingFor);
+
+    AdjacencyMatrix
+    build_adjacency_matrix(std::map<std::string, RenderPass*>* pOutputTable);
+
+    std::vector<std::vector<bool>>
+    transitive_reduction(std::vector<std::vector<bool>> adjacencyMatrix);
 
     void print_dot() {
 

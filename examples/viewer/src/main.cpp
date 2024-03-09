@@ -32,7 +32,7 @@
 #include "RenderGraph.hpp"
 #include "scene/Light.h"
 #include "runtime/FrameLock.h"
-
+#include "GraphVizVisualizer.h"
 
 
 struct MeshInfo {
@@ -160,6 +160,7 @@ struct CompositionContext {
 
 int
 main(int32_t argc, char** argv) {
+
     /**
      * The program needs some glTF file to render
      */
@@ -620,7 +621,10 @@ main(int32_t argc, char** argv) {
             .add_graphics_pass(&imguiPass)
             .build(&gpu, &swapchain);
 
-    renderGraph.print_dot(stdout);
+    GraphVizVisualizer graphVizVisualizer(&renderGraphBuilder, &renderGraph);
+    graphVizVisualizer.visualize_into(stdout);
+
+    return 0;
 
     /* Create lights for the scene */
     vec3 position = {20.0f, 200.0f, -30.0f};

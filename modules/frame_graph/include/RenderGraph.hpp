@@ -206,6 +206,8 @@ private:
     }
 
 public:
+    GET(m_root, dependencies);
+
 	RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, std::vector<RenderGraphVkCommandBuffer> root, uint32_t numFrames);
 	
 	void run();

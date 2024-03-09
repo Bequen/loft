@@ -33,9 +33,6 @@ std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::run_dependencies(const Render
 }
 
 void record_node(RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t framebufferIdx) {
-    if(pNode->renderpasses.empty()) {
-        return;
-    }
     pNode->begin(imageIdx);
 
     for(auto& renderpass : pNode->renderpasses) {

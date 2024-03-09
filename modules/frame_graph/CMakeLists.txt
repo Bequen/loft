@@ -21,3 +21,6 @@ target_include_directories(${PROJECT_NAME}
         ${loft_window_SOURCE_DIR}/include
         ${VMA_SOURCE_DIR}/include
 )
+
+add_subdirectory(tests)
+add_test(NAME AdjacencyMatrix COMMAND AdjacencyMatrixTests)
