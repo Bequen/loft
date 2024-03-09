@@ -31,6 +31,9 @@ Shader SpirvShaderBuilder::from_file(std::string path) {
 		return Shader(VK_NULL_HANDLE);
 	}
 
-    return Shader(module);
+    auto shader = Shader(module);
+    shader.set_name(m_pGpu, path);
+
+    return shader;
 }
 

@@ -9,7 +9,7 @@
 #include <vulkan/vulkan_core.h>
 #include <queue>
 
-RenderGraph::RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, RenderGraphVkCommandBuffer root, uint32_t numFrames) :
+RenderGraph::RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, std::vector<RenderGraphVkCommandBuffer> root, uint32_t numFrames) :
 	m_pGpu(pGpu), m_pSwapchain(pSwapchain), m_root(root), m_frameIdx(0),
 	m_numFrames(numFrames), m_frames(numFrames) {
 
@@ -93,9 +93,6 @@ void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32
 void RenderGraph::run_swapchain_node(RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t swapchainImageIdx, VkFence fence) const {
     auto waitSemaphores = run_dependencies(pNode, imageIdx);
 
-    // VkCommandBuffer cmdbuf = pNode->command_buffer(imageIdx);
-    // record_node(pNode, cmdbuf, pNode->framebuffer(swapchainImageIdx), imageIdx);
-
     record_node((RenderGraphVkCommandBuffer*)pNode, imageIdx, swapchainImageIdx);
 
     auto signal = pNode->perImageSignal[imageIdx];
@@ -145,20 +142,19 @@ void RenderGraph::run() {
 	vkResetFences(m_pGpu->dev(), 1, &pFrame->readyFence);
 
     VkFence fence = pFrame->readyFence;
+    VkSemaphore semaphore = VK_NULL_HANDLE;
 
-    VkSemaphore waitSemaphores[m_root.dependencies.size()];
-    uint32_t i = 0;
-    for(auto& dependency : m_root.dependencies) {
-        run_swapchain_node(dependency, m_frameIdx, imageIdx, fence);
-        waitSemaphores[i++] = dependency->perImageSignal[m_frameIdx];
+    for(auto& dep : m_root) {
+        run_swapchain_node(&dep, m_frameIdx, imageIdx, fence);
+        semaphore = dep.perImageSignal[m_frameIdx];
         fence = VK_NULL_HANDLE;
     }
 
 	VkSwapchainKHR swapchain[] = {m_pSwapchain->swapchain()};
 	VkPresentInfoKHR presentInfo = {
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.waitSemaphoreCount = (uint32_t)m_root.dependencies.size(),
-		.pWaitSemaphores = waitSemaphores,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = &semaphore,
 		.swapchainCount = 1,
 		.pSwapchains = swapchain,
 		.pImageIndices = &imageIdx

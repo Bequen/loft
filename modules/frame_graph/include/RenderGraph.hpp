@@ -13,7 +13,7 @@
 #include "Swapchain.hpp"
 #include "RenderGraphBuilderCache.h"
 #include "RenderGraphNode.h"
-
+#include "DebugUtils.h"
 
 
 struct Frame {
@@ -22,6 +22,9 @@ struct Frame {
 };
 
 struct RenderGraphVkRenderPass {
+    std::string name;
+    float color[4];
+
     VkRenderPass renderpass;
     std::vector<VkClearValue> clearValues;
     VkExtent2D extent;
@@ -43,12 +46,40 @@ struct RenderGraphVkRenderPass {
         assert(renderpass != VK_NULL_HANDLE &&
                pRenderPass != nullptr);
 
+        assert(extent.width != 0 && extent.height != 0);
+
+        assert(clearValues.size() >= pRenderPass->num_outputs());
+
+        assert(!framebuffers.empty());
+
+        color[0] = color[1] = color[2] = color[3] = 0.0f;
+
         for(uint32_t i = 0; i < framebuffers.size(); i++) {
             this->framebuffers[i] = framebuffers[i].framebuffer;
         }
     }
 
+    /**
+     * Allows to set color in debugger.
+     * @return
+     */
+    RenderGraphVkRenderPass& set_debug_color(float r, float g, float b, float a) {
+        color[0] = r;
+        color[1] = g;
+        color[2] = b;
+        color[3] = a;
+        return *this;
+    }
+
     void begin(VkCommandBuffer cmdbuf, uint32_t imageIdx) {
+        VkDebugUtilsLabelEXT labelInfo = {
+                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+                .pLabelName = pRenderPass->name().c_str(),
+                .color = { color[0], color[1], color[2], color[3] }
+        };
+
+        vkCmdBeginDebugUtilsLabel(cmdbuf, &labelInfo);
+
         VkRenderPassBeginInfo renderPassInfo = {
                 .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
                 .renderPass = renderpass,
@@ -66,6 +97,8 @@ struct RenderGraphVkRenderPass {
 
     void end(VkCommandBuffer cmdbuf) {
         vkCmdEndRenderPass(cmdbuf);
+
+        vkCmdEndDebugUtilsLabel(cmdbuf);
     }
 };
 
@@ -142,7 +175,7 @@ class RenderGraph {
 private:
 	Gpu *m_pGpu;
 
-    RenderGraphVkCommandBuffer m_root;
+    std::vector<RenderGraphVkCommandBuffer> m_root;
 	Swapchain *m_pSwapchain;
 
 	/* Information about frame index */
@@ -173,7 +206,9 @@ private:
     }
 
 public:
-	RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, RenderGraphVkCommandBuffer root, uint32_t numFrames);
+    GET(m_root, dependencies);
+
+	RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, std::vector<RenderGraphVkCommandBuffer> root, uint32_t numFrames);
 	
 	void run();
 

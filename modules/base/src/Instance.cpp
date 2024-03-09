@@ -89,6 +89,6 @@ Instance::Instance(std::string applicationName, std::string engineName,
     };
     EXPECT(vkCreateInstance(&instanceInfo, nullptr, &m_instance),
            "Failed to create vulkan instance");
-
+    
     IS_INITIALIZED = true;
 }

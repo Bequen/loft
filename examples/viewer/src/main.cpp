@@ -2,6 +2,8 @@
 #include <vulkan/vulkan_core.h>
 #include <iostream>
 
+#include "DebugUtils.h"
+
 #include "cglm/cam.h"
 #include "cglm/mat4.h"
 #include "mesh/Vertex.hpp"
@@ -30,6 +32,8 @@
 #include "RenderGraph.hpp"
 #include "scene/Light.h"
 #include "runtime/FrameLock.h"
+#include "GraphVizVisualizer.h"
+
 
 struct MeshInfo {
   uint32_t materialIdx;
@@ -156,6 +160,7 @@ struct CompositionContext {
 
 int
 main(int32_t argc, char** argv) {
+
     /**
      * The program needs some glTF file to render
      */
@@ -195,6 +200,8 @@ main(int32_t argc, char** argv) {
      */
     Instance instance("loft", "loft", count, extensions);
     delete [] extensions;
+    load_debug_utils(instance.instance());
+
 
     /*
      * Surface is a way to tell window:
@@ -614,7 +621,10 @@ main(int32_t argc, char** argv) {
             .add_graphics_pass(&imguiPass)
             .build(&gpu, &swapchain);
 
-    renderGraph.print_dot(stdout);
+    GraphVizVisualizer graphVizVisualizer(&renderGraphBuilder, &renderGraph);
+    graphVizVisualizer.visualize_into(stdout);
+
+    return 0;
 
     /* Create lights for the scene */
     vec3 position = {20.0f, 200.0f, -30.0f};

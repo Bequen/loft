@@ -3,6 +3,7 @@
 #include "RenderGraphNode.h"
 #include "RenderPass.hpp"
 #include "RenderGraph.hpp"
+#include "AdjacencyMatrix.h"
 
 #include <map>
 #include <vector>
@@ -43,15 +44,16 @@ private:
      * @param pCache Used for caching resources while building.
      * @param pSwapchainNode Root node.
      */
-    RenderGraphVkCommandBuffer
+    std::vector<RenderGraphVkCommandBuffer>
     build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphNode *pSwapchainNode);
 
     /*
      * Prepares single node
      * Marks the renderpass as visited.
      */
-    void build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache,
-                          RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass);
+    int build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+                         RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass,
+                         int depth);
 
     std::vector<Framebuffer>
     collect_attachments(Gpu *pGpu, VkRenderPass rp, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass);
@@ -73,6 +75,8 @@ public:
 
     GET(m_extent, extent);
     VkExtent2D extent_for(RenderPass* pPass) const;
+
+    GET(m_renderpasses, renderpasses);
 
     RenderGraphBuilder& set_num_frames(uint32_t value) {
         m_numFrames = value;
@@ -96,6 +100,17 @@ public:
     }
 
     RenderGraph build(Gpu *pGpu, Swapchain *pSwapchain);
+
+    std::map<std::string, RenderPass*>* build_outputs_table();
+
+    void
+    find_dft(std::vector<std::vector<bool>> adjacencyMatrix, uint32_t node, uint32_t lookingFor);
+
+    AdjacencyMatrix
+    build_adjacency_matrix(std::map<std::string, RenderPass*>* pOutputTable);
+
+    std::vector<std::vector<bool>>
+    transitive_reduction(std::vector<std::vector<bool>> adjacencyMatrix);
 
     void print_dot() {
 
