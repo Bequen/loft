@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <vector>
 #include <map>
 #include <string>
@@ -8,6 +9,7 @@
 
 #include "Resource.h"
 #include "Swapchain.hpp"
+#include "AdjacencyMatrix.h"
 
 struct RenderGraphFrame {
     std::vector<std::unique_ptr<Resource>> m_resources;
@@ -42,15 +44,20 @@ private:
     std::vector<RenderGraphFrame> m_frame;
 	uint32_t m_numCachedResources;
 
+    AdjacencyMatrix m_adjacencyMatrix;
+
 	Swapchain *m_pSwapchain;
     VkSampler m_sampler;
 
 public:
     GET(m_pSwapchain, swapchain);
     GET(m_sampler, sampler);
+    GET(m_adjacencyMatrix, adjacency_matrix);
 
-    RenderGraphBuilderCache(uint32_t numFrames, VkSampler sampler, Swapchain *pSwapchain) :
-    m_frame(numFrames), m_pSwapchain(pSwapchain), m_numCachedResources(0), m_sampler(sampler) {
+    RenderGraphBuilderCache(uint32_t numFrames, AdjacencyMatrix adjacencyMatrix,
+                            VkSampler sampler, Swapchain *pSwapchain) :
+    m_frame(numFrames), m_adjacencyMatrix(std::move(adjacencyMatrix)),
+    m_pSwapchain(pSwapchain), m_numCachedResources(0), m_sampler(sampler) {
 
     }
 

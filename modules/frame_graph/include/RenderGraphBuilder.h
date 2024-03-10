@@ -53,7 +53,7 @@ private:
      */
     int build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache,
                          RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass,
-                         int depth);
+                         int depth, uint32_t renderpassIdx);
 
     std::vector<Framebuffer>
     collect_attachments(Gpu *pGpu, VkRenderPass rp, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass);
@@ -103,14 +103,8 @@ public:
 
     std::map<std::string, RenderPass*>* build_outputs_table();
 
-    void
-    find_dft(std::vector<std::vector<bool>> adjacencyMatrix, uint32_t node, uint32_t lookingFor);
-
     AdjacencyMatrix
-    build_adjacency_matrix(std::map<std::string, RenderPass*>* pOutputTable);
-
-    std::vector<std::vector<bool>>
-    transitive_reduction(std::vector<std::vector<bool>> adjacencyMatrix);
+    build_adjacency_matrix();
 
     void print_dot() {
 

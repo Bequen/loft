@@ -75,7 +75,6 @@ void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32
             .deviceMask = 0
     };
 
-    VkPipelineStageFlags stageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo2 submitInfo = {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = (uint32_t)pNode->dependencies.size(),

@@ -28,11 +28,18 @@ Je proces, kdy jednotlivé polygony zobrazíme do obrázku. Obrázek pak můžem
 
 = Grafická API
 
+Celý proces rasterizace by šel naprogramovat na procesoru, ale to by bylo neefektivní. Místo toho se dnes používají grafické čipy, dále je GPU. GPU jsou na výpočty spojené s rasterizací, uzpůsobené a mají již implementovanou tzv. rasterizační pipeline. _Rasterizační pipeline_ vypadá nějak takto:
+
+
+
+Grafický čip může být umístěn samostatně na grafické kartě, nebo může být integrovaná do procesoru.
+Grafický čip je optimalizovaný na výpočty spojené s rasterizací, ale to znamená, že její používání je dost striktní. Nemůžeme spouštět jakýkoliv kód, jako tomu je na procesoru, ale komunikaci provádí skrz fronty, do kterých posíláme požadavky. Některé části rasterizace sice lze upravovat kódem (tzv. shadery), ale je potřeba použít speciální, dost omezený jazyk. V posledních letech se do grafických čipů přidávají ještě tzv. compute jádra. To je další část čipu, která zvládá dělat obecnější výpočty, například vědecké výpočty.
+
 = Vulkan
 
-Vulkan je moderní, nízko-úrovňová grafická API. Oproti předchůdcům, jako DirectX 11 nebo OpenGL, dává daleko větší kontrolu nad celým procesem renderování. Mnoho funkcí a optimalizací do té doby dělali samotné ovladače. Vulkan je pouze API, a tím pádem to, jak ve skutečnosti pracuje grafická karta, závisí na ovladači a Vulkan slouží jen jako rozhraní pro požadavky na grafickou kartu.
+Vulkan je moderní, nízko-úrovňová grafická API. Oproti předchůdcům, jako DirectX 11 nebo OpenGL, obsahuje daleko specifičtější rozhraní pro komunikaci s GPU, a tím dává možnost širším optimalizacím. Mnoho funkcí a optimalizací do té doby dělali samotné ovladače. Vulkan je pouze API, a tím pádem to, jak ve skutečnosti pracuje grafická karta, závisí na ovladači a Vulkan slouží jen jako rozhraní pro požadavky na grafickou kartu.
 
-
+Vulkan se hodí právě na vykreslování v herních enginech, kde rychlost a možnost optimalizací jsou kritické.
 
 == Příkazy
 
@@ -115,3 +122,14 @@ Tento problém jsem vyřešil `Render Grafem`, inspirované přednáškou od Fro
 To, co se má v iteraci stát, jsem definoval jako tzv. _RenderPass_. Každý takový využívá nějaké zdroje, buď jako vstup nebo výstup. Tyto jsou v `Render grafu` virtualizované. To znamená, že žádný `render pass` nemá konkrétní zdroj "jen pro sebe", ale je mu přiřazen jen ukazatel a o samotné vytvoření, alokaci a správu se stará právě `render graf`.
 
 Každý virtuální _zdroj_ dostane unikátní název. _RenderPass_ tento název použije v případě, že na něm chce záviset, nebo do něj naopak psát. Z toho všeho nám vznikne graf závislostí, který bude vypadat třeba takto:
+
+
+= Render Graf
+
+== Render Pass
+
+== Zdroje
+
+== Závislosti
+
+== Runtime

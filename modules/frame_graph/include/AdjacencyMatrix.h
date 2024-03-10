@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 
 #include <vector>
@@ -9,13 +11,32 @@ private:
     void find_dft(uint32_t node, uint32_t target);
 
 public:
-    AdjacencyMatrix(uint32_t width);
+    explicit AdjacencyMatrix(uint32_t width);
 
-    bool get(uint32_t from, uint32_t to);
+    [[nodiscard]] constexpr bool get(uint32_t from, uint32_t to) const {
+        return m_matrix[from][to];
+    }
 
-    AdjacencyMatrix& set(uint32_t from, uint32_t to);
+    inline AdjacencyMatrix& set(uint32_t from, uint32_t to) {
+        m_matrix[from][to] = true;
+        return *this;
+    }
 
-    AdjacencyMatrix& unset(uint32_t from, uint32_t to);
+    inline AdjacencyMatrix& unset(uint32_t from, uint32_t to) {
+        m_matrix[from][to] = false;
+        return *this;
+    }
+
+    [[nodiscard]] constexpr uint32_t num_dependencies(uint32_t to) const {
+        uint32_t numDependencies = 0;
+        for(uint32_t x = 0; x < m_matrix.size(); x++) {
+            if(get(x, to)) {
+                numDependencies++;
+            }
+        }
+
+        return numDependencies;
+    }
 
     void transitive_reduction();
 

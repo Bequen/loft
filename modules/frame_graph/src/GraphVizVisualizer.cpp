@@ -16,10 +16,7 @@ void GraphVizVisualizer::visualize_command_buffer(FILE* pFile, RenderGraphVkComm
     fprintf(pFile, "subgraph commandBuffer_%i {\n", commandBufferId++);
 
     for(uint32_t i = 0; i < cmdbuf.renderpasses.size(); i++) {
-        if(i != 0) {
-            fwrite(" -> ", 4, 1, pFile);
-        }
-        fprintf(pFile, "\"%p\"[label=<<table cellborder=\"0\"><tr><td colspan=\"2\">%s</td></tr><tr>", cmdbuf.renderpasses[i].pRenderPass, cmdbuf.renderpasses[i].pRenderPass->name().c_str());
+        fprintf(pFile, "\"%p\"[label=<<table cellborder=\"0\" width=\"300\"><tr><td colspan=\"2\" width=\"300\">%s</td></tr><tr>", cmdbuf.renderpasses[i].pRenderPass, cmdbuf.renderpasses[i].pRenderPass->name().c_str());
 
         auto renderpass = cmdbuf.renderpasses[i].pRenderPass;
 
@@ -56,6 +53,7 @@ void GraphVizVisualizer::visualize_command_buffer(FILE* pFile, RenderGraphVkComm
         fwrite("</td>", 5, 1, pFile);
 
         fwrite("</tr></table>>]", sizeof("</tr></table>>]") - 1, 1, pFile);
+        fwrite("\n", 1, 1, pFile);
     }
 
     fwrite("\n", 1, 1, pFile);
@@ -65,6 +63,7 @@ void GraphVizVisualizer::visualize_command_buffer(FILE* pFile, RenderGraphVkComm
 
 GraphVizVisualizer& GraphVizVisualizer::visualize_into(FILE* pFile) {
     fprintf(pFile, "digraph G {\n");
+    fprintf(pFile, "node[shape=rect]; rankdir=LR;\n");
 
     for(auto& cmdbuf : m_pGraph->dependencies()) {
         visualize_command_buffer(pFile, cmdbuf);
@@ -87,7 +86,7 @@ GraphVizVisualizer& GraphVizVisualizer::visualize_into(FILE* pFile) {
         }
     }
 
-    auto adjacencyMatrix = m_pBuilder->build_adjacency_matrix(outputsTable);
+    auto adjacencyMatrix = m_pBuilder->build_adjacency_matrix();
     adjacencyMatrix.transitive_reduction();
 
 

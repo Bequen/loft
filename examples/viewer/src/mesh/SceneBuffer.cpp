@@ -44,13 +44,6 @@ SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
 	pGpu->memory()->create_buffer(&indexBufferInfo, &memoryAllocationInfo,
 								  &m_indexBuffer);
 
-    FILE *file = fopen("/home/martin/indices2.csv", "w");
-    for(uint32_t i = 0; i < pData->num_indices(); i++) {
-        auto vertex = ((Index*)pData->indices().data())[i];
-        fprintf(file, "%u\n", vertex);
-    }
-    fclose(file);
-
 	bus.set_buffer(&m_indexBuffer)
 		.write((void*)pData->indices().data(), 0, indexBufferInfo.size);
     bus.flush();

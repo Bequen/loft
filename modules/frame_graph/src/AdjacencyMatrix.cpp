@@ -6,16 +6,6 @@ m_matrix(width, std::vector<bool>(width)) {
 
 }
 
-AdjacencyMatrix &AdjacencyMatrix::set(uint32_t from, uint32_t to) {
-    m_matrix[from][to] = true;
-    return *this;
-}
-
-AdjacencyMatrix &AdjacencyMatrix::unset(uint32_t from, uint32_t to) {
-    m_matrix[from][to] = false;
-    return *this;
-}
-
 void AdjacencyMatrix::find_dft(uint32_t node, uint32_t target) {
     for(uint32_t x = 0; x < m_matrix.size(); x++) {
         if(get(x, node)) {
@@ -33,10 +23,6 @@ void AdjacencyMatrix::transitive_reduction() {
             }
         }
     }
-}
-
-bool AdjacencyMatrix::get(uint32_t from, uint32_t to) {
-    return m_matrix[from][to];
 }
 
 void AdjacencyMatrix::print() {
