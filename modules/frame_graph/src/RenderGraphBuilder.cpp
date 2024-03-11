@@ -42,8 +42,8 @@ VkExtent2D RenderGraphBuilder::extent_for(RenderPass *pPass) const {
 VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
     // Create storage for all the attachments
     auto depthOutput = pPass->renderpass()->depth_output();
-    std::vector<VkAttachmentDescription> attachments(pPass->renderpass()->num_outputs() + depthOutput.has_value());
-    std::vector<VkAttachmentReference> references(pPass->renderpass()->num_outputs() + depthOutput.has_value());
+    std::vector<VkAttachmentDescription2> attachments(pPass->renderpass()->num_outputs() + depthOutput.has_value());
+    std::vector<VkAttachmentReference2> references(pPass->renderpass()->num_outputs() + depthOutput.has_value());
 
     uint i = 0;
 
@@ -52,7 +52,8 @@ VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
                       VK_IMAGE_LAYOUT_PRESENT_SRC_KHR :
                       (VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-        attachments[i] = (VkAttachmentDescription){
+        attachments[i] = (VkAttachmentDescription2){
+                .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
                 .format = ((ImageResourceLayout*)output)->format(),
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -63,7 +64,8 @@ VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
                 .finalLayout = layout,
         };
 
-        references[i] = (VkAttachmentReference) {
+        references[i] = (VkAttachmentReference2) {
+                .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
                 .attachment = i,
                 .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         };
@@ -76,7 +78,8 @@ VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
                       (VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         // add depth attachment and reference
-        attachments[i] = (VkAttachmentDescription){
+        attachments[i] = (VkAttachmentDescription2){
+                .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
                 .format = depthOutput.value()->format(),
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -87,7 +90,8 @@ VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
                 .finalLayout = layout,
         };
 
-        references[i] = (VkAttachmentReference) {
+        references[i] = (VkAttachmentReference2) {
+                .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
                 .attachment = i,
                 .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
         };
@@ -98,51 +102,46 @@ VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
     VkMemoryBarrier2KHR entryBarrier = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
             .pNext = nullptr,
-            .srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR |
-                            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR,
-            .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR,
+            .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
             .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT_KHR,
-            .dstAccessMask = VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT_KHR
+            .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR
     };
 
     VkMemoryBarrier2KHR exitBarrier = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
             .pNext = nullptr,
-            .srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR |
-                            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR,
-            .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR,
+            .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
             .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT_KHR,
-            .dstAccessMask = VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT_KHR
+            .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR
     };
 
     const VkSubpassDependency2 subpassDependencies[] = {
             {
                     .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-                    .pNext = &memoryBarrier,
+                    .pNext = &entryBarrier,
                     .srcSubpass = VK_SUBPASS_EXTERNAL,
                     .dstSubpass = 0,
                     .dependencyFlags = 0,
             }, {
+                    .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+                    .pNext = &exitBarrier,
                     .srcSubpass = 0,
                     .dstSubpass = VK_SUBPASS_EXTERNAL,
-                    .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    .dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                    .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-                                     VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                    .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
                     .dependencyFlags = 0
             }
     };
 
-    const VkSubpassDescription subpass = {
+    const VkSubpassDescription2 subpass = {
             .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
             .colorAttachmentCount = (uint32_t)references.size() - (depthOutput.has_value()),
             .pColorAttachments = references.data(),
             .pDepthStencilAttachment = depthOutput.has_value() ? &references[i - 1] : nullptr,
     };
 
-    const VkRenderPassCreateInfo renderPassInfo = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+    const VkRenderPassCreateInfo2 renderPassInfo = {
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
 
             .attachmentCount = (uint32_t)attachments.size(),
             .pAttachments = attachments.data(),
@@ -150,12 +149,12 @@ VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
             .subpassCount = 1,
             .pSubpasses = &subpass,
 
-            .dependencyCount = sizeof(subpassDependencies) / sizeof(*subpassDependencies),
+            .dependencyCount = 2,
             .pDependencies = subpassDependencies
     };
 
     VkRenderPass renderpass;
-    if(vkCreateRenderPass(pGpu->dev(), &renderPassInfo, nullptr, &renderpass)) {
+    if(vkCreateRenderPass2(pGpu->dev(), &renderPassInfo, nullptr, &renderpass)) {
         throw std::runtime_error("Failed to create renderpass");
     }
 

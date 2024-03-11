@@ -29,10 +29,15 @@ public:
     ~BufferBusWriter();
 
 	inline BufferBusWriter& set_buffer(Buffer *pBuffer) {
+        flush();
+        wait();
+
 		m_pTarget = pBuffer;
 		return *this;
 	}
 
     void write(void *pData, size_t offset, size_t size);
     void flush();
+
+    void wait();
 };

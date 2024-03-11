@@ -15,8 +15,8 @@ private:
 
 public:
     explicit FrameLock(uint64_t maxFramesPerSecond) :
-    m_prevTimeInNS(0), m_maxFrameTimeInNS(NS_IN_SECOND / maxFramesPerSecond) {
-
+    m_prevTimeInNS(0), m_maxFrameTimeInNS(maxFramesPerSecond == 0 ? 0 : NS_IN_SECOND / maxFramesPerSecond) {
+        
     }
 
     void update() {

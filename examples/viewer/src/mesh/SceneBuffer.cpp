@@ -8,7 +8,7 @@
 
 
 SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
-        m_materialBuffer(pGpu, {2048, 2048}, pData) {
+        m_materialBuffer(pGpu, {1024, 1024}, pData) {
 
     MemoryAllocationInfo memoryAllocationInfo = {
             .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,
@@ -44,9 +44,11 @@ SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
 	pGpu->memory()->create_buffer(&indexBufferInfo, &memoryAllocationInfo,
 								  &m_indexBuffer);
 
+
 	bus.set_buffer(&m_indexBuffer)
 		.write((void*)pData->indices().data(), 0, indexBufferInfo.size);
     bus.flush();
+    bus.wait();
     printf("Index buffer done\n");
 
 

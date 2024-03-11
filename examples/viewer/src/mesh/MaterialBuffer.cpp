@@ -123,7 +123,7 @@ void transfer_layout(Gpu *pGpu, const std::vector<Image*>& images,
     };
 
     pGpu->enqueue_transfer(&submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(pGpu->graphics_queue());
+    vkQueueWaitIdle(pGpu->transfer_queue());
 }
 
 void MaterialBuffer::create_sampler(float mipLevels) {

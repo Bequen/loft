@@ -624,8 +624,6 @@ main(int32_t argc, char** argv) {
     GraphVizVisualizer graphVizVisualizer(&renderGraphBuilder, &renderGraph);
     graphVizVisualizer.visualize_into(stdout);
 
-    return 0;
-
     /* Create lights for the scene */
     vec3 position = {20.0f, 200.0f, -30.0f};
     vec3 direction = {10.0f, 10.0f, 10.0f};
@@ -659,7 +657,7 @@ main(int32_t argc, char** argv) {
     bool isOpen = true;
     vec3 velocity = {0.0f, 0.0f, 0.0f};
 
-    FrameLock frameLock(60);
+    FrameLock frameLock(0);
     while(isOpen) {
         frameLock.update();
 

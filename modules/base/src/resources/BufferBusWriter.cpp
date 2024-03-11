@@ -136,8 +136,12 @@ void BufferBusWriter::flush() {
 
 
 BufferBusWriter::~BufferBusWriter() {
-    //flush();
+    flush();
     vkWaitForFences(m_pGpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
 
-    // m_pGpu->memory()->destroy_buffer(&m_stagingBuffer);
+    m_pGpu->memory()->destroy_buffer(&m_stagingBuffer);
+}
+
+void BufferBusWriter::wait() {
+    vkWaitForFences(m_pGpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
 }
