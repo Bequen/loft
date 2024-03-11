@@ -98,6 +98,10 @@ GraphVizVisualizer& GraphVizVisualizer::visualize_into(FILE* pFile) {
                         m_pBuilder->renderpasses()[y].renderpass());
             }
         }
+
+        if(adjacencyMatrix.get(x, m_pBuilder->renderpasses().size())) {
+            fprintf(pFile, "\"%p\" -> swapchain\n", m_pBuilder->renderpasses()[x].renderpass());
+        }
     }
 
     fprintf(pFile, "}");

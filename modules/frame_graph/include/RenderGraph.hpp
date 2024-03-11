@@ -22,6 +22,8 @@ struct Frame {
 };
 
 struct RenderGraphVkRenderPass {
+    bool isGraphOutput;
+
     std::string name;
     float color[4];
 
@@ -36,13 +38,15 @@ struct RenderGraphVkRenderPass {
                             VkRenderPass renderpass,
                             VkExtent2D extent,
                             const std::vector<VkClearValue>& clearValues,
-                            const std::vector<Framebuffer>& framebuffers) :
+                            const std::vector<Framebuffer>& framebuffers,
+                            bool isGraphOutput) :
 
                             renderpass(renderpass),
                             pRenderPass(pRenderPass),
                             extent(extent),
                             clearValues(clearValues),
-                            framebuffers(framebuffers.size()) {
+                            framebuffers(framebuffers.size()),
+                            isGraphOutput(isGraphOutput) {
         assert(renderpass != VK_NULL_HANDLE &&
                pRenderPass != nullptr);
 
@@ -79,6 +83,9 @@ struct RenderGraphVkRenderPass {
         };
 
         vkCmdBeginDebugUtilsLabel(cmdbuf, &labelInfo);
+        clearValues[0].color = {
+                0.0f, 0.0f, 0.0f, 0.0f
+        };
 
         VkRenderPassBeginInfo renderPassInfo = {
                 .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -193,7 +200,7 @@ private:
                             const uint32_t imageIdx, const uint32_t frameIdx,
                             VkFence fence) const;
 
-	void run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const;
+	void run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t chainImageIdx) const;
 
     void print_dot_node(RenderGraphNode *pNode, RenderGraphNode *pParent, FILE *pOut) {
         if(pParent != nullptr) {
@@ -239,7 +246,7 @@ public:
     }
 
     std::vector<VkSemaphoreSubmitInfoKHR>
-    run_dependencies(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const;
+    run_dependencies(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t chainImageIdx) const;
 };
 
 

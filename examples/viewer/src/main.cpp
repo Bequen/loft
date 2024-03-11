@@ -225,7 +225,7 @@ main(int32_t argc, char** argv) {
      * Creates new frame graph.
      * Frame graph manages renderpass dependencies and synchronization.
      */
-    RenderGraphBuilder renderGraphBuilder(extent);
+    RenderGraphBuilder renderGraphBuilder(2, swapchain.num_images(), extent);
 
 
 	auto scene = GltfSceneLoader().from_file(argv[1]);
@@ -583,7 +583,7 @@ main(int32_t argc, char** argv) {
     renderGraphBuilder.add_graphics_pass(&compositionPass);
 
     auto imguiPassContext = ImGuiContext();
-    auto imguiPass = LambdaRenderPass<ImGuiContext>("shading", &imguiPassContext,
+    auto imguiPass = LambdaRenderPass<ImGuiContext>("imgui", &imguiPassContext,
         [&](ImGuiContext* pContext, RenderPassBuildInfo info) {
             ImGui::CreateContext();
             ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -613,7 +613,8 @@ main(int32_t argc, char** argv) {
             ImGui_ImplVulkan_RenderDrawData(draw_data, recordInfo.command_buffer());
         }
     );
-    imguiPass.add_color_output("imgui", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f});
+    imguiPass.add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f})
+             .add_pass_dependency("composition");
 
     auto renderGraph = renderGraphBuilder
             .add_graphics_pass(&geometry)
@@ -663,18 +664,18 @@ main(int32_t argc, char** argv) {
 
         SDL_Event event;
 
-        /* ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
         ImGui::Begin("Frame stats");
-        ImGui::Text("DeltaTime in ns: %ld", deltaTime);
-        ImGui::Text("FPS: %ld", 1000000000UL / deltaTime);
-        ImGui::End(); */
+        // ImGui::Text("DeltaTime in ns: %ld", deltaTime);
+        // ImGui::Text("FPS: %ld", 1000000000UL / deltaTime);
+        ImGui::End();
 
 
         while(window->poll_event(&event)) {
-            // ImGui_ImplSDL2_ProcessEvent(&event);
+            ImGui_ImplSDL2_ProcessEvent(&event);
             switch(event.type) {
             case SDL_QUIT:
                 isOpen = false;
