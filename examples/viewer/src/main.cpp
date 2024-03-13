@@ -158,6 +158,7 @@ struct CompositionContext {
     }
 };
 
+
 int
 main(int32_t argc, char** argv) {
 
@@ -616,11 +617,12 @@ main(int32_t argc, char** argv) {
     imguiPass.add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f})
              .add_pass_dependency("composition");
 
+    auto swapchainImageChain = ImageChain(swapchain.views());
     auto renderGraph = renderGraphBuilder
             .add_graphics_pass(&geometry)
             .add_graphics_pass(&shading)
             .add_graphics_pass(&imguiPass)
-            .build(&gpu, &swapchain);
+            .build(&gpu, "swapchain", swapchainImageChain);
 
     GraphVizVisualizer graphVizVisualizer(&renderGraphBuilder, &renderGraph);
     graphVizVisualizer.visualize_into(stdout);
@@ -654,12 +656,29 @@ main(int32_t argc, char** argv) {
     /* Prepare ImGui */
 
 
-
     bool isOpen = true;
     vec3 velocity = {0.0f, 0.0f, 0.0f};
 
     FrameLock frameLock(0);
+    VkFence imageIndexFence = VK_NULL_HANDLE;
+
+    VkFenceCreateInfo fenceInfo = {
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            // .flags = VK_FENCE_CREATE_SIGNALED_BIT
+    };
+
+    vkCreateFence(gpu.dev(), &fenceInfo, nullptr, &imageIndexFence);
+
+    uint64_t elapsed = 0;
+    uint64_t fps = 0;
+
     while(isOpen) {
+        uint32_t imageIdx = 0;
+        swapchain.get_next_image_idx(nullptr, imageIndexFence, &imageIdx);
+
+        vkWaitForFences(gpu.dev(), 1, &imageIndexFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(gpu.dev(), 1, &imageIndexFence);
+
         frameLock.update();
 
         SDL_Event event;
@@ -668,8 +687,15 @@ main(int32_t argc, char** argv) {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
+        elapsed += frameLock.delta_time();
+
+        if(elapsed > 100000000) {
+            fps = frameLock.fps();
+            elapsed = 0;
+        }
+
         ImGui::Begin("Frame stats");
-        // ImGui::Text("DeltaTime in ns: %ld", deltaTime);
+        ImGui::Text("DeltaTime in ns: %ld", fps);
         // ImGui::Text("FPS: %ld", 1000000000UL / deltaTime);
         ImGui::End();
 
@@ -705,10 +731,12 @@ main(int32_t argc, char** argv) {
             }
         }
 
-        renderGraph.run();
+        auto signal = renderGraph.run(imageIdx);
 
         camera.move(velocity);
         camera.update();
+
+        swapchain.present({signal}, imageIdx);
     }
 
     return 0;

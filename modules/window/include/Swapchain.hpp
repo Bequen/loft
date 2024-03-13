@@ -55,5 +55,23 @@ public:
 		return &m_images[idx];
 	}
 
+    void get_next_image_idx(VkSemaphore signalSemaphore, VkFence signalFence, uint32_t *pOutImageIdx) const {
+        vkAcquireNextImageKHR(m_pGpu->dev(), m_swapchain, UINT64_MAX, signalSemaphore, signalFence, pOutImageIdx);
+    }
+
+    void present(std::vector<VkSemaphore> waitSemaphores,
+                 uint32_t imageIdx) {
+        VkPresentInfoKHR presentInfo = {
+                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                .waitSemaphoreCount = (uint32_t)waitSemaphores.size(),
+                .pWaitSemaphores = waitSemaphores.data(),
+                .swapchainCount = 1,
+                .pSwapchains = &m_swapchain,
+                .pImageIndices = &imageIdx
+        };
+
+        m_pGpu->enqueue_present(&presentInfo);
+    }
+
 	Swapchain(Gpu *pGpu, VkSurfaceKHR surface);
 };

@@ -9,11 +9,6 @@
 
 RenderGraphBuilder::RenderGraphBuilder(uint32_t numImageInFlight, uint32_t numOutputImages, VkExtent2D extent) :
         m_extent(extent), m_numFrames(numImageInFlight), m_numChainImages(numOutputImages), m_numRenderpasses(0) {
-    m_pSwapchainPass = new LambdaRenderPass<void>("swapchain",
-                                                  nullptr,
-                                                  [](void* pContext, RenderPassBuildInfo info) {},
-                                                  [](void *pContext, RenderPassRecordInfo info) {});
-    m_pSwapchainPass->add_input("swapchain");
 }
 
 VkExtent2D RenderGraphBuilder::extent_for(RenderPass *pPass) const {
@@ -219,12 +214,12 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
 
     // Create swapchain framebuffers
     if(pPass->renderpass()->outputs().size() == 1 &&
-       pPass->renderpass()->outputs()[0]->name() == "swapchain") {
-        std::vector<Framebuffer> framebuffers(pCache->swapchain()->num_images(), VK_NULL_HANDLE);
+       pPass->renderpass()->outputs()[0]->name() == pCache->output_name()) {
+        std::vector<Framebuffer> framebuffers(pCache->output_chain().count(), VK_NULL_HANDLE);
 
-        for(uint32_t f = 0; f < pCache->swapchain()->num_images(); f++) {
+        for(uint32_t f = 0; f < pCache->output_chain().count(); f++) {
             framebuffers[f] = FramebufferBuilder(rp, extent_for(pPass->renderpass()),
-                                                 { pCache->swapchain()->views()[f] })
+                                                 { pCache->output_chain().views()[f] })
                     .build(pGpu);
         }
 
@@ -240,7 +235,7 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
 
     for(auto attachment : pPass->renderpass()->outputs()) {
         if(attachment->resource_type() != RESOURCE_TYPE_IMAGE) continue;
-        if(attachment->name() == "swapchain") {
+        if(attachment->name() == pCache->output_name()) {
             throw std::runtime_error("Cannot use swapchain output next to other outputs");
         }
 
@@ -352,19 +347,23 @@ RenderGraphBuilder::build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCach
     return cmdbufs;
 }
 
-RenderGraph RenderGraphBuilder::build(Gpu *pGpu, Swapchain *pSwapchain) {
+RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const std::string& outputName, const ImageChain& outputChain) {
     printf("Building render graph\n");
 
+    // Build matrix
     auto adjacencyMatrix = build_adjacency_matrix();
     adjacencyMatrix.transitive_reduction();
 
-    RenderGraphBuilderCache cache(m_numFrames, adjacencyMatrix, create_attachment_sampler(pGpu), pSwapchain);
+    auto sampler = create_attachment_sampler(pGpu);
+
+    // Prepare cache
+    RenderGraphBuilderCache cache(outputName, m_numFrames, adjacencyMatrix, sampler, outputChain);
 
     auto queue = build_swapchain_renderpass(pGpu, &cache);
 
     cache.transfer_layout(pGpu);
 
-    return { pGpu, pSwapchain, queue, m_numFrames };
+    return { pGpu, outputChain, queue, m_numFrames };
 }
 
 std::map<std::string, RenderPass*>* RenderGraphBuilder::build_outputs_table() {
