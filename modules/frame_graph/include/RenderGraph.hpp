@@ -10,16 +10,11 @@
 #include "ResourceLayout.hpp"
 #include "RenderPass.hpp"
 #include "Resource.h"
-#include "Swapchain.hpp"
 #include "RenderGraphBuilderCache.h"
 #include "RenderGraphNode.h"
 #include "DebugUtils.h"
+#include "ImageChain.h"
 
-
-struct Frame {
-	VkFence readyFence;
-	VkFence imageReadyFence;
-};
 
 struct RenderGraphVkRenderPass {
     bool isGraphOutput;
@@ -110,7 +105,7 @@ struct RenderGraphVkRenderPass {
 };
 
 struct RenderGraphVkCommandBuffer {
-    Gpu *pGpu;
+    const Gpu *pGpu;
 
     std::vector<RenderGraphVkRenderPass> renderpasses;
     std::vector<VkSemaphore> perImageSignal;
@@ -156,7 +151,7 @@ struct RenderGraphVkCommandBuffer {
 
     }
 
-    void add_render_pass(RenderGraphVkRenderPass renderpass) {
+    void add_render_pass(const RenderGraphVkRenderPass& renderpass) {
         renderpasses.push_back(renderpass);
     }
 
@@ -180,73 +175,37 @@ struct RenderGraphVkCommandBuffer {
 
 class RenderGraph {
 private:
-	Gpu *m_pGpu;
+	const Gpu *m_pGpu;
 
-    std::vector<RenderGraphVkCommandBuffer> m_root;
-	Swapchain *m_pSwapchain;
+    const std::vector<RenderGraphVkCommandBuffer> m_root;
+
+    const ImageChain m_outputChain;
 
 	/* Information about frame index */
-	uint32_t m_frameIdx;
+    uint32_t m_frameIdx;
 
 	/* Exact number of images in flight that this RenderGraph was built from */
 	const uint32_t m_numFrames;
 
-	/* Each frame in flight is just a sequence of computation. */
-	std::vector<Frame> m_frames;
+    void run_swapchain_node(const RenderGraphVkCommandBuffer *pNode,
+                            uint32_t bufferIdx, uint32_t chainImageIdx) const;
 
-	void prepare_frames();
-
-    void run_swapchain_node(RenderGraphVkCommandBuffer *pNode,
-                            const uint32_t imageIdx, const uint32_t frameIdx,
-                            VkFence fence) const;
-
-	void run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t chainImageIdx) const;
-
-    void print_dot_node(RenderGraphNode *pNode, RenderGraphNode *pParent, FILE *pOut) {
-        if(pParent != nullptr) {
-            fprintf(pOut, "\"%p\" -> \"%p\"\n", pNode, pParent);
-        }
-
-        for(auto& dependency : pNode->dependencies()) {
-            print_dot_node(dependency, pNode, pOut);
-        }
-    }
+	void run_tree(const RenderGraphVkCommandBuffer *pNode,
+                  uint32_t bufferIdx, uint32_t chainImageIdx) const;
 
 public:
     GET(m_root, dependencies);
 
-	RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, std::vector<RenderGraphVkCommandBuffer> root, uint32_t numFrames);
+	RenderGraph(Gpu *pGpu,
+                ImageChain outputChain,
+                std::vector<RenderGraphVkCommandBuffer> root,
+                uint32_t numFrames);
 	
-	void run();
-
-	void print() {
-		// print(m_root);
-	}
-
-	void print(const RenderGraphNode *pPass) {
-		printf("%s\n", pPass->renderpass()->name().c_str());
-
-        if(!pPass->dependencies().empty()) {
-            printf("{\n");
-            for (auto& dep : pPass->dependencies()) {
-                print(dep);
-            }
-            printf("}\n");
-        }
-	}
-
-    void print_dot(FILE *pOut) {
-        fprintf(pOut, "digraph G {\n"
-                      "graph [\n"
-                      "rankdir = \"LR\"\n"
-                      "];\n");
-
-        // print_dot_node(m_root, nullptr, pOut);
-        fprintf(pOut, "}\n");
-    }
+	VkSemaphore run(uint32_t chainImageIdx);
 
     std::vector<VkSemaphoreSubmitInfoKHR>
-    run_dependencies(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t chainImageIdx) const;
+    run_dependencies(const RenderGraphVkCommandBuffer *pNode,
+                     uint32_t imageIdx, uint32_t chainImageIdx) const;
 };
 
 

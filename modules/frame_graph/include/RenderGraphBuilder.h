@@ -24,8 +24,6 @@ private:
     std::vector<RenderGraphNode> m_renderpasses;
     uint32_t m_numRenderpasses;
 
-    RenderPass *m_pSwapchainPass;
-
     VkExtent2D m_extent;
     uint32_t m_numFrames;
     uint32_t m_numChainImages;
@@ -91,7 +89,7 @@ public:
         return *this;
     }
 
-    RenderGraph build(Gpu *pGpu, Swapchain *pSwapchain);
+    RenderGraph build(Gpu *pGpu, const std::string& outputName, const ImageChain& outputChain);
 
     std::map<std::string, RenderPass*>* build_outputs_table();
 

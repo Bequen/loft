@@ -10,6 +10,7 @@
 #include "Resource.h"
 #include "Swapchain.hpp"
 #include "AdjacencyMatrix.h"
+#include "ImageChain.h"
 
 struct RenderGraphFrame {
     std::vector<std::unique_ptr<Resource>> m_resources;
@@ -40,24 +41,28 @@ struct RenderGraphFrame {
  */
 class RenderGraphBuilderCache {
 private:
+    std::string m_outputName;
+
     std::map<std::string, uint32_t> m_resourceMap;
     std::vector<RenderGraphFrame> m_frame;
 	uint32_t m_numCachedResources;
 
     AdjacencyMatrix m_adjacencyMatrix;
 
-	Swapchain *m_pSwapchain;
     VkSampler m_sampler;
+    ImageChain m_outputChain;
 
 public:
-    GET(m_pSwapchain, swapchain);
+    GET(m_outputChain, output_chain);
     GET(m_sampler, sampler);
     GET(m_adjacencyMatrix, adjacency_matrix);
+    GET(m_outputName, output_name);
 
-    RenderGraphBuilderCache(uint32_t numFrames, AdjacencyMatrix adjacencyMatrix,
-                            VkSampler sampler, Swapchain *pSwapchain) :
-    m_frame(numFrames), m_adjacencyMatrix(std::move(adjacencyMatrix)),
-    m_pSwapchain(pSwapchain), m_numCachedResources(0), m_sampler(sampler) {
+    RenderGraphBuilderCache(std::string outputName, uint32_t numFrames,
+                            AdjacencyMatrix adjacencyMatrix,
+                            VkSampler sampler, ImageChain outputChain) :
+    m_outputName(std::move(outputName)), m_frame(numFrames), m_adjacencyMatrix(std::move(adjacencyMatrix)),
+    m_outputChain(std::move(outputChain)), m_numCachedResources(0), m_sampler(sampler) {
 
     }
 
@@ -117,7 +122,7 @@ public:
             frames[f] = barriers;
         }
 
-        auto swapchainImages = swapchain()->images();
+        /* auto swapchainImages = swapchain()->images();
         std::vector<VkImageMemoryBarrier> barriers(swapchain()->num_images(), barrier);
         uint32_t i = 0;
         for(auto& image : swapchainImages) {
@@ -132,7 +137,7 @@ public:
                 0,
                 0, nullptr,
                 0, nullptr,
-                barriers.size(), barriers.data());
+                barriers.size(), barriers.data()); */
 
         vkEndCommandBuffer(commandBuffer);
 

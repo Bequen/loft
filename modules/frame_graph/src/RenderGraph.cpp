@@ -1,23 +1,24 @@
 #include "RenderGraph.hpp"
-#include "RenderPass.hpp"
 #include "RenderPassBuildInfo.hpp"
 #include "Gpu.hpp"
-#include "FramebufferBuilder.hpp"
 
-#include <algorithm>
-#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 #include <queue>
+#include <utility>
 
-RenderGraph::RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, std::vector<RenderGraphVkCommandBuffer> root, uint32_t numFrames) :
-	m_pGpu(pGpu), m_pSwapchain(pSwapchain), m_root(root), m_frameIdx(0),
-	m_numFrames(numFrames), m_frames(numFrames) {
+RenderGraph::RenderGraph(Gpu *pGpu, ImageChain outputChain,
+                         std::vector<RenderGraphVkCommandBuffer> root, uint32_t numFrames) :
+	m_pGpu(pGpu),
+    m_outputChain(std::move(outputChain)),
+    m_root(std::move(root)),
+    m_frameIdx(0),
+	m_numFrames(numFrames) {
 
-    prepare_frames();
 }
 
-std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::run_dependencies(const RenderGraphVkCommandBuffer *pNode,
-                                                                    const uint32_t imageIdx, const uint32_t chainImageIdx) const {
+std::vector<VkSemaphoreSubmitInfoKHR>
+RenderGraph::run_dependencies(const RenderGraphVkCommandBuffer *pNode,
+                              uint32_t imageIdx, uint32_t chainImageIdx) const {
     std::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(pNode->dependencies.size());
     uint32_t i = 0;
     for(auto& dependency : pNode->dependencies) {
@@ -33,7 +34,7 @@ std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::run_dependencies(const Render
     return waitSemaphores;
 }
 
-void record_node(RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t framebufferIdx) {
+void record_node(RenderGraphVkCommandBuffer *pNode, uint32_t imageIdx, uint32_t framebufferIdx) {
     pNode->begin(imageIdx);
 
     for(auto& renderpass : pNode->renderpasses) {
@@ -55,7 +56,7 @@ void record_node(RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, con
  * @param imageIdx
  * @param fence
  */
-void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t chainImageIdx) const {
+void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, uint32_t imageIdx, uint32_t chainImageIdx) const {
     auto waitSemaphores = run_dependencies(pNode, imageIdx, chainImageIdx);
 
     record_node((RenderGraphVkCommandBuffer*)pNode, imageIdx, imageIdx);
@@ -90,7 +91,8 @@ void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32
 
 }
 
-void RenderGraph::run_swapchain_node(RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t swapchainImageIdx, VkFence fence) const {
+void RenderGraph::run_swapchain_node(const RenderGraphVkCommandBuffer *pNode,
+                                     uint32_t imageIdx, uint32_t swapchainImageIdx) const {
     auto waitSemaphores = run_dependencies(pNode, imageIdx, swapchainImageIdx);
 
     record_node((RenderGraphVkCommandBuffer*)pNode, imageIdx, swapchainImageIdx);
@@ -121,60 +123,17 @@ void RenderGraph::run_swapchain_node(RenderGraphVkCommandBuffer *pNode, const ui
             .pSignalSemaphoreInfos = &signalInfo,
     };
 
-    m_pGpu->enqueue_graphics(&submitInfo, fence);
+    m_pGpu->enqueue_graphics(&submitInfo, VK_NULL_HANDLE);
 }
 
 
 
-void RenderGraph::run() {
+VkSemaphore RenderGraph::run(uint32_t chainImageIdx) {
 	m_frameIdx = (m_frameIdx++) % m_numFrames;
 
-	uint32_t imageIdx = 0;
-	Frame *pFrame = &m_frames[m_frameIdx];
-	
-	vkWaitForFences(m_pGpu->dev(), 1, &pFrame->readyFence, VK_TRUE, UINT64_MAX);
-	vkAcquireNextImageKHR(m_pGpu->dev(), m_pSwapchain->swapchain(), UINT64_MAX,
-						  nullptr, pFrame->imageReadyFence, &imageIdx);
-
-	vkWaitForFences(m_pGpu->dev(), 1, &pFrame->imageReadyFence, VK_TRUE,
-					UINT64_MAX);
-	vkResetFences(m_pGpu->dev(), 1, &pFrame->imageReadyFence);
-	vkResetFences(m_pGpu->dev(), 1, &pFrame->readyFence);
-
-    VkFence fence = pFrame->readyFence;
-    VkSemaphore semaphore = VK_NULL_HANDLE;
-
     for(auto& dep : m_root) {
-        run_swapchain_node(&dep, m_frameIdx, imageIdx, fence);
-        semaphore = dep.perImageSignal[m_frameIdx];
-        fence = VK_NULL_HANDLE;
+        run_swapchain_node(&dep, m_frameIdx, chainImageIdx);
     }
 
-	VkSwapchainKHR swapchain[] = {m_pSwapchain->swapchain()};
-	VkPresentInfoKHR presentInfo = {
-		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &semaphore,
-		.swapchainCount = 1,
-		.pSwapchains = swapchain,
-		.pImageIndices = &imageIdx
-	};
-
-	m_pGpu->enqueue_present(&presentInfo);
-
+    return m_root[0].perImageSignal[m_frameIdx];
 }
-
-void RenderGraph::prepare_frames() {
-    VkFenceCreateInfo fenceInfo = {
-            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            .flags = VK_FENCE_CREATE_SIGNALED_BIT
-    };
-
-    for(auto& frame : m_frames) {
-        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        vkCreateFence(m_pGpu->dev(), &fenceInfo, nullptr, &frame.readyFence);
-        fenceInfo.flags = 0;
-        vkCreateFence(m_pGpu->dev(), &fenceInfo, nullptr, &frame.imageReadyFence);
-    }
-}
-
