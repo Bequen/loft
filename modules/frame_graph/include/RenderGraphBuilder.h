@@ -28,15 +28,7 @@ private:
 
     VkExtent2D m_extent;
     uint32_t m_numFrames;
-
-    /*
-     * Runs through all of renderpasses and returns those that contain output,
-     * that pPass has as input.
-     * @param pPass Dependencies of this RenderPass will be returned
-     * @return vector of all the dependencies of pPass
-     */
-    std::vector<RenderGraphNode*> get_dependencies(RenderGraphNode *pPass);
-
+    uint32_t m_numChainImages;
 
     /**
      * Build each renderpass that output into swapchain. Starting the tree. Then add those renderpasses to the root node.
@@ -45,7 +37,7 @@ private:
      * @param pSwapchainNode Root node.
      */
     std::vector<RenderGraphVkCommandBuffer>
-    build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache, RenderGraphNode *pSwapchainNode);
+    build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache);
 
     /*
      * Prepares single node
@@ -87,7 +79,7 @@ public:
      * Creates new render graph builder
      * @param extent
      */
-    explicit RenderGraphBuilder(VkExtent2D extent);
+    explicit RenderGraphBuilder(uint32_t numImageInFlight, uint32_t numOutputImages, VkExtent2D extent);
 
     RenderGraphBuilder& add_graphics_pass(RenderPass *pRenderPass) {
         m_renderpasses.emplace_back(RenderGraphNode(pRenderPass));

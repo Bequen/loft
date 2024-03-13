@@ -16,11 +16,12 @@ RenderGraph::RenderGraph(Gpu *pGpu, Swapchain *pSwapchain, std::vector<RenderGra
     prepare_frames();
 }
 
-std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::run_dependencies(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const {
+std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::run_dependencies(const RenderGraphVkCommandBuffer *pNode,
+                                                                    const uint32_t imageIdx, const uint32_t chainImageIdx) const {
     std::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(pNode->dependencies.size());
     uint32_t i = 0;
     for(auto& dependency : pNode->dependencies) {
-        run_tree(dependency, imageIdx);
+        run_tree(dependency, imageIdx, chainImageIdx);
         waitSemaphores[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
         waitSemaphores[i].semaphore = dependency->perImageSignal[imageIdx];
         waitSemaphores[i].value = 1;
@@ -35,9 +36,8 @@ std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::run_dependencies(const Render
 void record_node(RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t framebufferIdx) {
     pNode->begin(imageIdx);
 
-    uint32_t i = 0;
     for(auto& renderpass : pNode->renderpasses) {
-        renderpass.begin(pNode->perImageCommandBuffer[imageIdx], ++i == pNode->renderpasses.size() ? framebufferIdx : imageIdx);
+        renderpass.begin(pNode->perImageCommandBuffer[imageIdx], renderpass.isGraphOutput ? framebufferIdx : imageIdx);
 
         auto recordInfo = RenderPassRecordInfo(pNode->perImageCommandBuffer[imageIdx], imageIdx);
 
@@ -55,8 +55,8 @@ void record_node(RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, con
  * @param imageIdx
  * @param fence
  */
-void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx) const {
-    auto waitSemaphores = run_dependencies(pNode, imageIdx);
+void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t chainImageIdx) const {
+    auto waitSemaphores = run_dependencies(pNode, imageIdx, chainImageIdx);
 
     record_node((RenderGraphVkCommandBuffer*)pNode, imageIdx, imageIdx);
 
@@ -91,7 +91,7 @@ void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, const uint32
 }
 
 void RenderGraph::run_swapchain_node(RenderGraphVkCommandBuffer *pNode, const uint32_t imageIdx, const uint32_t swapchainImageIdx, VkFence fence) const {
-    auto waitSemaphores = run_dependencies(pNode, imageIdx);
+    auto waitSemaphores = run_dependencies(pNode, imageIdx, swapchainImageIdx);
 
     record_node((RenderGraphVkCommandBuffer*)pNode, imageIdx, swapchainImageIdx);
 

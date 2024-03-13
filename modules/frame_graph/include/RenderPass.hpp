@@ -21,12 +21,15 @@ private:
 
     VkExtent2D m_extent;
 
+    std::vector<std::string> m_passDependencies;
+
 public:
 	/**
 	 * Name of the renderpass - for debugging purposes
 	 */
 	REF(m_name, name);
     GET(m_extent, extent);
+    GET(m_passDependencies, pass_dependencies);
 
     inline RenderPass& set_extent(const VkExtent2D extent) {
         m_extent = extent;
@@ -38,6 +41,10 @@ public:
 
     }
 
+    inline RenderPass& add_pass_dependency(const std::string& name) {
+        m_passDependencies.push_back(name);
+        return *this;
+    }
 
     /**
      * Prepares the renderpass
@@ -73,6 +80,10 @@ public:
             return m_pDepthOutput;
         }
         return {};
+    }
+
+    inline const bool has_pass_dependency(const std::string& name) {
+        return std::count(m_passDependencies.begin(), m_passDependencies.end(), name) > 0;
     }
 
 	inline virtual const uint32_t num_outputs() const {
