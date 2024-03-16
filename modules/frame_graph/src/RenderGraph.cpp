@@ -6,9 +6,10 @@
 #include <queue>
 #include <utility>
 
-RenderGraph::RenderGraph(Gpu *pGpu, ImageChain outputChain,
+RenderGraph::RenderGraph(Gpu *pGpu, std::string name, ImageChain outputChain,
                          std::vector<RenderGraphVkCommandBuffer> root, uint32_t numFrames) :
 	m_pGpu(pGpu),
+    m_name(std::move(name)),
     m_outputChain(std::move(outputChain)),
     m_root(std::move(root)),
     m_frameIdx(0),
@@ -95,6 +96,18 @@ void RenderGraph::run_swapchain_node(const RenderGraphVkCommandBuffer *pNode,
                                      uint32_t imageIdx, uint32_t swapchainImageIdx) const {
     auto waitSemaphores = run_dependencies(pNode, imageIdx, swapchainImageIdx);
 
+    for(auto& externalDependency : pNode->m_externalDependenciesIds) {
+        if(m_externalDependencies[externalDependency].is_valid()) {
+            waitSemaphores.push_back({
+                                             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                                             .semaphore = m_externalDependencies[externalDependency].semaphore(),
+                                             .value = 1,
+                                             .stageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT,
+                                             .deviceIndex = 0
+                                     });
+        }
+    }
+
     record_node((RenderGraphVkCommandBuffer*)pNode, imageIdx, swapchainImageIdx);
 
     auto signal = pNode->perImageSignal[imageIdx];
@@ -115,7 +128,7 @@ void RenderGraph::run_swapchain_node(const RenderGraphVkCommandBuffer *pNode,
 
     VkSubmitInfo2 submitInfo = {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-            .waitSemaphoreInfoCount = (uint32_t)pNode->dependencies.size(),
+            .waitSemaphoreInfoCount = (uint32_t)waitSemaphores.size(),
             .pWaitSemaphoreInfos = waitSemaphores.data(),
             .commandBufferInfoCount = 1,
             .pCommandBufferInfos = &commandBufferInfo,

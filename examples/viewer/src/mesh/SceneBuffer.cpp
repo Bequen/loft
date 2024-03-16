@@ -109,6 +109,17 @@ void SceneBuffer::draw_opaque(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {
     }
 }
 
+void SceneBuffer::draw_depth(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {
+    size_t offsets[] = {0};
+    vkCmdBindVertexBuffers(cmdbuf, 0, 1, &m_vertexBuffer.buf, offsets);
+    vkCmdBindIndexBuffer(cmdbuf, m_indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+
+    for(uint32_t i = 0; i < m_primitives.size() - m_numTransparentPrimitives; i++) {
+        const auto pPrimitive = &m_primitives[i];
+        vkCmdDrawIndexed(cmdbuf, pPrimitive->count, 1, pPrimitive->offset, pPrimitive->baseVertex, 0);
+    }
+}
+
 void SceneBuffer::draw_transparent(RenderContext *pContext) {
     size_t offsets[] = {0};
     vkCmdBindVertexBuffers(pContext->command_buffer(), 0, 1, &m_vertexBuffer.buf, offsets);

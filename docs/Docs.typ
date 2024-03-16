@@ -4,14 +4,31 @@ Vykreslovací engine vytváří 2D obrázek ze vstupních dat o scéně. 2D obr�
 
 Vykreslovací engine je většinou součástí nějakého většího systému, například herního enginu. _Herní engine_ je vícero enginů, například ještě fyzický, pro simulování kolizí objektů, apod. pro interaktivních zážitků.
 
+== Snímek
+
+Když vykreslíme kompletní obrázek, říká se mu snímek. Tedy při vykreslení tzv. pořídíme snímek.
+
+== Framebuffer
+
+Framebuffer je alokovaný kus paměti, do kterého zapisujeme námi vykreslený obrázek. Dnes už by bylo vhodné rozdělit framebuffer na screen buffer a off-screen buffer.
+
+Screen buffer je kus paměti obrázku, který grafická karta má zobrazit na výstupní displej.
+Off-screen buffer je také kus paměti, ale využívá se na mezi výpočty. Většina vykreslování v moderních herních vykreslovacích enginech se provádí ve více fázích. Postupně tak vykreslujeme do obrázku, který následující fáze bere jako vstup a nějak ho upraví a zase vykreslí do nějakého framebufferu.
+
+// https://en.wikipedia.org/wiki/Framebuffer
+
+== Swapchain
+
+Je fronta obrázků, které se prezentují na obrazovku. Screen bufferů tedy často bývá více. Je na vykreslovacím enginu, aby vykreslil do toho správného.
+
 == Real-time
 
-Vykreslovací engine, který pracuje v reálném čase znamená, že tyto obrázky dokáže vykreslovat takovou rychlostí, že pro lidské oko se jeví jako pohyb. 
+Mějme vykreslovací engine, který při platném vstupu, vytvoří snímek. Je-li schopný produkovat snímky do screen-bufferu sekvenčně takovou rychlostí, že při jejich prohazování se jeví jako pohyb, pracuje engine v reálném čase.
 
 == Scéna
 
-Scénu budeme definovat jako množinu objektů. Každý objekt bude mít tzv. mesh, což je množina vrcholů, hran a polygonů.
-Polygon je nějaký rovinný tvar, definovaný několika body, které jsou spojené hranami. Nejčastěji má polygon 3 hrany, protože jedině tak je jisté, že všechny body budou ležet na jedné rovině.
+Scénu budeme definovat jako množinu objektů. Každý objekt bude mít tzv. mesh, což je množina vrcholů, hran a polygonů. 
+Polygon je nějaký rovinný tvar, definovaný několika body, které jsou spojené hranami. Nejčastěji má polygon 3 hrany, protože jedině tak je jisté, že všechny body budou ležet na jedné rovině. To je duléžité, protože pro například stínování se využívá normála, a na jedné rovinně je jednoznačná.
 
 == Rasterizace
 
@@ -28,18 +45,11 @@ Je proces, kdy jednotlivé polygony zobrazíme do obrázku. Obrázek pak můžem
 
 = Grafická API
 
-Celý proces rasterizace by šel naprogramovat na procesoru, ale to by bylo neefektivní. Místo toho se dnes používají grafické čipy, dále je GPU. GPU jsou na výpočty spojené s rasterizací, uzpůsobené a mají již implementovanou tzv. rasterizační pipeline. _Rasterizační pipeline_ vypadá nějak takto:
-
-
-
-Grafický čip může být umístěn samostatně na grafické kartě, nebo může být integrovaná do procesoru.
-Grafický čip je optimalizovaný na výpočty spojené s rasterizací, ale to znamená, že její používání je dost striktní. Nemůžeme spouštět jakýkoliv kód, jako tomu je na procesoru, ale komunikaci provádí skrz fronty, do kterých posíláme požadavky. Některé části rasterizace sice lze upravovat kódem (tzv. shadery), ale je potřeba použít speciální, dost omezený jazyk. V posledních letech se do grafických čipů přidávají ještě tzv. compute jádra. To je další část čipu, která zvládá dělat obecnější výpočty, například vědecké výpočty.
-
 = Vulkan
 
-Vulkan je moderní, nízko-úrovňová grafická API. Oproti předchůdcům, jako DirectX 11 nebo OpenGL, obsahuje daleko specifičtější rozhraní pro komunikaci s GPU, a tím dává možnost širším optimalizacím. Mnoho funkcí a optimalizací do té doby dělali samotné ovladače. Vulkan je pouze API, a tím pádem to, jak ve skutečnosti pracuje grafická karta, závisí na ovladači a Vulkan slouží jen jako rozhraní pro požadavky na grafickou kartu.
+Vulkan je moderní, nízko-úrovňová grafická API. Oproti předchůdcům, jako DirectX 11 nebo OpenGL, dává daleko větší kontrolu nad celým procesem renderování. Mnoho funkcí a optimalizací do té doby dělali samotné ovladače. Vulkan je pouze API, a tím pádem to, jak ve skutečnosti pracuje grafická karta, závisí na ovladači a Vulkan slouží jen jako rozhraní pro požadavky na grafickou kartu.
 
-Vulkan se hodí právě na vykreslování v herních enginech, kde rychlost a možnost optimalizací jsou kritické.
+
 
 == Příkazy
 
@@ -72,7 +82,7 @@ V předchozích API, jako OpenGL nebo DirectX 11, se příkazy takto neshlukoval
 
 == Posílání (Submit)
 
-Až bude vhodná doba, můžeme poslat balíček na grafickou kartu pro splnění.
+Až bude vhodná doba, můžeme poslat balíček na grafickou kartu pro splnění. 
 
 === Fronta
 
@@ -111,25 +121,16 @@ Příkazy ve frontě můžeme synchronizovat pomocí bariér. Zde je synchroniza
 
 
 === GPU to CPU
-Pro synchronizaci mezi grafickou kartou a procesorem je tzv. fence.
+Pro synchronizaci mezi grafickou kartou a procesorem je tzv. fence. 
 
 
 == Náročnost
 
-Dělat takovou režii ručně je již nadlidský úkol. Moderní hry mají stovky iterací, než se dostanou k výslednému obrázku, a synchronizovat vše ručně by způsobovalo spoustu chyb. Navíc se iterace mění dynamicky. Např. není třeba spouštět vykreslování vody, když např. žádná voda není v dohledu. Většina her také umožňuje měnit grafické nastavení a určité efekty třeba vypínat.
+Dělat takovou režii ručně je již nadlidský úkol. Moderní hry mají desítky iterací, než se dostanou k výslednému obrázku, a synchronizovat vše ručně by způsobovalo spoustu chyb. Navíc se iterace mění dynamicky. Např. není třeba spouštět vykreslování vody, když např. žádná voda není v dohledu. Většina her také umožňuje měnit grafické nastavení a určité efekty třeba vypínat.
 
 Tento problém jsem vyřešil `Render Grafem`, inspirované přednáškou od FrostBite #footnote("FrostBite je moderní herní engine od společnosti EA, známý především pro svou dechberoucí grafiku a zničitelné prostředí").
+
 To, co se má v iteraci stát, jsem definoval jako tzv. _RenderPass_. Každý takový využívá nějaké zdroje, buď jako vstup nebo výstup. Tyto jsou v `Render grafu` virtualizované. To znamená, že žádný `render pass` nemá konkrétní zdroj "jen pro sebe", ale je mu přiřazen jen ukazatel a o samotné vytvoření, alokaci a správu se stará právě `render graf`.
 
 Každý virtuální _zdroj_ dostane unikátní název. _RenderPass_ tento název použije v případě, že na něm chce záviset, nebo do něj naopak psát. Z toho všeho nám vznikne graf závislostí, který bude vypadat třeba takto:
 
-
-= Render Graf
-
-== Render Pass
-
-== Zdroje
-
-== Závislosti
-
-== Runtime

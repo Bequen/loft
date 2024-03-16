@@ -8,7 +8,7 @@ struct AdjacencyMatrix {
 private:
     std::vector<std::vector<bool>> m_matrix;
 
-    void find_dft(uint32_t node, uint32_t target);
+    void find_dft(uint32_t node, uint32_t target, uint32_t maxDepth);
 
 public:
     explicit AdjacencyMatrix(uint32_t width);

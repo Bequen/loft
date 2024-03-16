@@ -110,6 +110,10 @@ public:
 			}
 		}
 
+        if(m_pDepthOutput != nullptr && m_pDepthOutput->name() == name) {
+            return m_pDepthOutput;
+        }
+
 		return {};
 	}
 };

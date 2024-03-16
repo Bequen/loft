@@ -5,10 +5,20 @@
 
 #include <queue>
 #include <stack>
+#include <utility>
 
 
-RenderGraphBuilder::RenderGraphBuilder(uint32_t numImageInFlight, uint32_t numOutputImages, VkExtent2D extent) :
-        m_extent(extent), m_numFrames(numImageInFlight), m_numChainImages(numOutputImages), m_numRenderpasses(0) {
+RenderGraphBuilder::RenderGraphBuilder(
+        std::string name,
+        std::string outputName,
+        uint32_t numImageInFlight,
+        uint32_t numOutputImages) :
+
+        m_name(std::move(name)),
+        m_outputName(std::move(outputName)),
+        m_numFrames(numImageInFlight),
+        m_numChainImages(numOutputImages),
+        m_numRenderpasses(0) {
 }
 
 VkExtent2D RenderGraphBuilder::extent_for(RenderPass *pPass) const {
@@ -18,7 +28,7 @@ VkExtent2D RenderGraphBuilder::extent_for(RenderPass *pPass) const {
     };
 }
 
-VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
+VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
     // Create storage for all the attachments
     auto depthOutput = pPass->renderpass()->depth_output();
     std::vector<VkAttachmentDescription2> attachments(pPass->renderpass()->num_outputs() + depthOutput.has_value());
@@ -213,8 +223,7 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
     std::vector<VkClearValue> clearValues(pPass->renderpass()->num_outputs() + pPass->renderpass()->depth_output().has_value());
 
     // Create swapchain framebuffers
-    if(pPass->renderpass()->outputs().size() == 1 &&
-       pPass->renderpass()->outputs()[0]->name() == pCache->output_name()) {
+    if(pPass->renderpass()->output(pCache->output_name()).has_value()) {
         std::vector<Framebuffer> framebuffers(pCache->output_chain().count(), VK_NULL_HANDLE);
 
         for(uint32_t f = 0; f < pCache->output_chain().count(); f++) {
@@ -223,9 +232,8 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
                     .build(pGpu);
         }
 
-        clearValues[0] = (VkClearValue {
-                .color = {0.0f, 0.0f, 0.0f, 0.0f}
-        });
+        clearValues[0] = ((ImageResourceLayout*)pPass->renderpass()->output(pCache->output_name()).value())->clear_value();
+        pPass->set_clear_values(clearValues);
 
         return framebuffers;
     }
@@ -296,6 +304,14 @@ int RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCa
         }
     }
 
+    std::vector<uint32_t> externalDependencies = pCmdBuf->m_externalDependenciesIds;
+    for(uint32_t i = m_numRenderpasses; i < m_numRenderpasses + m_externalImageDependencies.size(); i++) {
+        if(pCache->adjacency_matrix().get(i, renderpassIdx)) {
+            externalDependencies.push_back(i - m_numRenderpasses);
+        }
+    }
+    pCmdBuf->set_external_dependencies(externalDependencies);
+
     /* does not matter, how many framebuffers returns */
     auto rp = create_renderpass_for(pGpu, pPass);
     auto framebuffers = collect_attachments(pGpu, rp, pCache, pPass);
@@ -307,7 +323,7 @@ int RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCa
                                  extent,
                                  pPass->clear_values(),
                                  framebuffers,
-                                 pPass->renderpass()->outputs()[0]->name() == "swapchain"
+                                 pPass->renderpass()->output(m_outputName).has_value()
                             });
 
     // wrap it into single structure
@@ -325,7 +341,7 @@ std::vector<RenderGraphVkCommandBuffer>
 RenderGraphBuilder::build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache) {
     std::vector<uint32_t> dependencies;
     for(uint32_t i = 0; i < m_numRenderpasses; i++) {
-        if(pCache->adjacency_matrix().get(i, m_numRenderpasses)) {
+        if(pCache->adjacency_matrix().get(i, m_numRenderpasses + m_externalImageDependencies.size())) {
             dependencies.push_back(i);
         }
     }
@@ -347,8 +363,10 @@ RenderGraphBuilder::build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCach
     return cmdbufs;
 }
 
-RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const std::string& outputName, const ImageChain& outputChain) {
+RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const ImageChain& outputChain, VkExtent2D extent) {
     printf("Building render graph\n");
+
+    m_extent = extent;
 
     // Build matrix
     auto adjacencyMatrix = build_adjacency_matrix();
@@ -357,13 +375,18 @@ RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const std::string& outputName, 
     auto sampler = create_attachment_sampler(pGpu);
 
     // Prepare cache
-    RenderGraphBuilderCache cache(outputName, m_numFrames, adjacencyMatrix, sampler, outputChain);
+    RenderGraphBuilderCache cache(m_outputName, m_numFrames, adjacencyMatrix, sampler, outputChain);
 
     auto queue = build_swapchain_renderpass(pGpu, &cache);
 
     cache.transfer_layout(pGpu);
 
-    return { pGpu, outputChain, queue, m_numFrames };
+    auto graph = RenderGraph(pGpu, m_name, outputChain, queue, m_numFrames);
+    for(const auto& externalDependency : m_externalImageDependencies) {
+        graph.set_external_dependency(externalDependency.name, VK_NULL_HANDLE);
+    }
+
+    return graph;
 }
 
 std::map<std::string, RenderPass*>* RenderGraphBuilder::build_outputs_table() {
@@ -378,9 +401,9 @@ std::map<std::string, RenderPass*>* RenderGraphBuilder::build_outputs_table() {
     return outputTable;
 }
 
-AdjacencyMatrix
-RenderGraphBuilder::build_adjacency_matrix() {
-    AdjacencyMatrix matrix(m_numRenderpasses + 1);
+const AdjacencyMatrix
+RenderGraphBuilder::build_adjacency_matrix() const {
+    AdjacencyMatrix matrix(m_numRenderpasses + m_externalImageDependencies.size() + 1);
 
     for(uint32_t x = 0; x < m_numRenderpasses; x++) {
         for(uint32_t y = 0; y < m_numRenderpasses; y++) {
@@ -392,15 +415,25 @@ RenderGraphBuilder::build_adjacency_matrix() {
             }
 
             for(auto& output : m_renderpasses[x].renderpass()->outputs()) {
-                if(std::count(m_renderpasses[y].renderpass()->inputs().begin(), m_renderpasses[y].renderpass()->inputs().end(), output->name()) > 0) {
+                if(std::count(m_renderpasses[y].renderpass()->inputs().begin(),
+                              m_renderpasses[y].renderpass()->inputs().end(),
+                              output->name()) > 0) {
                     matrix.set(x, y);
                     break;
                 }
             }
         }
 
-        if(m_renderpasses[x].renderpass()->output("swapchain").has_value()) {
-            matrix.set(x, m_numRenderpasses);
+        for(uint32_t i = 0; i < m_externalImageDependencies.size(); i++) {
+            if(std::count(m_renderpasses[x].renderpass()->inputs().begin(),
+                          m_renderpasses[x].renderpass()->inputs().end(),
+                          m_externalImageDependencies[i].name) > 0) {
+                matrix.set(m_numRenderpasses + i, x);
+            }
+        }
+
+        if(m_renderpasses[x].renderpass()->output(m_outputName).has_value()) {
+            matrix.set(x, m_numRenderpasses + m_externalImageDependencies.size());
         }
     }
 
@@ -416,6 +449,7 @@ VkSampler RenderGraphBuilder::create_attachment_sampler(Gpu *pGpu) {
             .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE
     };
 
     VkSampler sampler = VK_NULL_HANDLE;

@@ -32,6 +32,7 @@
 #include "RenderGraph.hpp"
 #include "scene/Light.h"
 #include "runtime/FrameLock.h"
+#include "RenderGraphScheduler.h"
 #include "GraphVizVisualizer.h"
 
 
@@ -70,8 +71,13 @@ struct MeshPassContext {
 
 struct ShadowPassContext {
   Pipeline pipeline;
-  SceneBuffer *pBuffer;
-  VkDescriptorSet sceneSet;
+  SceneBuffer *pSceneBuffer;
+
+  std::vector<VkDescriptorSet> inputSets;
+  std::vector<VkDescriptorSet> sceneInputSets;
+  VkDescriptorSetLayout perSceneInputSetLayout;
+
+  VkPipelineLayout layout;
 
   ShadowPassContext() :
           pipeline(nullptr, nullptr) {
@@ -86,6 +92,8 @@ struct ShadingPassContext {
 
   VkDescriptorSetLayout perPassInputSetLayout;
   std::vector<VkDescriptorSet> descriptorSets;
+
+  VkImageView shadowmap;
 
   ShadingPassContext() :
           pipeline(nullptr, nullptr) {
@@ -161,7 +169,6 @@ struct CompositionContext {
 
 int
 main(int32_t argc, char** argv) {
-
     /**
      * The program needs some glTF file to render
      */
@@ -226,11 +233,58 @@ main(int32_t argc, char** argv) {
      * Creates new frame graph.
      * Frame graph manages renderpass dependencies and synchronization.
      */
-    RenderGraphBuilder renderGraphBuilder(2, swapchain.num_images(), extent);
+    RenderGraphBuilder renderGraphBuilder("swapchain", 1, swapchain.num_images(), extent);
 
 
 	auto scene = GltfSceneLoader().from_file(argv[1]);
 	auto sceneBuffer = new SceneBuffer(&gpu, &scene);
+
+    ImageCreateInfo imageInfo = {
+            .extent = { 1024*4, 1024*4 },
+            .format = VK_FORMAT_D32_SFLOAT_S8_UINT,
+            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .arrayLayers = 1,
+            .mipLevels = 1,
+    };
+
+    MemoryAllocationInfo memoryInfo = {
+            .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    };
+
+    Image shadowmap;
+    gpu.memory()->create_image(&imageInfo, &memoryInfo, &shadowmap);
+
+    ImageView shadowmapView = shadowmap.create_view(&gpu, imageInfo.format, {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+    });
+
+    /* Create lights for the scene */
+    vec3 position = {0.0f, 250.0f, 50.0f};
+    vec3 direction = {0.0f, 0.0f, 0.0f};
+    vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
+    std::vector<Light> lights = {
+            Light::directional(1.0f, 1000.0f, position, direction, color)
+    };
+
+    BufferCreateInfo lightInfoBuffer = {
+            .size = sizeof(Light),
+            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .isExclusive = true,
+    };
+
+    Buffer lightBuffer;
+    gpu.memory()->create_buffer(&lightInfoBuffer, &memoryInfo, &lightBuffer);
+
+
+    void *pPtr;
+    gpu.memory()->map(lightBuffer.allocation, &pPtr);
+    memcpy(pPtr, lights.data(), lightInfoBuffer.size);
+    gpu.memory()->unmap(lightBuffer.allocation);
 
 	/*
 	 * Create pipelines
@@ -276,6 +330,7 @@ main(int32_t argc, char** argv) {
             }
 
             auto sceneInputSetLayout = ShaderInputSetLayoutBuilder(4)
+                    /* material buffer */
                     .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     /* color texture */
                     .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -331,23 +386,28 @@ main(int32_t argc, char** argv) {
      * Deferred approach.
      */
     auto shadingContext = new ShadingPassContext();
+    shadingContext->shadowmap = shadowmapView.view;
     auto shading = LambdaRenderPass<ShadingPassContext>("shading", shadingContext,
-                                                        [&](ShadingPassContext* pContext, RenderPassBuildInfo info) {
-            pContext->perPassInputSetLayout = ShaderInputSetLayoutBuilder(4)
-                    .binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+        [&](ShadingPassContext* pContext, RenderPassBuildInfo info) {
+            pContext->perPassInputSetLayout = ShaderInputSetLayoutBuilder(6)
+                    .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                    .binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                    .binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .build(info.gpu());
 
             pContext->descriptorSets.resize(info.num_images_in_flights());
             /* create input set */
             for(uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                pContext->descriptorSets[i] = ShaderInputSetBuilder(4)
-                        .image(0, info.get_image("col_gbuf", i)->view, info.sampler())
-                        .image(1, info.get_image("norm_gbuf", i)->view, info.sampler())
-                        .image(2, info.get_image("pos_gbuf", i)->view, info.sampler())
-                        .image(3, info.get_image("pbr_gbuf", i)->view, info.sampler())
+                pContext->descriptorSets[i] = ShaderInputSetBuilder(6)
+                        .buffer(0, lightBuffer, 0, sizeof(Light))
+                        .image(1, info.get_image("col_gbuf", i)->view, info.sampler())
+                        .image(2, info.get_image("norm_gbuf", i)->view, info.sampler())
+                        .image(3, info.get_image("pos_gbuf", i)->view, info.sampler())
+                        .image(4, info.get_image("pbr_gbuf", i)->view, info.sampler())
+                        .image(5, pContext->shadowmap, info.sampler())
                         .build(info.gpu(), pContext->perPassInputSetLayout);
             }
 
@@ -362,7 +422,8 @@ main(int32_t argc, char** argv) {
                     .set_vertex_input_info({}, {})
                     .build()
                     .value();
-    }, [&](ShadingPassContext* pContext, RenderPassRecordInfo recordInfo) {
+    },
+        [&](ShadingPassContext* pContext, RenderPassRecordInfo recordInfo) {
             vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
             vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
                                     0, 1, &globalInputSet, 0, nullptr);
@@ -375,7 +436,8 @@ main(int32_t argc, char** argv) {
     shading.add_color_output("hdr", VK_FORMAT_R32G32B32A32_SFLOAT)
            .add_color_output("bloom_threshold", VK_FORMAT_R32G32B32A32_SFLOAT)
            .add_input("col_gbuf")
-           .add_input("norm_gbuf");
+           .add_input("norm_gbuf")
+           .add_input("shadowmap");
 
 
 
@@ -405,65 +467,63 @@ main(int32_t argc, char** argv) {
 
     for(uint32_t i = 0; i < numIters; i++) {
         /* create downscale pass */
-        {
-            auto downsampleContext = new DownsampleContext();
-            downsampleContext->extent.width = extent.width >> i;
-            downsampleContext->extent.height = extent.height >> i;
+        auto downsampleContext = new DownsampleContext();
+        downsampleContext->extent.width = extent.width >> i;
+        downsampleContext->extent.height = extent.height >> i;
 
-            downsampleContext->attachmentName = std::string("downsample_").append(std::to_string(i));
-            downsampleContext->source = std::string(previous);
+        downsampleContext->attachmentName = std::string("downsample_").append(std::to_string(i));
+        downsampleContext->source = std::string(previous);
 
-            downsamples[i] = new LambdaRenderPass<DownsampleContext>(std::string("downscale_").append(std::to_string(i)), downsampleContext,
-                                                                         [&](DownsampleContext *pContext, RenderPassBuildInfo info) {
-                                                                             pContext->inputSets.resize(info.num_images_in_flights());
+        downsamples[i] = new LambdaRenderPass<DownsampleContext>(std::string("downscale_").append(std::to_string(i)), downsampleContext,
+             [&](DownsampleContext *pContext, RenderPassBuildInfo info) {
+                 pContext->inputSets.resize(info.num_images_in_flights());
 
-                                                                             /* create input set */
-                                                                             for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                                                                                 pContext->inputSets[i] = ShaderInputSetBuilder(1)
-                                                                                         .image(0, info.get_image(pContext->source, i)->view, info.sampler())
-                                                                                         .build(info.gpu(), downsamplePerPassInputSetLayout);
-                                                                             }
+                 /* create input set */
+                 for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
+                     pContext->inputSets[i] = ShaderInputSetBuilder(1)
+                             .image(0, info.get_image(pContext->source, i)->view, info.sampler())
+                             .build(info.gpu(), downsamplePerPassInputSetLayout);
+                 }
 
-                                                                             auto layout = PipelineLayoutBuilder()
-                                                                                     .input_set(0, globalInputSetLayout)
-                                                                                     .input_set(1, downsamplePerPassInputSetLayout)
-                                                                                     .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                                     .build(info.gpu());
+                 auto layout = PipelineLayoutBuilder()
+                         .input_set(0, globalInputSetLayout)
+                         .input_set(1, downsamplePerPassInputSetLayout)
+                         .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
+                         .build(info.gpu());
 
-                                                                             pContext->pipeline = PipelineBuilder(info.gpu(),
-                                                                                                                  info.output().viewport(),
-                                                                                                                  layout,
-                                                                                                                  info.output().renderpass(),
-                                                                                                                  1, offscr, bloomShader)
-                                                                                     .set_vertex_input_info({}, {})
-                                                                                     .build()
-                                                                                     .value();
-                                                                         },
-                                                                         [&](DownsampleContext *pContext, RenderPassRecordInfo recordInfo) {
-                                                                             vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                               pContext->pipeline.pipeline());
-                                                                             vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                                     pContext->pipeline.pipeline_layout(),
-                                                                                                     0, 1, &globalInputSet, 0, nullptr);
+                 pContext->pipeline = PipelineBuilder(info.gpu(),
+                                                      info.output().viewport(),
+                                                      layout,
+                                                      info.output().renderpass(),
+                                                      1, offscr, bloomShader)
+                         .set_vertex_input_info({}, {})
+                         .build()
+                         .value();
+             },
+             [&](DownsampleContext *pContext, RenderPassRecordInfo recordInfo) {
+                 vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                   pContext->pipeline.pipeline());
+                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                         pContext->pipeline.pipeline_layout(),
+                                         0, 1, &globalInputSet, 0, nullptr);
 
-                                                                             vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                                     pContext->pipeline.pipeline_layout(),
-                                                                                                     1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
+                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                         pContext->pipeline.pipeline_layout(),
+                                         1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
 
-                                                                             vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                                0, sizeof(VkExtent2D), &pContext->extent);
+                 vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    0, sizeof(VkExtent2D), &pContext->extent);
 
-                                                                             vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
-                                                                         });
+                 vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
+             });
 
-            downsamples[i]->add_color_output(downsampleContext->attachmentName, VK_FORMAT_R32G32B32A32_SFLOAT)
-                    .add_input(previous)
-                    .set_extent(downsampleContext->extent);
+        downsamples[i]->add_color_output(downsampleContext->attachmentName, VK_FORMAT_R32G32B32A32_SFLOAT)
+                .add_input(previous)
+                .set_extent(downsampleContext->extent);
 
-            previous = downsampleContext->attachmentName;
+        previous = downsampleContext->attachmentName;
 
-            renderGraphBuilder.add_graphics_pass(downsamples[i]);
-        }
+        renderGraphBuilder.add_graphics_pass(downsamples[i]);
     }
 
     for(uint32_t i = 0; i < numIters - 1; i++) {
@@ -475,48 +535,48 @@ main(int32_t argc, char** argv) {
         upsampleContext->blur = std::string(previous);
 
         upsamples[i] = new LambdaRenderPass<UpsampleContext>(std::string("upscale_").append(std::to_string(i)), upsampleContext,
-                                                             [&](UpsampleContext *pContext, RenderPassBuildInfo info) {
-                                                                 pContext->inputSets.resize(info.num_images_in_flights());
+             [&](UpsampleContext *pContext, RenderPassBuildInfo info) {
+                 pContext->inputSets.resize(info.num_images_in_flights());
 
-                                                                 /* create input set */
-                                                                 for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                                                                     pContext->inputSets[i] = ShaderInputSetBuilder(2)
-                                                                             .image(0, info.get_image(pContext->source, i)->view, info.sampler())
-                                                                             .image(1, info.get_image(pContext->blur, i)->view, info.sampler())
-                                                                             .build(info.gpu(), upsamplePerPassInputSetLayout);
-                                                                 }
+                 /* create input set */
+                 for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
+                     pContext->inputSets[i] = ShaderInputSetBuilder(2)
+                             .image(0, info.get_image(pContext->source, i)->view, info.sampler())
+                             .image(1, info.get_image(pContext->blur, i)->view, info.sampler())
+                             .build(info.gpu(), upsamplePerPassInputSetLayout);
+                 }
 
-                                                                 auto layout = PipelineLayoutBuilder()
-                                                                         .input_set(0, globalInputSetLayout)
-                                                                         .input_set(1, upsamplePerPassInputSetLayout)
-                                                                         .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                         .build(info.gpu());
+                 auto layout = PipelineLayoutBuilder()
+                         .input_set(0, globalInputSetLayout)
+                         .input_set(1, upsamplePerPassInputSetLayout)
+                         .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
+                         .build(info.gpu());
 
-                                                                 pContext->pipeline = PipelineBuilder(info.gpu(),
-                                                                                                      info.output().viewport(),
-                                                                                                      layout,
-                                                                                                      info.output().renderpass(),
-                                                                                                      1, offscr, upscaleShader)
-                                                                         .set_vertex_input_info({}, {})
-                                                                         .build()
-                                                                         .value();
-                                                             },
-                                                             [&](UpsampleContext *pContext, RenderPassRecordInfo recordInfo) {
-                                                                 vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                   pContext->pipeline.pipeline());
-                                                                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                         pContext->pipeline.pipeline_layout(),
-                                                                                         0, 1, &globalInputSet, 0, nullptr);
+                 pContext->pipeline = PipelineBuilder(info.gpu(),
+                                                      info.output().viewport(),
+                                                      layout,
+                                                      info.output().renderpass(),
+                                                      1, offscr, upscaleShader)
+                         .set_vertex_input_info({}, {})
+                         .build()
+                         .value();
+             },
+             [&](UpsampleContext *pContext, RenderPassRecordInfo recordInfo) {
+                 vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                   pContext->pipeline.pipeline());
+                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                         pContext->pipeline.pipeline_layout(),
+                                         0, 1, &globalInputSet, 0, nullptr);
 
-                                                                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                         pContext->pipeline.pipeline_layout(),
-                                                                                         1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
+                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                         pContext->pipeline.pipeline_layout(),
+                                         1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
 
-                                                                 vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                    0, sizeof(VkExtent2D), &pContext->extent);
+                 vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    0, sizeof(VkExtent2D), &pContext->extent);
 
-                                                                 vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
-                                                             });
+                 vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
+             });
 
         upsamples[i]->add_color_output(upsampleContext->attachmentName, VK_FORMAT_R32G32B32A32_SFLOAT)
                 .add_input(upsampleContext->blur)
@@ -622,35 +682,89 @@ main(int32_t argc, char** argv) {
             .add_graphics_pass(&geometry)
             .add_graphics_pass(&shading)
             .add_graphics_pass(&imguiPass)
-            .build(&gpu, "swapchain", swapchainImageChain);
+            .add_external_image("shadowmap", {
+                    ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
+            })
+            .build(&gpu, swapchainImageChain);
 
-    GraphVizVisualizer graphVizVisualizer(&renderGraphBuilder, &renderGraph);
-    graphVizVisualizer.visualize_into(stdout);
-
-    /* Create lights for the scene */
-    vec3 position = {20.0f, 200.0f, -30.0f};
-    vec3 direction = {10.0f, 10.0f, 10.0f};
-    vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
-    std::vector<Light> lights = {
-            Light::directional(1.0f, 1000.0f, position, direction, color)
-    };
-
-    BufferCreateInfo lightInfoBuffer = {
-            .size = sizeof(Light),
-            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            .isExclusive = true,
-    };
-    MemoryAllocationInfo memoryInfo = {
-            .usage = MEMORY_USAGE_AUTO_PREFER_HOST
-    };
-    Buffer lightBuffer;
-    gpu.memory()->create_buffer(&lightInfoBuffer, &memoryInfo, &lightBuffer);
+    GraphVizVisualizer graphVizVisualizer()
+        .add_graph(rend);
+    //graphVizVisualizer.visualize_into(stdout);
 
 
-    void *pPtr;
-    gpu.memory()->map(lightBuffer.allocation, &pPtr);
-    memcpy(pPtr, lights.data(), lightInfoBuffer.size);
-    gpu.memory()->unmap(lightBuffer.allocation);
+    ShadowPassContext shadowPassCtx = {};
+    shadowPassCtx.pSceneBuffer = sceneBuffer;
+    auto shadowPass = LambdaRenderPass<ShadowPassContext>("shadow_pass", &shadowPassCtx,
+        [&](ShadowPassContext* pContext, RenderPassBuildInfo info) {
+            /* create layout */
+            auto perPassInputLayout = ShaderInputSetLayoutBuilder(0)
+                    .build(info.gpu());
+
+            pContext->inputSets.resize(info.num_images_in_flights());
+            /* create input set */
+            for(uint32_t i = 0; i < info.num_images_in_flights(); i++) {
+                pContext->inputSets[i] = ShaderInputSetBuilder(0)
+                        .build(info.gpu(), perPassInputLayout);
+            }
+
+            auto sceneInputSetLayout = ShaderInputSetLayoutBuilder(0)
+                    //.binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                    .build(info.gpu());
+
+            pContext->sceneInputSets.resize(1);
+            pContext->sceneInputSets[0] = ShaderInputSetBuilder(0)
+                    .build(info.gpu(), sceneInputSetLayout);
+
+            pContext->layout = PipelineLayoutBuilder()
+                    .push_constant_range(0, sizeof(mat4) * 2, VK_SHADER_STAGE_VERTEX_BIT)
+                    .input_set(0, globalInputSetLayout)
+                    .input_set(1, perPassInputLayout)
+                    .input_set(2, sceneInputSetLayout)
+                    .build(info.gpu());
+
+            pContext->pipeline = PipelineBuilder(info.gpu(), info.output().viewport(),
+                                                 pContext->layout, info.output().renderpass(),
+                                                 1, shadowVert, shadowFrag)
+                    .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
+                    .build()
+                    .value();
+        },
+        [&](ShadowPassContext* pContext, RenderPassRecordInfo info) {
+            vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
+            vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
+                                    0, 1, &globalInputSet, 0, nullptr);
+
+            vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
+                                    1, 1, &pContext->inputSets[0], 0, nullptr);
+
+            vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
+                                    2, 1, &pContext->sceneInputSets[0], 0, nullptr);
+
+            struct {
+                mat4 view;
+                mat4 proj;
+            } data;
+            glm_mat4_copy(lights[0].view, data.view);
+            glm_mat4_identity(data.proj);
+
+            glm_ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.1, 10.0f, data.proj);
+
+            vkCmdPushConstants(info.command_buffer(),  pContext->pipeline.pipeline_layout(),
+                               VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4) * 2, &data);
+
+            pContext->pSceneBuffer->draw_depth(info.command_buffer(), pContext->layout);
+        }
+    );
+    shadowPass.set_depth_output("shadowmap", VK_FORMAT_D32_SFLOAT_S8_UINT);
+
+    ImageChain shadowmapChain = ImageChain({shadowmapView});
+
+    auto shadowsRenderGraph = RenderGraphBuilder("shadowmap", 1, 1, {1024*4, 1024*4})
+            .add_graphics_pass(&shadowPass)
+            .build(&gpu, shadowmapChain);
+
+
+
 
 
     /* Prepare ImGui */
@@ -664,7 +778,6 @@ main(int32_t argc, char** argv) {
 
     VkFenceCreateInfo fenceInfo = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            // .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
     vkCreateFence(gpu.dev(), &fenceInfo, nullptr, &imageIndexFence);
@@ -695,8 +808,7 @@ main(int32_t argc, char** argv) {
         }
 
         ImGui::Begin("Frame stats");
-        ImGui::Text("DeltaTime in ns: %ld", fps);
-        // ImGui::Text("FPS: %ld", 1000000000UL / deltaTime);
+        ImGui::Text("FPS: %ld", fps);
         ImGui::End();
 
 
@@ -716,21 +828,23 @@ main(int32_t argc, char** argv) {
             case SDL_KEYUP:
                 switch(event.key.keysym.sym) {
                 case SDLK_w:
-                    velocity[1] = event.key.state;
+                    velocity[1] = (float)event.key.state;
                     break;
                 case SDLK_s:
-                    velocity[1] = -event.key.state;
+                    velocity[1] = -(float)event.key.state;
                     break;
                 case SDLK_a:
-                    velocity[0] = event.key.state;
+                    velocity[0] = (float)event.key.state;
                     break;
                 case SDLK_d:
-                    velocity[0] = -event.key.state;
+                    velocity[0] = -(float)event.key.state;
                     break;
                 }
             }
         }
 
+        auto shadowSignal = shadowsRenderGraph.run(0);
+        renderGraph.set_external_dependency("shadowmap", shadowSignal);
         auto signal = renderGraph.run(imageIdx);
 
         camera.move(velocity);

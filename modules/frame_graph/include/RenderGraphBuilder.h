@@ -6,10 +6,32 @@
 #include "AdjacencyMatrix.h"
 
 #include <map>
+#include <utility>
 #include <vector>
 #include <cstdint>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
+
+struct ExternalImageResource {
+    ImageView view;
+    VkSemaphore signal;
+
+    ExternalImageResource(ImageView view, VkSemaphore signal) :
+    view(view), signal(signal) {
+
+    }
+};
+
+struct ImageResourceDependency {
+    std::string name;
+
+    std::vector<ExternalImageResource> resources;
+
+    ImageResourceDependency(std::string name, std::vector<ExternalImageResource> resources) :
+    name(std::move(name)), resources(std::move(resources)) {
+
+    }
+};
 
 /**
  * Organizes entire rendering into a graph
@@ -23,10 +45,17 @@ class RenderGraphBuilder {
 private:
     std::vector<RenderGraphNode> m_renderpasses;
     uint32_t m_numRenderpasses;
+    std::string m_name;
 
     VkExtent2D m_extent;
     uint32_t m_numFrames;
     uint32_t m_numChainImages;
+
+    std::string m_outputName;
+
+    std::vector<ImageResourceDependency> m_externalImageDependencies;
+
+    VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass);
 
     /**
      * Build each renderpass that output into swapchain. Starting the tree. Then add those renderpasses to the root node.
@@ -77,7 +106,8 @@ public:
      * Creates new render graph builder
      * @param extent
      */
-    explicit RenderGraphBuilder(uint32_t numImageInFlight, uint32_t numOutputImages, VkExtent2D extent);
+    explicit RenderGraphBuilder(std::string name, std::string outputName,
+                                uint32_t numImageInFlight, uint32_t numOutputImages);
 
     RenderGraphBuilder& add_graphics_pass(RenderPass *pRenderPass) {
         m_renderpasses.emplace_back(RenderGraphNode(pRenderPass));
@@ -89,12 +119,18 @@ public:
         return *this;
     }
 
-    RenderGraph build(Gpu *pGpu, const std::string& outputName, const ImageChain& outputChain);
+    RenderGraphBuilder& add_external_image(const std::string& name,
+                                           const std::vector<ExternalImageResource>& dependencies) {
+        m_externalImageDependencies.emplace_back(name, dependencies);
+        return *this;
+    }
+
+    RenderGraph build(Gpu *pGpu, const ImageChain& outputChain, VkExtent2D extent);
 
     std::map<std::string, RenderPass*>* build_outputs_table();
 
-    AdjacencyMatrix
-    build_adjacency_matrix();
+    const AdjacencyMatrix
+    build_adjacency_matrix() const;
 
     void print_dot() {
 

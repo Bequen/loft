@@ -45,6 +45,7 @@ public:
 	void draw(RenderContext *pContext) override;
 
     void draw_opaque(VkCommandBuffer cmdbuf, VkPipelineLayout layout);
+    void draw_depth(VkCommandBuffer cmdbuf, VkPipelineLayout layout);
     void draw_opaque(RenderContext *pContext);
     void draw_transparent(RenderContext *pContext);
 
