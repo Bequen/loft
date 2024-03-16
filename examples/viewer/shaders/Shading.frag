@@ -7,11 +7,11 @@ layout(location = 0) in vec2 inUV;
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outBloomThreshold;
 
-layout(set = 1, binding = 0) uniform sampler2D inAlbedo;
-layout(set = 1, binding = 1) uniform sampler2D inNormal;
-layout(set = 1, binding = 2) uniform sampler2D inPosition;
-layout(set = 1, binding = 3) uniform sampler2D inPbr;
-/* layout(set = 1, binding = 5) uniform sampler2D shadowMap; */
+layout(set = 1, binding = 1) uniform sampler2D inAlbedo;
+layout(set = 1, binding = 2) uniform sampler2D inNormal;
+layout(set = 1, binding = 3) uniform sampler2D inPosition;
+layout(set = 1, binding = 4) uniform sampler2D inPbr;
+layout(set = 1, binding = 5) uniform sampler2D shadowMap;
 float ggx_normal_distr(float NoH, float roughness) {
 	float a = NoH * roughness;
 	float k = roughness / (1.0 - NoH * NoH + a * a);
@@ -46,9 +46,9 @@ struct Light {
 	vec4 position;
 };
 
-/* layout(set = 2, binding = 0) uniform Lights {
+layout(set = 1, binding = 0) uniform Lights {
 	Light lights[];
-} lights; */
+} lights;
 
 #define AMBIENT 0.1
 
@@ -59,7 +59,7 @@ float linearize_depth(float depth) {
 	return (2.0 * n) / (f + n - z * (f - n));
 }
 
-/* float textureProj(vec4 shadowCoord, vec2 off) {
+float textureProj(vec4 shadowCoord, vec2 off) {
 	float shadow = 1.0;
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 )
 	{
@@ -70,9 +70,9 @@ float linearize_depth(float depth) {
 		}
 	}
 	return shadow;
-} */
+}
 
-/* float filterPCF(vec4 sc) {
+float filterPCF(vec4 sc) {
 	ivec2 texDim = textureSize(shadowMap, 0);
 	float scale = 1.0f;
 	float dx = scale * 1.0 / float(texDim.x);
@@ -92,23 +92,24 @@ float linearize_depth(float depth) {
 
 	}
 	return shadowFactor / count;
-} */
+}
 
 const mat4 biasMat = mat4(
-0.5, 0.0, 0.0, 0.0,
-0.0, 0.5, 0.0, 0.0,
-0.0, 0.0, 1.0, 0.0,
-0.5, 0.5, 0.0, 1.0 );
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0
+);
 
 
-/* float get_shadow(Light light, vec4 position) {
+float get_shadow(Light light, vec4 position) {
 	vec4 relativePosition = light.view * position;
 	vec4 shadowCoords = relativePosition / relativePosition.w;
 
 	float shadow = filterPCF(biasMat * shadowCoords);
 
 	return shadow;
-} */
+}
 
 vec3 bsdf(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 baseColor, float metallic, float roughness) {
 	vec3 halfway = normalize(viewDir + lightDir);
@@ -173,17 +174,15 @@ void main() {
 
 	vec3 viewDir = normalize(-cam.position.xyz - position);
 
-	// vec3 lightDir = normalize(vec3(lights.lights[0].view[0][2], lights.lights[0].view[1][2], lights.lights[0].view[2][2]));
-	// lightDir = normalize(lights.lights[0].view[1].xyz);
-	vec3 lightDir = normalize(vec3(60.0, 100.0, -30.0) - position);
+	vec3 lightDir = -normalize(vec3(lights.lights[0].view[0][2], lights.lights[0].view[1][2], lights.lights[0].view[2][2]));
 
-	float occlusion = 0.0f; //get_shadow(lights.lights[0], vec4(position, 1.0));
+	float occlusion = get_shadow(lights.lights[0], vec4(position, 1.0));
 
-	float lightIntensity = 1.0f;
+	float lightIntensity = 3.0f;
 	vec3 Lo = bsdf(normal, viewDir, lightDir, color, metallic, roughness);
 
 	vec3 ambient = vec3(0.2) * color;
-	vec3 prd = ambient + Lo * (1.0 - occlusion) * lightIntensity;
+	vec3 prd = ambient + Lo * (occlusion) * lightIntensity;
 
 	outColor = vec4(prd, 1.0);
 

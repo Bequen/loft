@@ -16,11 +16,11 @@ struct Light {
         mat4 view = {};
         glm_mat4_identity(view);
 
-        vec3 center = {};
-        glm_vec3_add(position, direction, center);
+        // vec3 center = {};
+        // glm_vec3_add(position, direction, center);
 
         vec3 up = {0.0f, 0.0f, 1.0f};
-        glm_lookat(position, center, up, view);
+        glm_lookat(position, direction, up, view);
 
         Light light = {};
         glm_mat4_mul(projection, view, light.view);

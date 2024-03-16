@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <utility>
 #include <vector>
 #include <map>
 #include <string>
@@ -78,9 +79,7 @@ struct RenderGraphVkRenderPass {
         };
 
         vkCmdBeginDebugUtilsLabel(cmdbuf, &labelInfo);
-        clearValues[0].color = {
-                0.0f, 0.0f, 0.0f, 0.0f
-        };
+
 
         VkRenderPassBeginInfo renderPassInfo = {
                 .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -112,6 +111,8 @@ struct RenderGraphVkCommandBuffer {
     std::vector<VkCommandBuffer> perImageCommandBuffer;
 
     std::vector<RenderGraphVkCommandBuffer*> dependencies;
+
+    std::vector<uint32_t> m_externalDependenciesIds;
 
     std::vector<VkSemaphore> create_signals(Gpu *pGpu, uint32_t numImagesInFlight) {
         std::vector<VkSemaphore> signals(numImagesInFlight);
@@ -151,6 +152,10 @@ struct RenderGraphVkCommandBuffer {
 
     }
 
+    inline void set_external_dependencies(const std::vector<uint32_t>& externalDependencies) {
+        m_externalDependenciesIds = externalDependencies;
+    }
+
     void add_render_pass(const RenderGraphVkRenderPass& renderpass) {
         renderpasses.push_back(renderpass);
     }
@@ -173,8 +178,35 @@ struct RenderGraphVkCommandBuffer {
     }
 };
 
+struct RenderGraphExternalDependency {
+    std::string m_name;
+    VkSemaphore m_semaphore;
+
+    RenderGraphExternalDependency(std::string name, VkSemaphore semaphore) :
+    m_name(std::move(name)), m_semaphore(semaphore) {
+
+    }
+
+    inline bool is_valid() const {
+        return m_semaphore != VK_NULL_HANDLE;
+    }
+
+    inline VkSemaphore semaphore() const {
+        return m_semaphore;
+    }
+
+    inline void set_semaphore(VkSemaphore semaphore) {
+        m_semaphore = semaphore;
+    }
+
+    inline std::string name() const {
+        return m_name;
+    }
+};
+
 class RenderGraph {
 private:
+    const std::string m_name;
 	const Gpu *m_pGpu;
 
     const std::vector<RenderGraphVkCommandBuffer> m_root;
@@ -187,20 +219,37 @@ private:
 	/* Exact number of images in flight that this RenderGraph was built from */
 	const uint32_t m_numFrames;
 
+    std::vector<RenderGraphExternalDependency> m_externalDependencies;
+
     void run_swapchain_node(const RenderGraphVkCommandBuffer *pNode,
                             uint32_t bufferIdx, uint32_t chainImageIdx) const;
 
 	void run_tree(const RenderGraphVkCommandBuffer *pNode,
                   uint32_t bufferIdx, uint32_t chainImageIdx) const;
 
+
+
 public:
     GET(m_root, dependencies);
+    GET(m_name, name);
 
 	RenderGraph(Gpu *pGpu,
+                std::string name,
                 ImageChain outputChain,
                 std::vector<RenderGraphVkCommandBuffer> root,
                 uint32_t numFrames);
-	
+
+    void set_external_dependency(const std::string& name, VkSemaphore semaphore) {
+        for(auto& dependency : m_externalDependencies) {
+            if(dependency.name() == name) {
+                dependency.set_semaphore(semaphore);
+                return;
+            }
+        }
+
+        m_externalDependencies.emplace_back(name, semaphore);
+    }
+
 	VkSemaphore run(uint32_t chainImageIdx);
 
     std::vector<VkSemaphoreSubmitInfoKHR>
