@@ -235,9 +235,8 @@ main(int32_t argc, char** argv) {
      */
     RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1, swapchain.num_images());
 
-
-	auto scene = GltfSceneLoader().from_file(argv[1]);
-	auto sceneBuffer = new SceneBuffer(&gpu, &scene);
+	  auto scene = GltfSceneLoader().from_file(argv[1]);
+	  auto sceneBuffer = new SceneBuffer(&gpu, &scene);
 
     ImageCreateInfo imageInfo = {
             .extent = { 1024*4, 1024*4 },
@@ -689,7 +688,6 @@ main(int32_t argc, char** argv) {
 
    // GraphVizVisualizer graphVizVisualizer()
     //    .add_graph(rend);
-    //graphVizVisualizer.visualize_into(stdout);
 
 
     ShadowPassContext shadowPassCtx = {};
@@ -758,6 +756,7 @@ main(int32_t argc, char** argv) {
     shadowPass.set_depth_output("shadowmap", VK_FORMAT_D32_SFLOAT_S8_UINT);
 
     ImageChain shadowmapChain = ImageChain({shadowmapView});
+
 
     auto shadowsRenderGraph = RenderGraphBuilder("shadowmap", "shadowmap", 1, 1)
             .add_graphics_pass(&shadowPass)
