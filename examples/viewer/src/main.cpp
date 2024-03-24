@@ -233,7 +233,7 @@ main(int32_t argc, char** argv) {
      * Creates new frame graph.
      * Frame graph manages renderpass dependencies and synchronization.
      */
-    RenderGraphBuilder renderGraphBuilder("swapchain", 1, swapchain.num_images(), extent);
+    RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1, swapchain.num_images());
 
 
 	auto scene = GltfSceneLoader().from_file(argv[1]);
@@ -685,10 +685,10 @@ main(int32_t argc, char** argv) {
             .add_external_image("shadowmap", {
                     ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
             })
-            .build(&gpu, swapchainImageChain);
+            .build(&gpu, swapchainImageChain, extent);
 
-    GraphVizVisualizer graphVizVisualizer()
-        .add_graph(rend);
+   // GraphVizVisualizer graphVizVisualizer()
+    //    .add_graph(rend);
     //graphVizVisualizer.visualize_into(stdout);
 
 
@@ -759,9 +759,9 @@ main(int32_t argc, char** argv) {
 
     ImageChain shadowmapChain = ImageChain({shadowmapView});
 
-    auto shadowsRenderGraph = RenderGraphBuilder("shadowmap", 1, 1, {1024*4, 1024*4})
+    auto shadowsRenderGraph = RenderGraphBuilder("shadowmap", "shadowmap", 1, 1)
             .add_graphics_pass(&shadowPass)
-            .build(&gpu, shadowmapChain);
+            .build(&gpu, shadowmapChain, {1024*4, 1024*4});
 
 
 
