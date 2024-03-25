@@ -1,62 +1,71 @@
 #include <iostream>
 #include "GraphVizVisualizer.h"
 
-GraphVizVisualizer::GraphVizVisualizer(RenderGraphBuilder *pBuilder, RenderGraph *pGraph) :
-m_pBuilder(pBuilder), m_pGraph(pGraph) {
+GraphVizVisualizer::GraphVizVisualizer() {
 
 }
 
-void GraphVizVisualizer::visualize_command_buffer(FILE* pFile, RenderGraphVkCommandBuffer cmdbuf) {
-    static int commandBufferId = 0;
+void GraphVizVisualizer::visualize_render_pass(FILE *pFile, const GraphVizRenderPass &renderpass) {
+    fprintf(pFile, "\"%s\"[label=\"%s\"]\n",
+            renderpass.m_renderpass.pRenderPass->name().c_str(),
+            renderpass.m_renderpass.pRenderPass->name().c_str());
 
-    for(auto& dependency : cmdbuf.dependencies) {
-        visualize_command_buffer(pFile, *dependency);
+    for(auto& output : renderpass.m_renderpass.pRenderPass->outputs()) {
+        fprintf(pFile, "\"%s\"[shape=Mrecord]\n", output->name().c_str());
+        fprintf(pFile, "\"%s\" -> \"%s\"\n",
+                renderpass.m_renderpass.pRenderPass->name().c_str(),
+                output->name().c_str());
     }
 
-    fprintf(pFile, "subgraph commandBuffer_%i {\n", commandBufferId++);
-
-    for(uint32_t i = 0; i < cmdbuf.renderpasses.size(); i++) {
-        fprintf(pFile, "\"%p\"[label=<<table cellborder=\"0\" width=\"300\"><tr><td colspan=\"2\" width=\"300\">%s</td></tr><tr>", cmdbuf.renderpasses[i].pRenderPass, cmdbuf.renderpasses[i].pRenderPass->name().c_str());
-
-        auto renderpass = cmdbuf.renderpasses[i].pRenderPass;
-
-        fwrite("<td>", 4, 1, pFile);
-
-        if(renderpass->num_inputs() != 0) {
-            fwrite("<table cellspacing=\"0\" cellborder=\"0\">", sizeof("<table cellspacing=\"0\" cellborder=\"0\">"), 1, pFile);
-
-            for (uint32_t x = 0; x < renderpass->num_inputs(); x++) {
-                fprintf(pFile, "<tr><td port=\"i%i\">", x);
-                fwrite(renderpass->inputs()[x].c_str(), renderpass->inputs()[x].length(), 1, pFile);
-                fwrite("</td></tr>", sizeof("</td></tr>") - 1, 1, pFile);
-            }
-
-            fwrite("</table>", sizeof("</table>") - 1, 1, pFile);
-        }
-
-        fwrite("</td>", 5, 1, pFile);
-
-        fwrite("<td>", 4, 1, pFile);
-
-        if(renderpass->num_outputs() != 0) {
-            fwrite("<table cellspacing=\"0\" cellborder=\"0\">", sizeof("<table cellspacing=\"0\" cellborder=\"0\">"), 1, pFile);
-
-            for (uint32_t x = 0; x < renderpass->num_outputs(); x++) {
-                fprintf(pFile, "<tr><td port=\"o%i\">", x);
-                fwrite(renderpass->outputs()[x]->name().c_str(), renderpass->outputs()[x]->name().length(), 1, pFile);
-                fwrite("</td></tr>", sizeof("</td></tr>") - 1, 1, pFile);
-            }
-
-            fwrite("</table>", sizeof("</table>") - 1, 1, pFile);
-        }
-
-        fwrite("</td>", 5, 1, pFile);
-
-        fwrite("</tr></table>>]", sizeof("</tr></table>>]") - 1, 1, pFile);
-        fwrite("\n", 1, 1, pFile);
+    if(renderpass.m_renderpass.pRenderPass->depth_output().has_value()) {
+        auto depthOutput = renderpass.m_renderpass.pRenderPass->depth_output().value();
+        fprintf(pFile, "\"%s\"[shape=Mrecord]\n", depthOutput->name().c_str());
+        fprintf(pFile, "\"%s\" -> \"%s\"\n",
+                renderpass.m_renderpass.pRenderPass->name().c_str(),
+                depthOutput->name().c_str());
     }
 
-    fwrite("\n", 1, 1, pFile);
+    for(auto& input : renderpass.m_renderpass.pRenderPass->inputs()) {
+        fprintf(pFile, "\"%s\"[shape=Mrecord]\n", input.c_str());
+        fprintf(pFile, "\"%s\" -> \"%s\"\n",
+                input.c_str(),
+                renderpass.m_renderpass.pRenderPass->name().c_str());
+    }
+}
+
+void GraphVizVisualizer::visualize_command_buffer(FILE* pFile, const GraphVizCommandBuffer& cmdbuf) {
+    fprintf(pFile, "subgraph {\n");
+
+    for(auto& renderpass : cmdbuf.m_renderpasses) {
+        visualize_render_pass(pFile, renderpass);
+    }
+
+    for(auto& dependency : cmdbuf.m_dependencies) {
+        visualize_command_buffer(pFile, dependency);
+    }
+
+    fprintf(pFile, "}\n");
+}
+
+void GraphVizVisualizer::visualize_render_graph(FILE* pFile, const GraphVizRenderGraph& graph) {
+    fprintf(pFile, "subgraph %s {\n", graph.m_pGraph->name().c_str());
+
+    for(auto& cmdbuf : graph.m_cmdbufs) {
+        visualize_command_buffer(pFile, cmdbuf);
+    }
+
+    auto matrix = graph.m_pBuilder->build_adjacency_matrix();
+    matrix.transitive_reduction();
+
+    for(uint32_t x = 0; x < graph.m_pBuilder->renderpasses().size(); x++) {
+        for(uint32_t y = 0; y < graph.m_pBuilder->renderpasses().size(); y++) {
+            if(matrix.get(x, y)) {
+            fprintf(pFile, "\"%s\" -> \"%s\"\n",
+                    graph.m_pBuilder->renderpasses()[x].renderpass()->name().c_str(),
+                    graph.m_pBuilder->renderpasses()[y].renderpass()->name().c_str());
+            }
+        }
+    }
 
     fprintf(pFile, "}\n");
 }
@@ -65,46 +74,19 @@ GraphVizVisualizer& GraphVizVisualizer::visualize_into(FILE* pFile) {
     fprintf(pFile, "digraph G {\n");
     fprintf(pFile, "node[shape=rect]; rankdir=LR;\n");
 
-    for(auto& cmdbuf : m_pGraph->dependencies()) {
-        visualize_command_buffer(pFile, cmdbuf);
+    for(auto& graph : m_graphs) {
+        visualize_render_graph(pFile, graph);
     }
 
-    auto outputsTable = m_pBuilder->build_outputs_table();
-
-    for(auto& renderpass : m_pBuilder->renderpasses()) {
-        for(uint32_t x = 0; x < renderpass.renderpass()->num_inputs(); x++) {
-            auto dependency = outputsTable->find(renderpass.renderpass()->inputs()[x])->second;
-
-            uint32_t y = 0;
-            for(y = 0; y < dependency->num_outputs(); y++) {
-                if(dependency->outputs()[y]->name() == renderpass.renderpass()->inputs()[x]) {
-                    break;
-                }
-            }
-
-            fprintf(pFile, "\"%p\":<o%i> -> \"%p\":<i%i> [constraint=false, style=dotted]\n", dependency, y, renderpass.renderpass(), x);
-        }
-    }
-
-    auto adjacencyMatrix = m_pBuilder->build_adjacency_matrix();
-    adjacencyMatrix.transitive_reduction();
-
-
-    for(uint32_t x = 0; x < m_pBuilder->renderpasses().size(); x++) {
-        for(uint32_t y = 0; y < m_pBuilder->renderpasses().size(); y++) {
-            if(adjacencyMatrix.get(x, y)) {
-                fprintf(pFile, "\"%p\" -> \"%p\"\n",
-                        m_pBuilder->renderpasses()[x].renderpass(),
-                        m_pBuilder->renderpasses()[y].renderpass());
-            }
-        }
-
-        if(adjacencyMatrix.get(x, m_pBuilder->renderpasses().size())) {
-            fprintf(pFile, "\"%p\" -> swapchain\n", m_pBuilder->renderpasses()[x].renderpass());
-        }
-    }
-
-    fprintf(pFile, "}");
+    fprintf(pFile, "}\n");
 
     return *this;
 }
+
+GraphVizVisualizer &GraphVizVisualizer::add_graph(const RenderGraphBuilder *pBuilder, const RenderGraph *pGraph) {
+    m_graphs.push_back(GraphVizRenderGraph(pGraph, pBuilder));
+
+    return *this;
+}
+
+

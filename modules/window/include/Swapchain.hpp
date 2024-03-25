@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <vulkan/vulkan_core.h>
+#include <stdexcept>
 
 struct ImageResourceLayout;
 
@@ -56,7 +57,10 @@ public:
 	}
 
     void get_next_image_idx(VkSemaphore signalSemaphore, VkFence signalFence, uint32_t *pOutImageIdx) const {
-        vkAcquireNextImageKHR(m_pGpu->dev(), m_swapchain, UINT64_MAX, signalSemaphore, signalFence, pOutImageIdx);
+        if(vkAcquireNextImageKHR(m_pGpu->dev(), m_swapchain, UINT64_MAX,
+                                 signalSemaphore, signalFence, pOutImageIdx)) {
+            throw std::runtime_error("failed to acquire next image from swapchain");
+        }
     }
 
     void present(std::vector<VkSemaphore> waitSemaphores,
