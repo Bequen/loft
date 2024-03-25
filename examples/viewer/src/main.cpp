@@ -686,8 +686,7 @@ main(int32_t argc, char** argv) {
             })
             .build(&gpu, swapchainImageChain, extent);
 
-   // GraphVizVisualizer graphVizVisualizer()
-    //    .add_graph(rend);
+
 
 
     ShadowPassContext shadowPassCtx = {};
@@ -758,13 +757,13 @@ main(int32_t argc, char** argv) {
     ImageChain shadowmapChain = ImageChain({shadowmapView});
 
 
-    auto shadowsRenderGraph = RenderGraphBuilder("shadowmap", "shadowmap", 1, 1)
-            .add_graphics_pass(&shadowPass)
-            .build(&gpu, shadowmapChain, {1024*4, 1024*4});
+    auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1, 1)
+            .add_graphics_pass(&shadowPass);
+    auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
 
 
-
-
+    GraphVizVisualizer graphVizVisualizer = GraphVizVisualizer()
+            .add_graph(&shadowsRenderGraph, &shadowsRenderGraphBuilder);
 
     /* Prepare ImGui */
 
