@@ -96,6 +96,7 @@ public:
     VkExtent2D extent_for(RenderPass* pPass) const;
 
     GET(m_renderpasses, renderpasses);
+    GET(m_externalImageDependencies, external_dependencies);
 
     RenderGraphBuilder& set_num_frames(uint32_t value) {
         m_numFrames = value;

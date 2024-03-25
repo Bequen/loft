@@ -181,7 +181,7 @@ void main() {
 	float lightIntensity = 3.0f;
 	vec3 Lo = bsdf(normal, viewDir, lightDir, color, metallic, roughness);
 
-	vec3 ambient = vec3(0.2) * color;
+	vec3 ambient = vec3(0.3) * color;
 	vec3 prd = ambient + Lo * (occlusion) * lightIntensity;
 
 	outColor = vec4(prd, 1.0);

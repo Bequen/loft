@@ -436,6 +436,9 @@ main(int32_t argc, char** argv) {
            .add_color_output("bloom_threshold", VK_FORMAT_R32G32B32A32_SFLOAT)
            .add_input("col_gbuf")
            .add_input("norm_gbuf")
+           .add_input("pos_gbuf")
+           .add_input("pbr_gbuf")
+           .add_input("depth_gbuf")
            .add_input("shadowmap");
 
 
@@ -686,8 +689,7 @@ main(int32_t argc, char** argv) {
             })
             .build(&gpu, swapchainImageChain, extent);
 
-   // GraphVizVisualizer graphVizVisualizer()
-    //    .add_graph(rend);
+
 
 
     ShadowPassContext shadowPassCtx = {};
@@ -758,13 +760,15 @@ main(int32_t argc, char** argv) {
     ImageChain shadowmapChain = ImageChain({shadowmapView});
 
 
-    auto shadowsRenderGraph = RenderGraphBuilder("shadowmap", "shadowmap", 1, 1)
-            .add_graphics_pass(&shadowPass)
-            .build(&gpu, shadowmapChain, {1024*4, 1024*4});
+    auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1, 1)
+            .add_graphics_pass(&shadowPass);
+    auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
 
 
-
-
+    GraphVizVisualizer graphVizVisualizer = GraphVizVisualizer()
+            .add_graph(&renderGraphBuilder, &renderGraph)
+            .add_graph(&shadowsRenderGraphBuilder, &shadowsRenderGraph)
+            .visualize_into(stdout);
 
     /* Prepare ImGui */
 
@@ -783,6 +787,9 @@ main(int32_t argc, char** argv) {
 
     uint64_t elapsed = 0;
     uint64_t fps = 0;
+
+    auto shadowSignal = shadowsRenderGraph.run(0);
+    renderGraph.set_external_dependency("shadowmap", shadowSignal);
 
     while(isOpen) {
         uint32_t imageIdx = 0;
@@ -842,14 +849,14 @@ main(int32_t argc, char** argv) {
             }
         }
 
-        auto shadowSignal = shadowsRenderGraph.run(0);
-        renderGraph.set_external_dependency("shadowmap", shadowSignal);
         auto signal = renderGraph.run(imageIdx);
 
         camera.move(velocity);
         camera.update();
 
         swapchain.present({signal}, imageIdx);
+
+        renderGraph.set_external_dependency("shadowmap", VK_NULL_HANDLE);
     }
 
     return 0;
