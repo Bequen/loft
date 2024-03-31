@@ -1,6 +1,9 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
+#include <string>
+
+class Gpu;
 
 struct ImageView {
 	VkImageView view;
@@ -12,4 +15,6 @@ struct ImageView {
 	ImageView(VkImageView view) :
 	view(view) {
 	}
+
+    void set_debug_name(const Gpu *pGpu, const std::string& name) const;
 };

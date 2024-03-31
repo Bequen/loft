@@ -48,8 +48,7 @@ private:
     std::string m_name;
 
     VkExtent2D m_extent;
-    uint32_t m_numFrames;
-    uint32_t m_numChainImages;
+    uint32_t m_numImagesInFlight;
 
     std::string m_outputName;
 
@@ -64,7 +63,7 @@ private:
      * @param pSwapchainNode Root node.
      */
     std::vector<RenderGraphVkCommandBuffer>
-    build_swapchain_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache);
+    build_renderpasses(Gpu *pGpu, RenderGraphBuilderCache *pCache);
 
     /*
      * Prepares single node
@@ -89,34 +88,31 @@ private:
         throw std::runtime_error("Not implemented");
     }
 
-public:
-    GET(m_numFrames, num_frames);
+    void build_renderpass_dependencies(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+                                       RenderGraphVkCommandBuffer *pCmdBuf, uint32_t renderpassIdx,
+                                       int depth);
 
+    std::vector<uint32_t>
+    get_external_dependency_ids_for_renderpass(RenderGraphBuilderCache *pCache,
+                                               RenderGraphVkCommandBuffer *pCmdBuf,
+                                               uint32_t renderpassIdx);
+
+public:
     GET(m_extent, extent);
     VkExtent2D extent_for(RenderPass* pPass) const;
 
     GET(m_renderpasses, renderpasses);
     GET(m_externalImageDependencies, external_dependencies);
 
-    RenderGraphBuilder& set_num_frames(uint32_t value) {
-        m_numFrames = value;
-        return *this;
-    }
-
     /**
      * Creates new render graph builder
      * @param extent
      */
-    explicit RenderGraphBuilder(std::string name, std::string outputName,
-                                uint32_t numImageInFlight, uint32_t numOutputImages);
+    explicit RenderGraphBuilder(std::string name, std::string outputName, uint32_t numImageInFlight);
 
     RenderGraphBuilder& add_graphics_pass(RenderPass *pRenderPass) {
         m_renderpasses.emplace_back(RenderGraphNode(pRenderPass));
         m_numRenderpasses++;
-        return *this;
-    }
-
-    RenderGraphBuilder& add_compute_pass(RenderPass *pRenderPass) {
         return *this;
     }
 
@@ -127,8 +123,6 @@ public:
     }
 
     RenderGraph build(Gpu *pGpu, const ImageChain& outputChain, VkExtent2D extent);
-
-    std::map<std::string, RenderPass*>* build_outputs_table();
 
     const AdjacencyMatrix
     build_adjacency_matrix() const;

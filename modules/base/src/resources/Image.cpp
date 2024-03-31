@@ -1,6 +1,7 @@
 #include "resources/Image.hpp"
 
 #include "Gpu.hpp"
+#include "DebugUtils.h"
 
 ImageView 
 Image::create_view(Gpu *pGpu, VkFormat format,
@@ -23,4 +24,15 @@ Image::create_view(Gpu *pGpu, VkFormat format,
 	vkCreateImageView(pGpu->dev(), &viewInfo, nullptr, &result);
 
 	return {result};
+}
+
+void Image::set_debug_name(const Gpu *pGpu, const std::string& name) const {
+    VkDebugUtilsObjectNameInfoEXT nameInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+            .objectType                    = VK_OBJECT_TYPE_IMAGE,
+            .objectHandle                  = (uint64_t)img,
+            .pObjectName                   = name.c_str(),
+    };
+
+    vkSetDebugUtilsObjectName(pGpu->dev(), &nameInfo);
 }

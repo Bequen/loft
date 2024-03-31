@@ -38,6 +38,20 @@ public:
         return numDependencies;
     }
 
+    [[nodiscard]] std::vector<uint32_t> get_dependencies(uint32_t to) const {
+        uint32_t numDependencies = num_dependencies(to);
+        std::vector<uint32_t> dependencies(numDependencies);
+        uint32_t i = 0;
+
+        for(uint32_t x = 0; x < m_matrix.size() && i < numDependencies; x++) {
+            if(get(x, to)) {
+                dependencies[i++] = x;
+            }
+        }
+
+        return dependencies;
+    }
+
     void transitive_reduction();
 
     void print();

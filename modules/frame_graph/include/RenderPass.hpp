@@ -71,42 +71,52 @@ public:
         return *this;
     }
 
-	inline virtual const std::vector<ResourceLayout*>& outputs() const {
+	inline const std::vector<ResourceLayout*>& outputs() const {
 		return m_outputs;
 	}
 
-    inline virtual const std::optional<ImageResourceLayout*> depth_output() const {
+    inline const std::optional<ImageResourceLayout*> depth_output() const {
         if(m_pDepthOutput) {
             return m_pDepthOutput;
         }
         return {};
     }
 
-    inline const bool has_pass_dependency(const std::string& name) {
+    inline bool has_pass_dependency(const std::string& name) {
         return std::count(m_passDependencies.begin(), m_passDependencies.end(), name) > 0;
     }
 
-	inline virtual const uint32_t num_outputs() const {
+	inline uint32_t num_outputs() const {
 		return m_outputs.size();
 	}
 
-    inline virtual const uint32_t num_inputs() const {
+    inline uint32_t num_inputs() const {
         return m_inputs.size();
     }
 
-	inline virtual RenderPass& add_input(std::string name) {
+	inline RenderPass& add_input(const std::string& name) {
 		m_inputs.push_back(name);
 		return *this;
 	}
 
-    inline virtual const std::vector<std::string>& inputs() const {
+    inline const std::vector<std::string>& inputs() const {
 		return m_inputs; 
 	}
 
-	virtual std::optional<ResourceLayout*> output(const std::string& name) {
-		for(auto & m_output : m_outputs) {
-			if(m_output->name() == name) {
-				return m_output;
+    bool has_input(const std::string& name) {
+        for(auto & input : m_inputs) {
+            if(input == name) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    std::optional<ResourceLayout*> output(const std::string& name) {
+		for(auto & output : m_outputs) {
+			if(output->name() == name) {
+				return output;
 			}
 		}
 

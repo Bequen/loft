@@ -16,8 +16,6 @@
  * ImageTarget and BufferTarget should be used.
  */
 
-
-
 struct ResourceLayout {
 private:
 	std::string m_name;

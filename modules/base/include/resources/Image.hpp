@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include <vulkan/vulkan_core.h>
 
 #include "resources/GpuAllocation.h"
@@ -11,6 +13,7 @@ struct Image {
 	VkImage img;
 	GpuAllocation allocation;
 
+public:
     Image() : Image(VK_NULL_HANDLE, {}) {
 
     }
@@ -22,4 +25,6 @@ struct Image {
 
 	ImageView create_view(Gpu *pGpu, VkFormat format,
 						  VkImageSubresourceRange subresource);
+
+    void set_debug_name(const Gpu *pGpu, const std::string& name) const;
 };
