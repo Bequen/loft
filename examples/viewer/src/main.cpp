@@ -173,7 +173,7 @@ main(int32_t argc, char** argv) {
      * The program needs some glTF file to render
      */
     if(argc <= 1) {
-        fprintf(stderr, "Specify path to glTF file");
+        fprintf(stderr, "Specify path to glTF file\n");
         return 0;
     }
 
@@ -233,10 +233,10 @@ main(int32_t argc, char** argv) {
      * Creates new frame graph.
      * Frame graph manages renderpass dependencies and synchronization.
      */
-    RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1, swapchain.num_images());
+    RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1);
 
-	  auto scene = GltfSceneLoader().from_file(argv[1]);
-	  auto sceneBuffer = new SceneBuffer(&gpu, &scene);
+    auto scene = GltfSceneLoader().from_file(argv[1]);
+    auto sceneBuffer = new SceneBuffer(&gpu, &scene);
 
     ImageCreateInfo imageInfo = {
             .extent = { 1024*4, 1024*4 },
@@ -708,7 +708,6 @@ main(int32_t argc, char** argv) {
             }
 
             auto sceneInputSetLayout = ShaderInputSetLayoutBuilder(0)
-                    //.binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .build(info.gpu());
 
             pContext->sceneInputSets.resize(1);
@@ -760,7 +759,7 @@ main(int32_t argc, char** argv) {
     ImageChain shadowmapChain = ImageChain({shadowmapView});
 
 
-    auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1, 1)
+    auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1)
             .add_graphics_pass(&shadowPass);
     auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
 

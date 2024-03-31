@@ -221,9 +221,6 @@ private:
 
     std::vector<RenderGraphExternalDependency> m_externalDependencies;
 
-    void run_swapchain_node(const RenderGraphVkCommandBuffer *pNode,
-                            uint32_t bufferIdx, uint32_t chainImageIdx) const;
-
 	void run_tree(const RenderGraphVkCommandBuffer *pNode,
                   uint32_t bufferIdx, uint32_t chainImageIdx) const;
 
