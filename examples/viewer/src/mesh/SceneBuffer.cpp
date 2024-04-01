@@ -8,7 +8,7 @@
 
 
 SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
-        m_materialBuffer(pGpu, {1024, 1024}, pData) {
+        m_materialBuffer(pGpu, {2048, 2048}, pData) {
 
     MemoryAllocationInfo memoryAllocationInfo = {
             .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,
@@ -27,11 +27,9 @@ SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
 	pGpu->memory()->create_buffer(&vertexBufferInfo, &memoryAllocationInfo,
 								  &m_vertexBuffer);
 
-    printf("Vertex buffer start\n");
     auto bus = BufferBusWriter(pGpu, &m_vertexBuffer, vertexBufferInfo.size);
 	bus.write((void*)pData->vertices().data(), 0, vertexBufferInfo.size);
     bus.flush();
-    printf("Vertex buffer done\n");
 
 	/**
 	 * Create & upload index buffer
@@ -49,24 +47,7 @@ SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
 		.write((void*)pData->indices().data(), 0, indexBufferInfo.size);
     bus.flush();
     bus.wait();
-    printf("Index buffer done\n");
 
-
-
-	/**
-	 * Create & upload object info buffer (model matrices)
-	 */
-    /* BufferCreateInfo objectInfoBuffer = {
-            .size = pData->num_nodes() * sizeof(SceneNode),
-            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            .isExclusive = true,
-    };
-    pGpu->memory()->create_buffer(&objectInfoBuffer, &memoryAllocationInfo,
-								  &m_objectInfoBuffer);
-
-	bus.set_buffer(&m_objectInfoBuffer)
-		.write((void*)pData->nodes().data(), 0, objectInfoBuffer.size); */
- 
 	m_primitives = std::vector<Primitive>(pData->primitives().size());
 
     m_numTransparentPrimitives = 0;
@@ -80,19 +61,6 @@ SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
         } else {
             m_primitives[i - m_numTransparentPrimitives] = pData->primitives()[i];
         }
-    }
-}
-
-void SceneBuffer::draw_opaque(RenderContext *pContext) {
-    size_t offsets[] = {0};
-    vkCmdBindVertexBuffers(pContext->command_buffer(), 0, 1, &m_vertexBuffer.buf, offsets);
-    vkCmdBindIndexBuffer(pContext->command_buffer(), m_indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
-
-    for(uint32_t i = 0; i < m_primitives.size() - m_numTransparentPrimitives; i++) {
-        const auto pPrimitive = &m_primitives[i];
-        uint32_t values[2] = {0, pPrimitive->materialIdx};
-        vkCmdPushConstants(pContext->command_buffer(), pContext->layout()->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t) * 2, values);
-        vkCmdDrawIndexed(pContext->command_buffer(), pPrimitive->count, 1, pPrimitive->offset, pPrimitive->baseVertex, 0);
     }
 }
 
@@ -118,31 +86,4 @@ void SceneBuffer::draw_depth(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {
         const auto pPrimitive = &m_primitives[i];
         vkCmdDrawIndexed(cmdbuf, pPrimitive->count, 1, pPrimitive->offset, pPrimitive->baseVertex, 0);
     }
-}
-
-void SceneBuffer::draw_transparent(RenderContext *pContext) {
-    size_t offsets[] = {0};
-    vkCmdBindVertexBuffers(pContext->command_buffer(), 0, 1, &m_vertexBuffer.buf, offsets);
-    vkCmdBindIndexBuffer(pContext->command_buffer(), m_indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
-
-    for(uint32_t i = m_primitives.size() - m_numTransparentPrimitives; i < m_primitives.size(); i++) {
-        const auto pPrimitive = &m_primitives[i];
-        uint32_t values[2] = {0, pPrimitive->materialIdx};
-        vkCmdPushConstants(pContext->command_buffer(), pContext->layout()->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t) * 2, values);
-        vkCmdDrawIndexed(pContext->command_buffer(), pPrimitive->count, 1, pPrimitive->offset, pPrimitive->baseVertex, 0);
-    }
-}
-
-void SceneBuffer::draw(RenderContext *pContext) {
-    draw_opaque(pContext);
-    draw_transparent(pContext);
-}
-
-void SceneBuffer::set_writes(ShaderInputSetBuilder& builder) {
-    /* builder.set_write(0, std::make_shared<ShaderInputSetBufferWrite>(0, m_materialBuffer.material_buffer()));
-    builder.set_write(1, std::make_shared<ShaderInputSetBufferWrite>(1, m_objectInfoBuffer));
-
-    builder.set_write(2, std::make_shared<ShaderInputSetImageWrite>(2, m_materialBuffer.color_texture(), m_materialBuffer.sampler()));
-    builder.set_write(3, std::make_shared<ShaderInputSetImageWrite>(3, m_materialBuffer.normal_texture(), m_materialBuffer.sampler()));
-    builder.set_write(4, std::make_shared<ShaderInputSetImageWrite>(4, m_materialBuffer.pbr_texture(), m_materialBuffer.sampler())); */
 }

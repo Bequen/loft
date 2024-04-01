@@ -816,6 +816,12 @@ main(int32_t argc, char** argv) {
         ImGui::Text("FPS: %ld", fps);
         ImGui::End();
 
+        ImGui::ShowDemoWindow();
+
+        ImGui::Begin("Scene Outline");
+
+        ImGui::End();
+
 
         while(window->poll_event(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);

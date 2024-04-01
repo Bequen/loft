@@ -252,7 +252,9 @@ void Gpu::enqueue_present(VkPresentInfoKHR *pPresentInfo) const {
 }
 
 void Gpu::enqueue_graphics(VkSubmitInfo2 *pSubmitInfo, VkFence fence) const {
-    vkQueueSubmit2(m_graphicsQueue, 1, pSubmitInfo, fence);
+    if(vkQueueSubmit2(m_graphicsQueue, 1, pSubmitInfo, fence)) {
+        throw std::runtime_error("Failed to submit to graphics queue");
+    }
 }
 
 void Gpu::enqueue_transfer(VkSubmitInfo *pSubmitInfo, VkFence fence) const {
