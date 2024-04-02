@@ -172,6 +172,7 @@ void write_image(std::string path, ImageBusWriter *pWriter, uint32_t idx) {
 
 MaterialBuffer::MaterialBuffer(Gpu *pGpu, VkExtent2D textureLayerExtent, SceneData *pSceneData) :
     m_pGpu(pGpu) {
+
 	VkExtent2D extent = textureLayerExtent;
 	VkCommandBuffer cmdbuf = create_staging_command_buffer(pGpu);
     uint32_t mipLevels = std::floor(std::log2(std::max(extent.width, extent.height)));
