@@ -47,7 +47,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .initialLayout = layout,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                 .finalLayout = layout,
         };
 
@@ -319,6 +319,7 @@ int RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCa
     auto extent = extent_for(pPass->renderpass());
 
     pCmdBuf->add_render_pass({
+                                 pPass->renderpass()->name(),
                                  pPass->renderpass(),
                                  rp,
                                  extent,

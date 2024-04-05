@@ -11,6 +11,7 @@ private:
     std::vector<uint32_t> m_textures;
 
     Image m_image;
+    ImageView m_view;
 
     TextureHandle m_idx = 0;
 
@@ -43,8 +44,20 @@ public:
         return m_image;
     }
 
+    const ImageView& view() const {
+        return m_view;
+    }
+
     TextureStorage(Gpu *pGpu, VkExtent2D extent, VkFormat format, uint32_t arrayLayers, uint32_t mipLevels) :
-            m_pGpu(pGpu), m_image(create_image(pGpu, extent, format, arrayLayers, mipLevels)),
+            m_pGpu(pGpu),
+            m_image(create_image(pGpu, extent, format, arrayLayers, mipLevels)),
+            m_view(m_image.create_view(pGpu, format, VkImageSubresourceRange {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = mipLevels,
+                .baseArrayLayer = 0,
+                .layerCount = arrayLayers,
+            })),
             m_writer(pGpu, &m_image, extent, 4, 1) {
         assert(pGpu != nullptr);
         assert(format != 0);

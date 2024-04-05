@@ -54,14 +54,14 @@ SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
     uint32_t maxPrimitives = pData->primitives().size();
 
     /* sort transparent objects to the back */
-    for(int i = 0; i < pData->primitives().size(); i++) {
+    /* for(int i = 0; i < pData->primitives().size(); i++) {
         if(pData->materials()[pData->primitives()[i].materialIdx].is_blended()) {
             m_primitives[maxPrimitives - m_numTransparentPrimitives - 1] = pData->primitives()[i];
             m_numTransparentPrimitives++;
         } else {
             m_primitives[i - m_numTransparentPrimitives] = pData->primitives()[i];
         }
-    }
+    } */
 }
 
 void SceneBuffer::draw_opaque(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {
@@ -71,8 +71,8 @@ void SceneBuffer::draw_opaque(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {
 
     for(uint32_t i = 0; i < m_primitives.size() - m_numTransparentPrimitives; i++) {
         const auto pPrimitive = &m_primitives[i];
-        uint32_t values[2] = {0, pPrimitive->materialIdx};
-        vkCmdPushConstants(cmdbuf, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t) * 2, values);
+       // uint32_t values[2] = {0, pPrimitive->materialIdx};
+       // vkCmdPushConstants(cmdbuf, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t) * 2, values);
         vkCmdDrawIndexed(cmdbuf, pPrimitive->count, 1, pPrimitive->offset, pPrimitive->baseVertex, 0);
     }
 }

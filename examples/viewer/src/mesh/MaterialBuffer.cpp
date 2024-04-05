@@ -9,6 +9,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "resources/MipmapGenerator.h"
+#include "../scene/Material.h"
 
 unsigned char *load_image_data(std::string path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
     unsigned char *data = stbi_load(path.c_str(), pOutWidth, pOutHeight, pOutNumChannels, numChannels);
@@ -22,19 +23,6 @@ unsigned short *load_image_data_16(std::string path, int32_t *pOutWidth, int32_t
     return data;
 }
 
-VkCommandBuffer create_staging_command_buffer(Gpu *pGpu) {
-    VkCommandBufferAllocateInfo allocInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool = pGpu->graphics_command_pool(),
-            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = 1,
-    };
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(pGpu->dev(), &allocInfo, &commandBuffer);
-
-    return commandBuffer;
-}
 
 uint32_t count_color_textures(SceneData *pSceneData) {
     uint32_t count = 0;
@@ -174,7 +162,7 @@ MaterialBuffer::MaterialBuffer(Gpu *pGpu, VkExtent2D textureLayerExtent, SceneDa
     m_pGpu(pGpu) {
 
 	VkExtent2D extent = textureLayerExtent;
-	VkCommandBuffer cmdbuf = create_staging_command_buffer(pGpu);
+	VkCommandBuffer cmdbuf = VK_NULL_HANDLE; //create_staging_command_buffer(pGpu);
     uint32_t mipLevels = std::floor(std::log2(std::max(extent.width, extent.height)));
 
     uint32_t numColorTextures = count_color_textures(pSceneData);

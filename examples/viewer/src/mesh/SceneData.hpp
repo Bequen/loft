@@ -18,10 +18,10 @@ struct Mesh {
 };
 
 struct Primitive {
+    unsigned int objectIdx;
 	unsigned int offset;
 	unsigned int count;
 	unsigned int baseVertex;
-	unsigned int materialIdx;
 };
 
 struct TextureData {

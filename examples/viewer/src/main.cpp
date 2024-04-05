@@ -34,6 +34,7 @@
 #include "runtime/FrameLock.h"
 #include "RenderGraphScheduler.h"
 #include "GraphVizVisualizer.h"
+#include "scene/Scene.h"
 
 
 struct MeshInfo {
@@ -46,32 +47,9 @@ struct ShaderBucket {
   std::vector<DrawMeshInfo> meshes;
 };
 
-struct MeshPassContext {
-  std::vector<ShaderBucket> shaderBuckets;
-
-  std::vector<MeshInfo> meshInfo;
-  std::vector<DrawMeshInfo> meshes;
-
-  Pipeline pipeline;
-  Pipeline blendPipeline;
-
-  SceneBuffer *pBuffer;
-  VkDescriptorSet sceneSet;
-
-  /*
-   * Creates new mesh pass context with null pipeline.
-   * Pipeline must be set afterward manually
-   */
-  MeshPassContext() :
-	  pipeline(nullptr, nullptr), blendPipeline(nullptr, nullptr) {
-
-  }
-};
-
-
 struct ShadowPassContext {
   Pipeline pipeline;
-  SceneBuffer *pSceneBuffer;
+  Scene *pSceneBuffer;
 
   std::vector<VkDescriptorSet> inputSets;
   std::vector<VkDescriptorSet> sceneInputSets;
@@ -107,7 +85,7 @@ struct GeometryContext {
     std::vector<VkDescriptorSet> inputSets;
 
     Pipeline pipeline;
-    SceneBuffer *pSceneBuffer;
+    Scene *pSceneBuffer;
 
     VkDescriptorSet sceneInputSet;
     VkPipelineLayout layout;
@@ -235,8 +213,10 @@ main(int32_t argc, char** argv) {
      */
     RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1);
 
-    auto scene = GltfSceneLoader().from_file(argv[1]);
-    auto sceneBuffer = new SceneBuffer(&gpu, &scene);
+    auto sceneData = GltfSceneLoader().from_file(argv[1]);
+    Scene scene(&gpu);
+
+    scene.add_scene_data(&sceneData);
 
     ImageCreateInfo imageInfo = {
             .extent = { 1024*4, 1024*4 },
@@ -253,6 +233,7 @@ main(int32_t argc, char** argv) {
 
     Image shadowmap;
     gpu.memory()->create_image(&imageInfo, &memoryInfo, &shadowmap);
+    shadowmap.set_debug_name(&gpu, "Shadowmap");
 
     ImageView shadowmapView = shadowmap.create_view(&gpu, imageInfo.format, {
             .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -261,6 +242,7 @@ main(int32_t argc, char** argv) {
             .baseArrayLayer = 0,
             .layerCount = 1
     });
+    shadowmapView.set_debug_name(&gpu, "Shadowmap_view");
 
     /* Create lights for the scene */
     vec3 position = {0.0f, 250.0f, 50.0f};
@@ -309,7 +291,7 @@ main(int32_t argc, char** argv) {
             .build(&gpu, globalInputSetLayout);
 
     auto geometryContext = new GeometryContext();
-    geometryContext->pSceneBuffer = sceneBuffer;
+    geometryContext->pSceneBuffer = &scene;
 
     /*
      * Geometry Pass
@@ -328,22 +310,10 @@ main(int32_t argc, char** argv) {
                     .build(info.gpu(), perPassInputLayout);
             }
 
-            auto sceneInputSetLayout = ShaderInputSetLayoutBuilder(4)
-                    /* material buffer */
-                    .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                    /* color texture */
-                    .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                    /* normal texture */
-                    .binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                    /* pbr texture */
-                    .binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+            auto sceneInputSetLayout = Scene::input_layout()
                     .build(info.gpu());
 
-            pContext->sceneInputSet = ShaderInputSetBuilder(4)
-                    .buffer(0, pContext->pSceneBuffer->m_materialBuffer.m_materials, 0, pContext->pSceneBuffer->m_materialBuffer.material_buffer_size())
-                    .image(1, pContext->pSceneBuffer->m_materialBuffer.color_texture(), pContext->pSceneBuffer->m_materialBuffer.sampler())
-                    .image(2, pContext->pSceneBuffer->m_materialBuffer.normal_texture(), pContext->pSceneBuffer->m_materialBuffer.sampler())
-                    .image(3, pContext->pSceneBuffer->m_materialBuffer.pbr_texture(), pContext->pSceneBuffer->m_materialBuffer.sampler())
+            pContext->sceneInputSet = pContext->pSceneBuffer->input_set()
                     .build(info.gpu(), sceneInputSetLayout);
 
             pContext->layout = PipelineLayoutBuilder()
@@ -355,20 +325,20 @@ main(int32_t argc, char** argv) {
 
             pContext->pipeline = PipelineBuilder(info.gpu(), info.output().viewport(),
                                                   pContext->layout, info.output().renderpass(),
-                                                  4, vert, frag)
+                                                  <4>, vert, frag)
                     .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
                     .build()
                     .value();
         },
         [&](GeometryContext* pContext, RenderPassRecordInfo info) {
                 vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
-                vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                        0, 1, &globalInputSet, 0, nullptr);
+                // vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
+                //                        0, 1, &globalInputSet, 0, nullptr);
 
-                vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                        2, 1, &pContext->sceneInputSet, 0, nullptr);
+                // vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
+                //                        2, 1, &pContext->sceneInputSet, 0, nullptr);
 
-                pContext->pSceneBuffer->draw_opaque(info.command_buffer(), pContext->layout);
+                // pContext->pSceneBuffer->draw(info.command_buffer(), pContext->pipeline.pipeline_layout());
         });
     geometry.add_color_output("col_gbuf", VK_FORMAT_R8G8B8A8_UNORM, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("norm_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
@@ -388,25 +358,25 @@ main(int32_t argc, char** argv) {
     shadingContext->shadowmap = shadowmapView.view;
     auto shading = LambdaRenderPass<ShadingPassContext>("shading", shadingContext,
         [&](ShadingPassContext* pContext, RenderPassBuildInfo info) {
-            pContext->perPassInputSetLayout = ShaderInputSetLayoutBuilder(6)
+            pContext->perPassInputSetLayout = ShaderInputSetLayoutBuilder(5)
                     .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                    .binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                    // .binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .build(info.gpu());
 
             pContext->descriptorSets.resize(info.num_images_in_flights());
             /* create input set */
             for(uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                pContext->descriptorSets[i] = ShaderInputSetBuilder(6)
+                pContext->descriptorSets[i] = ShaderInputSetBuilder(5)
                         .buffer(0, lightBuffer, 0, sizeof(Light))
                         .image(1, info.get_image("col_gbuf", i)->view, info.sampler())
                         .image(2, info.get_image("norm_gbuf", i)->view, info.sampler())
                         .image(3, info.get_image("pos_gbuf", i)->view, info.sampler())
                         .image(4, info.get_image("pbr_gbuf", i)->view, info.sampler())
-                        .image(5, pContext->shadowmap, info.sampler())
+                        // .image(5, pContext->shadowmap, info.sampler())
                         .build(info.gpu(), pContext->perPassInputSetLayout);
             }
 
@@ -438,8 +408,7 @@ main(int32_t argc, char** argv) {
            .add_input("norm_gbuf")
            .add_input("pos_gbuf")
            .add_input("pbr_gbuf")
-           .add_input("depth_gbuf")
-           .add_input("shadowmap");
+           .add_input("depth_gbuf");
 
 
 
@@ -684,16 +653,16 @@ main(int32_t argc, char** argv) {
             .add_graphics_pass(&geometry)
             .add_graphics_pass(&shading)
             .add_graphics_pass(&imguiPass)
-            .add_external_image("shadowmap", {
-                    ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
-            })
+            //.add_external_image("shadowmap", {
+            //        ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
+            //})
             .build(&gpu, swapchainImageChain, extent);
 
 
 
 
     ShadowPassContext shadowPassCtx = {};
-    shadowPassCtx.pSceneBuffer = sceneBuffer;
+    shadowPassCtx.pSceneBuffer = &scene;
     auto shadowPass = LambdaRenderPass<ShadowPassContext>("shadow_pass", &shadowPassCtx,
         [&](ShadowPassContext* pContext, RenderPassBuildInfo info) {
             /* create layout */
@@ -751,7 +720,7 @@ main(int32_t argc, char** argv) {
             vkCmdPushConstants(info.command_buffer(),  pContext->pipeline.pipeline_layout(),
                                VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4) * 2, &data);
 
-            pContext->pSceneBuffer->draw_depth(info.command_buffer(), pContext->layout);
+            // pContext->pSceneBuffer->draw_depth(info.command_buffer(), pContext->layout);
         }
     );
     shadowPass.set_depth_output("shadowmap", VK_FORMAT_D32_SFLOAT_S8_UINT);
@@ -763,6 +732,10 @@ main(int32_t argc, char** argv) {
             .add_graphics_pass(&shadowPass);
     auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
 
+    uint32_t i = 0;
+    for(auto& image : swapchain.images()) {
+        image.set_debug_name(&gpu, std::string("swapchain_") + std::to_string(i));
+    }
 
     GraphVizVisualizer graphVizVisualizer = GraphVizVisualizer()
             .add_graph(&renderGraphBuilder, &renderGraph)
@@ -787,12 +760,18 @@ main(int32_t argc, char** argv) {
     uint64_t elapsed = 0;
     uint64_t fps = 0;
 
-    auto shadowSignal = shadowsRenderGraph.run(0);
-    renderGraph.set_external_dependency("shadowmap", shadowSignal);
+    //auto shadowSignal = shadowsRenderGraph.run(0);
+    //renderGraph.set_external_dependency("shadowmap", shadowSignal);
 
     while(isOpen) {
         uint32_t imageIdx = 0;
-        swapchain.get_next_image_idx(nullptr, imageIndexFence, &imageIdx);
+        auto result = swapchain.get_next_image_idx(nullptr, imageIndexFence, &imageIdx);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            throw std::runtime_error("failed to acquire swap chain image!");
+        } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            throw std::runtime_error("failed to acquire swap chain image!");
+        }
 
         vkWaitForFences(gpu.dev(), 1, &imageIndexFence, VK_TRUE, UINT64_MAX);
         vkResetFences(gpu.dev(), 1, &imageIndexFence);
@@ -861,7 +840,7 @@ main(int32_t argc, char** argv) {
 
         swapchain.present({signal}, imageIdx);
 
-        renderGraph.set_external_dependency("shadowmap", VK_NULL_HANDLE);
+        // renderGraph.set_external_dependency("shadowmap", VK_NULL_HANDLE);
     }
 
     return 0;

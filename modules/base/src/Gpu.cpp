@@ -248,7 +248,9 @@ Gpu::Gpu(Instance instance, VkSurfaceKHR supportedSurface) :
 }
 
 void Gpu::enqueue_present(VkPresentInfoKHR *pPresentInfo) const {
-    vkQueuePresentKHR(m_presentQueue, pPresentInfo);
+    if(vkQueuePresentKHR(m_presentQueue, pPresentInfo)) {
+        throw std::runtime_error("Failed to present");
+    }
 }
 
 void Gpu::enqueue_graphics(VkSubmitInfo2 *pSubmitInfo, VkFence fence) const {

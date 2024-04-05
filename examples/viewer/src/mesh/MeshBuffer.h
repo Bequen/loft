@@ -9,6 +9,22 @@ class MeshBuffer {
     Buffer m_indexBuffer;
 
 public:
+    inline const Buffer& vertex_buffer() const {
+        return m_vertexBuffer;
+    }
+
+    inline const Buffer& index_buffer() const {
+        return m_indexBuffer;
+    }
+
+
+
+    MeshBuffer(MeshBuffer&& meshBuffer)  noexcept :
+        m_vertexBuffer(std::move(meshBuffer.m_vertexBuffer)),
+        m_indexBuffer(std::move(meshBuffer.m_indexBuffer)) {
+
+    }
+
     MeshBuffer(const Gpu *pGpu,
                BufferBusWriter *pWriter,
                const std::vector<Vertex>& vertices,

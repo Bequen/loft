@@ -30,13 +30,15 @@ struct RenderGraphVkRenderPass {
 
     RenderPass *pRenderPass;
 
-    RenderGraphVkRenderPass(RenderPass *pRenderPass,
+    RenderGraphVkRenderPass(std::string name,
+                            RenderPass *pRenderPass,
                             VkRenderPass renderpass,
                             VkExtent2D extent,
                             const std::vector<VkClearValue>& clearValues,
                             const std::vector<Framebuffer>& framebuffers,
                             bool isGraphOutput) :
 
+                            name(std::move(name)),
                             renderpass(renderpass),
                             pRenderPass(pRenderPass),
                             extent(extent),
@@ -170,11 +172,15 @@ struct RenderGraphVkCommandBuffer {
                 .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
         };
 
-        vkBeginCommandBuffer(perImageCommandBuffer[imageIdx], &cmdBeginInfo);
+        if(vkBeginCommandBuffer(perImageCommandBuffer[imageIdx], &cmdBeginInfo)) {
+            throw std::runtime_error("Failed to begin command buffer");
+        }
     }
 
     void end(uint32_t imageIdx) {
-        vkEndCommandBuffer(perImageCommandBuffer[imageIdx]);
+        if(vkEndCommandBuffer(perImageCommandBuffer[imageIdx])) {
+            throw std::runtime_error("Failed to end command buffer");
+        }
     }
 };
 
