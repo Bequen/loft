@@ -43,8 +43,8 @@ BufferBusWriter::create_staging_command_buffer() {
 
 
 
-BufferBusWriter::BufferBusWriter(Gpu *pGpu, Buffer *pBuffer, size_t size) :
-m_pGpu(pGpu), m_pTarget(pBuffer), m_unflushedSize(0), m_busSize(size), m_numWrites(0) {
+BufferBusWriter::BufferBusWriter(Gpu *pGpu, size_t size) :
+m_pGpu(pGpu), m_unflushedSize(0), m_busSize(size), m_numWrites(0) {
 	create_staging_buffer(size);
 
 	create_staging_command_buffer();
@@ -61,7 +61,7 @@ m_pGpu(pGpu), m_pTarget(pBuffer), m_unflushedSize(0), m_busSize(size), m_numWrit
 
 
 
-void BufferBusWriter::write(void *pData, size_t offset, size_t size) {
+void BufferBusWriter::write(Buffer* pTarget, void *pData, size_t offset, size_t size) {
     char* pUploadData = (char*)pData;
 
     while(size > 0) {
@@ -80,7 +80,7 @@ void BufferBusWriter::write(void *pData, size_t offset, size_t size) {
         if(m_writes.size() <= m_numWrites) {
             m_writes.resize(m_numWrites * 2);
         }
-        m_writes[m_numWrites - 1] = write;
+        m_writes[m_numWrites - 1] = std::pair(pTarget, write);
         m_unflushedSize += uploadSize;
 
         offset += uploadSize;
@@ -88,6 +88,8 @@ void BufferBusWriter::write(void *pData, size_t offset, size_t size) {
 
         if(m_busSize - m_unflushedSize == 0) {
             flush();
+            // wait, because we are gonna overwrite the data
+            wait();
         }
     }
 }
@@ -102,9 +104,8 @@ void BufferBusWriter::flush() {
     }
 
     m_pGpu->memory()->flush(m_stagingBuffer.allocation, 0, m_unflushedSize);
-    // m_pGpu->memory()->unmap(m_stagingBuffer.allocation);
 
-	vkWaitForFences(m_pGpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
+	wait();
     vkResetFences(m_pGpu->dev(), 1, &m_fence);
 
 	VkCommandBufferBeginInfo beginInfo = {
@@ -114,8 +115,10 @@ void BufferBusWriter::flush() {
 
 	vkBeginCommandBuffer(m_stagingCommandBuffer, &beginInfo);
 
-	vkCmdCopyBuffer(m_stagingCommandBuffer, m_stagingBuffer.buf, m_pTarget->buf, 
-					m_numWrites, m_writes.data());
+    for(uint32_t i = 0; i < m_numWrites; i++) {
+        vkCmdCopyBuffer(m_stagingCommandBuffer, m_stagingBuffer.buf, m_writes[i].first->buf,
+                        1, &m_writes[i].second);
+    }
 
 	vkEndCommandBuffer(m_stagingCommandBuffer);
 
@@ -126,8 +129,6 @@ void BufferBusWriter::flush() {
 	};
 
 	m_pGpu->enqueue_transfer(&submitInfo, m_fence);
-    // m_pGpu->memory()->map(m_stagingBuffer.allocation, &m_pData);
-    // vkQueueWaitIdle(m_pGpu->transfer_queue());
 
     m_unflushedSize = 0;
 	m_numWrites = 0;
@@ -137,11 +138,12 @@ void BufferBusWriter::flush() {
 
 BufferBusWriter::~BufferBusWriter() {
     flush();
-    vkWaitForFences(m_pGpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
+    wait();
 
     m_pGpu->memory()->destroy_buffer(&m_stagingBuffer);
 }
 
 void BufferBusWriter::wait() {
     vkWaitForFences(m_pGpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
+    // vkDeviceWaitIdle(m_pGpu->dev());
 }

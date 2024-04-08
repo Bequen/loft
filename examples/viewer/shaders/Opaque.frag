@@ -42,8 +42,6 @@ layout(set = 2, binding = 3) uniform sampler2DArray pbrTextures;
 
 
 void main() {
-
-
 	Material material = materials.materials[PushConstants.materialIdx];
 	vec2 uv = inUV;
 
@@ -53,7 +51,7 @@ void main() {
 	vec2 pbr = texture(pbrTextures, vec3(uv, material.pbrTexture)).bg;
 
 	fragColor = vec4(mix(material.albedo.rgb, color, material.colorTextureBlend), 1.0);
-	fragNormal = vec4(mix(inNormal, normalize(inTBN * normalize(normal)), 1.0), 1.0);
+	fragNormal = vec4(mix(inNormal, normalize(inTBN * normalize(normal)), material.normalTextureBlend), 1.0);
 	fragPosition = vec4(inPos, 1.0);
 	fragPbr = vec4(mix(material.bsdf.xy, pbr, 1.0), 0.0, 1.0);
 }

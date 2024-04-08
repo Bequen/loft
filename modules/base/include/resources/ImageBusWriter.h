@@ -43,7 +43,7 @@ public:
 				   VkExtent2D extent, uint32_t formatSize,
 				   size_t maxWrites);
 
-	void write(VkBufferImageCopy region, void *pData);
+	void write(VkBufferImageCopy region, void *pData, size_t size);
 
     void set_target(Image *pTarget) {
         m_pTarget = pTarget;

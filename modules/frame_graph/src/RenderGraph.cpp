@@ -68,7 +68,7 @@ void RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, uint32_t ima
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
             .semaphore = signal,
             .value = 1,
-            .stageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT,
+            .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
             .deviceIndex = 0
     };
 

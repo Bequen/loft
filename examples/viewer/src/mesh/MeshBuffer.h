@@ -41,9 +41,7 @@ public:
         pGpu->memory()->create_buffer(&vertexBufferInfo, &memoryAllocationInfo,
                                       &m_vertexBuffer);
 
-        pWriter->set_buffer(&m_vertexBuffer);
-        pWriter->write((void*)vertices.data(), 0, vertexBufferInfo.size);
-
+        pWriter->write(&m_vertexBuffer, (void*)vertices.data(), 0, vertexBufferInfo.size);
 
         BufferCreateInfo indexBufferInfo = {
                 .size = indices.size() * sizeof(Index),
@@ -53,8 +51,8 @@ public:
         pGpu->memory()->create_buffer(&indexBufferInfo, &memoryAllocationInfo,
                                       &m_indexBuffer);
 
-        pWriter->set_buffer(&m_indexBuffer);
-        pWriter->write((void*)indices.data(), 0, indexBufferInfo.size);
+        pWriter->write(&m_indexBuffer, (void*)indices.data(), 0, indexBufferInfo.size);
+        pWriter->flush();
 
         pWriter->wait();
     }

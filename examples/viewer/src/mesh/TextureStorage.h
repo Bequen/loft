@@ -58,7 +58,8 @@ public:
                 .baseArrayLayer = 0,
                 .layerCount = arrayLayers,
             })),
-            m_writer(pGpu, &m_image, extent, 4, 1) {
+            m_writer(pGpu, &m_image, extent, 8, 1),
+            m_textures(arrayLayers, false) {
         assert(pGpu != nullptr);
         assert(format != 0);
         assert(extent.width > 0 && extent.height > 0);
@@ -69,7 +70,7 @@ public:
         return m_idx++;
     }
 
-    TextureHandle upload(char* pData, uint32_t width, uint32_t height) {
+    TextureHandle upload(unsigned char* pData, uint32_t width, uint32_t height, uint32_t perPixelSize) {
         TextureHandle handle = find_free_handle();
 
         VkBufferImageCopy region = {
@@ -88,7 +89,9 @@ public:
                 }
         };
 
-        m_writer.write(region, pData);
+        m_writer.write(region, pData, width * height * perPixelSize);
+
+        m_textures[handle] = true;
 
         return handle;
     }

@@ -6,22 +6,9 @@
 #include "resources/GpuAllocator.h"
 #include "resources/ImageBusWriter.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+
 #include "resources/MipmapGenerator.h"
 #include "../scene/Material.h"
-
-unsigned char *load_image_data(std::string path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
-    unsigned char *data = stbi_load(path.c_str(), pOutWidth, pOutHeight, pOutNumChannels, numChannels);
-
-    return data;
-}
-
-unsigned short *load_image_data_16(std::string path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
-    unsigned short *data = stbi_load_16(path.c_str(), pOutWidth, pOutHeight, pOutNumChannels, numChannels);
-
-    return data;
-}
 
 
 uint32_t count_color_textures(SceneData *pSceneData) {
@@ -136,7 +123,7 @@ void MaterialBuffer::create_sampler(float mipLevels) {
 void write_image(std::string path, ImageBusWriter *pWriter, uint32_t idx) {
 	/* Upload image data to buffer */
 	int32_t width, height, numChannels;
-	unsigned char* pImageData = load_image_data(path.c_str(), &width, &height, &numChannels, 4);
+	unsigned char* pImageData = nullptr;// load_image_data(path.c_str(), &width, &height, &numChannels, 4);
 
 	VkBufferImageCopy region = {
 		.bufferOffset = 0,
@@ -155,7 +142,7 @@ void write_image(std::string path, ImageBusWriter *pWriter, uint32_t idx) {
 		}
 	};
 
-	pWriter->write(region, pImageData);
+	// pWriter->write(region, pImageData);
 }
 
 MaterialBuffer::MaterialBuffer(Gpu *pGpu, VkExtent2D textureLayerExtent, SceneData *pSceneData) :
@@ -231,23 +218,23 @@ MaterialBuffer::MaterialBuffer(Gpu *pGpu, VkExtent2D textureLayerExtent, SceneDa
 
         if(materialData.normal_texture().has_value()) {
             /* Upload image data to buffer */
-            unsigned short* pImageData = load_image_data_16(pSceneData->textures()[materialData.normal_texture().value()].m_path, &width, &height, &numChannels, 4);
+            unsigned short* pImageData = nullptr; //load_image_data_16(pSceneData->textures()[materialData.normal_texture().value()].m_path, &width, &height, &numChannels, 4);
             region.imageExtent.width = width;
             region.imageExtent.height = height;
             region.imageSubresource.baseArrayLayer = normalTextureIdx;
 
-            normalImageWriter.write(region, pImageData);
+            // normalImageWriter.write(region, pImageData);
             normalTextureIdx++;
         }
 
         if(materialData.metallic_roughness_texture().has_value()) {
             /* Upload image data to buffer */
-            unsigned char* pImageData = load_image_data(pSceneData->textures()[materialData.metallic_roughness_texture().value()].m_path, &width, &height, &numChannels, 4);
+            unsigned char* pImageData = nullptr;// load_image_data(pSceneData->textures()[materialData.metallic_roughness_texture().value()].m_path, &width, &height, &numChannels, 4);
             region.imageExtent.width = width;
             region.imageExtent.height = height;
             region.imageSubresource.baseArrayLayer = pbrTextureIdx;
 
-            pbrImageWriter.write(region, pImageData);
+            // pbrImageWriter.write(region, pImageData);
 
             pbrTextureIdx++;
         }

@@ -4,6 +4,11 @@
 
 #include "Scene.h"
 
+#include <utility>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 void transfer_layout(Gpu *pGpu, const std::vector<Image>& images,
                      VkImageSubresourceRange range,
                      VkCommandBuffer stagingCommandBuffer,
@@ -69,15 +74,15 @@ VkCommandBuffer create_staging_command_buffer(Gpu *pGpu) {
 
 Scene::Scene(Gpu *pGpu) :
 m_pGpu(pGpu),
-m_colorTextures(pGpu, {2048, 2048}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
-m_normalTextures(pGpu, {2048, 2048}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
-m_pbrTextures(pGpu, {2048, 2048}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
+m_colorTextures(pGpu, {1024, 1024}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
+m_normalTextures(pGpu, {1024, 1024}, VK_FORMAT_R16G16B16A16_UNORM, 32, 8),
+m_pbrTextures(pGpu, {1024, 1024}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
 m_numMaterials(128),
 m_numTransforms(256),
 m_materialsBits(m_numMaterials, false),
 m_transformBits(m_numTransforms, false),
-m_bufferWriter(pGpu, nullptr, sizeof(Vertex) * 1024),
-m_textureWriter(pGpu, nullptr, {2048, 2048}, 4, 8) {
+m_bufferWriter(pGpu, sizeof(Vertex) * 1024 * 256),
+m_textureWriter(pGpu, nullptr, {1024, 1024}, 8, 8) {
 
     m_colorTextures.image().set_debug_name(pGpu, "color_texture_storage");
     m_colorTextures.view().set_debug_name(pGpu, "color_texture_storage_view");
@@ -108,6 +113,7 @@ m_textureWriter(pGpu, nullptr, {2048, 2048}, 4, 8) {
     m_transformBuffer.set_debug_name(m_pGpu, "transform_buffer");
 
     VkCommandBuffer cmdbuf = create_staging_command_buffer(pGpu);
+
     transfer_layout(pGpu,
                     {m_colorTextures.image(), m_normalTextures.image(), m_pbrTextures.image()},
                     (VkImageSubresourceRange) {
@@ -133,7 +139,7 @@ m_textureWriter(pGpu, nullptr, {2048, 2048}, 4, 8) {
             .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
             .mipLodBias = 0.0f,
             .minLod = 0.0f,
-            .maxLod = (float)8,
+            .maxLod = (float)0,
     };
 
     if(vkCreateSampler(pGpu->dev(), &samplerInfo, nullptr, &m_textureSampler)) {
@@ -141,16 +147,59 @@ m_textureWriter(pGpu, nullptr, {2048, 2048}, 4, 8) {
     }
 }
 
-uint32_t Scene::push_material(const MaterialData& materialData) {
+unsigned char *load_image_data(std::string path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
+    unsigned char *data = stbi_load(path.c_str(), pOutWidth, pOutHeight, pOutNumChannels, numChannels);
+
+    return data;
+}
+
+unsigned short *load_image_data_16(std::string path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
+    unsigned short *data = stbi_load_16(path.c_str(), pOutWidth, pOutHeight, pOutNumChannels, numChannels);
+
+    return data;
+}
+
+uint32_t Scene::push_material(const SceneData *pSceneData, const MaterialData& materialData) {
     auto found = std::ranges::find(m_materialsBits, false);
     auto distance = std::distance(m_materialsBits.begin(), found);
 
-    Material material;
+    Material material = {};
+    memcpy(material.albedo, materialData.albedo(), sizeof(vec4));
+    memcpy(material.bsdf, materialData.bsdf(), sizeof(vec4));
+
+    if(materialData.color_texture().has_value()) {
+        int32_t width, height, numChannels;
+        unsigned char* pImageData = load_image_data(pSceneData->textures()[materialData.color_texture().value()].m_path,
+                                                    &width, &height, &numChannels, 4);
+
+        material.colorTexture = m_colorTextures.upload(pImageData, width, height, 4);
+        material.colorTextureBlend = 1.0;
+    }
+
+    if(materialData.normal_texture().has_value()) {
+        int32_t width, height, numChannels;
+        unsigned short* pImageData = load_image_data_16(pSceneData->textures()[materialData.normal_texture().value()].m_path,
+                                                    &width, &height, &numChannels, 4);
+
+        material.normalTexture = m_normalTextures.upload((unsigned char*)pImageData, width, height, 8);
+        material.normalTextureBlend = 1.0;
+    }
+
+    if(materialData.metallic_roughness_texture().has_value()) {
+        int32_t width, height, numChannels;
+        unsigned char* pImageData = load_image_data(pSceneData->textures()[materialData.metallic_roughness_texture().value()].m_path,
+                                                        &width, &height, &numChannels, 4);
+
+        material.pbrTexture = m_pbrTextures.upload((unsigned char*)pImageData, width, height, 4);
+        material.pbrTextureBlend = 1.0;
+    }
 
     char *pData;
     m_pGpu->memory()->map(m_materialBuffer.allocation, (void**)&pData);
     memcpy(pData + sizeof(Material) * distance, &material, sizeof(Material));
     m_pGpu->memory()->unmap(m_materialBuffer.allocation);
+
+    m_materialsBits[distance] = true;
 
     return distance;
 }
@@ -159,7 +208,7 @@ std::vector<uint32_t> Scene::load_materials(const SceneData *pData) {
     std::vector<uint32_t> materials(pData->materials().size());
     uint32_t i = 0;
     for(auto& material : pData->materials()) {
-        materials[i++] = push_material(material);
+        materials[i++] = push_material(pData, material);
     }
 
     return materials;
@@ -185,7 +234,7 @@ void Scene::draw(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {
 
         for(auto& primitive : meshBuffer.primitives()) {
             uint32_t constants[2] = {0, primitive.objectIdx};
-            vkCmdPushConstants(cmdbuf, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), constants);
+            vkCmdPushConstants(cmdbuf, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t) * 2, constants);
             vkCmdDrawIndexed(cmdbuf, primitive.count, 1, primitive.offset, primitive.baseVertex, 0);
         }
     }

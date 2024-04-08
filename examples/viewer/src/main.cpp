@@ -325,22 +325,22 @@ main(int32_t argc, char** argv) {
 
             pContext->pipeline = PipelineBuilder(info.gpu(), info.output().viewport(),
                                                   pContext->layout, info.output().renderpass(),
-                                                  <4>, vert, frag)
+                                                  4, vert, frag)
                     .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
                     .build()
                     .value();
         },
         [&](GeometryContext* pContext, RenderPassRecordInfo info) {
                 vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
-                // vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                //                        0, 1, &globalInputSet, 0, nullptr);
+                vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
+                                        0, 1, &globalInputSet, 0, nullptr);
 
-                // vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                //                        2, 1, &pContext->sceneInputSet, 0, nullptr);
+                vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
+                                        2, 1, &pContext->sceneInputSet, 0, nullptr);
 
-                // pContext->pSceneBuffer->draw(info.command_buffer(), pContext->pipeline.pipeline_layout());
+                pContext->pSceneBuffer->draw(info.command_buffer(), pContext->pipeline.pipeline_layout());
         });
-    geometry.add_color_output("col_gbuf", VK_FORMAT_R8G8B8A8_UNORM, { 0.0f, 0.0f, 0.0f, 1.0f })
+    geometry.add_color_output("col_gbuf", VK_FORMAT_R8G8B8A8_SRGB, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("norm_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("pos_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("pbr_gbuf", VK_FORMAT_R8G8B8A8_UNORM, { 0.0f, 0.0f, 0.0f, 1.0f })
@@ -737,10 +737,10 @@ main(int32_t argc, char** argv) {
         image.set_debug_name(&gpu, std::string("swapchain_") + std::to_string(i));
     }
 
-    GraphVizVisualizer graphVizVisualizer = GraphVizVisualizer()
-            .add_graph(&renderGraphBuilder, &renderGraph)
-            .add_graph(&shadowsRenderGraphBuilder, &shadowsRenderGraph)
-            .visualize_into(stdout);
+    // GraphVizVisualizer graphVizVisualizer = GraphVizVisualizer()
+    //        .add_graph(&renderGraphBuilder, &renderGraph)
+    //        .add_graph(&shadowsRenderGraphBuilder, &shadowsRenderGraph)
+    //        .visualize_into(stdout);
 
     /* Prepare ImGui */
 

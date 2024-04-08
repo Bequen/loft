@@ -79,7 +79,7 @@ private:
 public:
     Scene(Gpu *pGpu);
 
-    uint32_t push_material(const MaterialData& material);
+    uint32_t push_material(const SceneData *pData, const MaterialData& material);
 
     void pop_material(uint32_t materialIdx);
 

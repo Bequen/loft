@@ -7,7 +7,6 @@
 class BufferBusWriter {
 private:
     Gpu *m_pGpu;
-    Buffer *m_pTarget;
 
     Buffer m_stagingBuffer;
     size_t m_busSize;
@@ -17,7 +16,7 @@ private:
     size_t m_unflushedSize;
 
 	uint32_t m_numWrites;
-	std::vector<VkBufferCopy> m_writes;
+	std::vector<std::pair<Buffer*, VkBufferCopy>> m_writes;
 
 	VkFence m_fence;
 
@@ -25,18 +24,10 @@ private:
 	int create_staging_buffer(size_t size);
 
 public:
-    BufferBusWriter(Gpu *pGpu, Buffer *pBuffer, size_t size);
+    BufferBusWriter(Gpu *pGpu, size_t size);
     ~BufferBusWriter();
 
-	inline BufferBusWriter& set_buffer(Buffer *pBuffer) {
-        flush();
-        wait();
-
-		m_pTarget = pBuffer;
-		return *this;
-	}
-
-    void write(void *pData, size_t offset, size_t size);
+    void write(Buffer* pTarget, void *pData, size_t offset, size_t size);
     void flush();
 
     void wait();

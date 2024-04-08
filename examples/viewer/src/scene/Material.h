@@ -12,4 +12,6 @@ struct Material {
 
     int pbrTexture;
     float pbrTextureBlend;
+
+    int padding[2];
 };

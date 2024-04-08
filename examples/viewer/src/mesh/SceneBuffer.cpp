@@ -27,9 +27,9 @@ SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
 	pGpu->memory()->create_buffer(&vertexBufferInfo, &memoryAllocationInfo,
 								  &m_vertexBuffer);
 
-    auto bus = BufferBusWriter(pGpu, &m_vertexBuffer, vertexBufferInfo.size);
-	bus.write((void*)pData->vertices().data(), 0, vertexBufferInfo.size);
-    bus.flush();
+    //auto bus = BufferBusWriter(pGpu, &m_vertexBuffer, vertexBufferInfo.size);
+	// bus.write((void*)pData->vertices().data(), 0, vertexBufferInfo.size);
+    //bus.flush();
 
 	/**
 	 * Create & upload index buffer
@@ -43,10 +43,10 @@ SceneBuffer::SceneBuffer(Gpu *pGpu, SceneData *pData) :
 								  &m_indexBuffer);
 
 
-	bus.set_buffer(&m_indexBuffer)
-		.write((void*)pData->indices().data(), 0, indexBufferInfo.size);
-    bus.flush();
-    bus.wait();
+	// bus.set_buffer(&m_indexBuffer)
+	//	.write((void*)pData->indices().data(), 0, indexBufferInfo.size);
+    // bus.flush();
+    // bus.wait();
 
 	m_primitives = std::vector<Primitive>(pData->primitives().size());
 
