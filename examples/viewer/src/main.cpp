@@ -213,10 +213,12 @@ main(int32_t argc, char** argv) {
      */
     RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1);
 
-    auto sceneData = GltfSceneLoader().from_file(argv[1]);
     Scene scene(&gpu);
+    for(uint32_t i = 1; i < argc; i++) {
+        auto sceneData = GltfSceneLoader().from_file(argv[i]);
+        scene.add_scene_data(&sceneData);
+    }
 
-    scene.add_scene_data(&sceneData);
 
     ImageCreateInfo imageInfo = {
             .extent = { 1024*4, 1024*4 },
@@ -730,7 +732,7 @@ main(int32_t argc, char** argv) {
 
     auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1)
             .add_graphics_pass(&shadowPass);
-    auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
+    // auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
 
     uint32_t i = 0;
     for(auto& image : swapchain.images()) {

@@ -43,7 +43,9 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
                 .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
                 .format = ((ImageResourceLayout*)output)->format(),
                 .samples = VK_SAMPLE_COUNT_1_BIT,
-                .loadOp = pPass->renderpass()->pass_dependencies().empty() ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD,
+                .loadOp = pPass->renderpass()->pass_dependencies().empty() ?
+                        VK_ATTACHMENT_LOAD_OP_CLEAR :
+                        VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -90,9 +92,9 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
             .pNext = nullptr,
             .srcStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
-            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            .srcAccessMask = 0,
             .dstStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-            .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR
+            .dstAccessMask = 0
     };
 
     VkMemoryBarrier2KHR exitBarrier = {

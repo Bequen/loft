@@ -74,9 +74,9 @@ VkCommandBuffer create_staging_command_buffer(Gpu *pGpu) {
 
 Scene::Scene(Gpu *pGpu) :
 m_pGpu(pGpu),
-m_colorTextures(pGpu, {1024, 1024}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
-m_normalTextures(pGpu, {1024, 1024}, VK_FORMAT_R16G16B16A16_UNORM, 32, 8),
-m_pbrTextures(pGpu, {1024, 1024}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
+m_colorTextures(pGpu, {2048, 2048}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
+m_normalTextures(pGpu, {2048, 2048}, VK_FORMAT_R16G16B16A16_UNORM, 32, 8),
+m_pbrTextures(pGpu, {2048, 2048}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
 m_numMaterials(128),
 m_numTransforms(256),
 m_materialsBits(m_numMaterials, false),
@@ -147,13 +147,13 @@ m_textureWriter(pGpu, nullptr, {1024, 1024}, 8, 8) {
     }
 }
 
-unsigned char *load_image_data(std::string path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
+unsigned char *load_image_data(const std::string& path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
     unsigned char *data = stbi_load(path.c_str(), pOutWidth, pOutHeight, pOutNumChannels, numChannels);
 
     return data;
 }
 
-unsigned short *load_image_data_16(std::string path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
+unsigned short *load_image_data_16(const std::string& path, int32_t *pOutWidth, int32_t *pOutHeight, int32_t *pOutNumChannels, int32_t numChannels) {
     unsigned short *data = stbi_load_16(path.c_str(), pOutWidth, pOutHeight, pOutNumChannels, numChannels);
 
     return data;

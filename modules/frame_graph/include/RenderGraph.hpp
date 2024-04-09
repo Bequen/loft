@@ -225,9 +225,11 @@ private:
 	/* Exact number of images in flight that this RenderGraph was built from */
 	const uint32_t m_numFrames;
 
+    std::vector<VkFence> m_frameFinished;
+
     std::vector<RenderGraphExternalDependency> m_externalDependencies;
 
-	void run_tree(const RenderGraphVkCommandBuffer *pNode,
+    VkCommandBufferSubmitInfo run_tree(const RenderGraphVkCommandBuffer *pNode,
                   uint32_t bufferIdx, uint32_t chainImageIdx) const;
 
 
