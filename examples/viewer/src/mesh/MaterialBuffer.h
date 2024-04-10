@@ -5,19 +5,7 @@
 #include "SceneData.hpp"
 
 
-struct Material {
-    vec4 albedo;
-    vec4 bsdf;
 
-    int32_t colorTexture;
-    float colorTextureBlend;
-
-    int32_t normalTexture;
-    float normalTextureBlend;
-
-    int32_t pbrTexture;
-    float pbrTextureBlend;
-};
 
 class MaterialBuffer {
 public:

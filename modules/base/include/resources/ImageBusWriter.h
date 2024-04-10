@@ -32,7 +32,7 @@ private:
 
 	VkFence m_fence;
 
-	int create_staging_buffer(VkExtent2D extent, uint32_t formatSize, uint32_t maxWrites);
+	int create_staging_buffer(size_t size);
 
 	int create_staging_command_buffer();
 
@@ -43,7 +43,11 @@ public:
 				   VkExtent2D extent, uint32_t formatSize,
 				   size_t maxWrites);
 
-	void write(VkBufferImageCopy region, void *pData);
+	void write(VkBufferImageCopy region, void *pData, size_t size);
+
+    void set_target(Image *pTarget) {
+        m_pTarget = pTarget;
+    }
 
 	void flush();
 };

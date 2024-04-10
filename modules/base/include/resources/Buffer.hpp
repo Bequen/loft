@@ -1,7 +1,10 @@
 #pragma once
 
+#include <string>
 #include <vulkan/vulkan_core.h>
 #include "GpuAllocation.h"
+
+class Gpu;
 
 /**
  * Buffer
@@ -25,6 +28,8 @@ struct Buffer {
     buf(a.buf), allocation(a.allocation) {
 
     }
+
+    void set_debug_name(const Gpu *pGpu, const std::string& name) const;
 
     /* disable copy */
     // void operator=(Buffer&) = delete;

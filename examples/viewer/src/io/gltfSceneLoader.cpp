@@ -135,7 +135,7 @@ const bool load_mesh_data(cgltf_data *pData, SceneData *pOutData) {
                     .offset = (uint32_t)(pOutData->num_indices() - pPrimitive->indices->count),
                     .count = (uint32_t)pPrimitive->indices->count,
                     .baseVertex = (uint32_t)(pOutData->num_vertices() - pPrimitive->attributes[0].data->count),
-                    .materialIdx = (uint32_t)cgltf_material_index(pData, pPrimitive->material),
+                    .objectIdx = (uint32_t)cgltf_material_index(pData, pPrimitive->material),
             };
             pOutData->set_primitive(primitiveIdx++, primitive);
 		}

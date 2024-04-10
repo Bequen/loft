@@ -56,11 +56,8 @@ public:
 		return &m_images[idx];
 	}
 
-    void get_next_image_idx(VkSemaphore signalSemaphore, VkFence signalFence, uint32_t *pOutImageIdx) const {
-        if(vkAcquireNextImageKHR(m_pGpu->dev(), m_swapchain, UINT64_MAX,
-                                 signalSemaphore, signalFence, pOutImageIdx)) {
-            throw std::runtime_error("failed to acquire next image from swapchain");
-        }
+    VkResult get_next_image_idx(VkSemaphore signalSemaphore, VkFence signalFence, uint32_t *pOutImageIdx) const {
+        return vkAcquireNextImageKHR(m_pGpu->dev(), m_swapchain, UINT64_MAX, signalSemaphore, signalFence, pOutImageIdx);
     }
 
     void present(std::vector<VkSemaphore> waitSemaphores,

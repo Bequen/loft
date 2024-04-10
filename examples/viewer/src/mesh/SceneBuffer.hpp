@@ -14,7 +14,7 @@
  * Drawable of entire scene. For example glTF scene.
  * Stores information about the GPU buffers only.
  */
-class SceneBuffer : Drawable  {
+class SceneBuffer {
 public:
 	Buffer m_vertexBuffer;
 	Buffer m_indexBuffer;
@@ -37,42 +37,6 @@ public:
      */
     SceneBuffer(Gpu *pGpu, SceneData *pData);
 
-	/**
-	 * Draws the scene by using RenderContext
-	 *
-	 * @param pContext rendering context to use. Cannot be null.
-	 */
-	void draw(RenderContext *pContext) override;
-
     void draw_opaque(VkCommandBuffer cmdbuf, VkPipelineLayout layout);
     void draw_depth(VkCommandBuffer cmdbuf, VkPipelineLayout layout);
-    void draw_opaque(RenderContext *pContext);
-    void draw_transparent(RenderContext *pContext);
-
-    void set_writes(ShaderInputSetBuilder &builder);
-
-	std::vector<VkDescriptorSetLayoutBinding> bindings() {
-		VkDescriptorSetLayoutBinding predefined = {
-			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_ALL
-		};
-		auto bindings = std::vector<VkDescriptorSetLayoutBinding>(5, predefined);
-
-		bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
-		bindings[1].binding = 1;
-		bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
-
-		bindings[2].binding = 2;
-		bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-
-		bindings[3].binding = 3;
-		bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-
-		bindings[4].binding = 4;
-		bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-
-		return bindings;
-	}
 };

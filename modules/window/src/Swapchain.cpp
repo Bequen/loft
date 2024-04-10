@@ -161,6 +161,8 @@ m_pGpu(pGpu), m_surface(surface) {
 	}
 	m_numFrames = m_numImages;
 
+    printf("Num images: %i\n", m_numFrames);
+
 	create_swapchain();
 
 	get_images(&m_numImages, NULL);

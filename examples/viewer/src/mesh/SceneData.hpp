@@ -18,10 +18,10 @@ struct Mesh {
 };
 
 struct Primitive {
+    unsigned int objectIdx;
 	unsigned int offset;
 	unsigned int count;
 	unsigned int baseVertex;
-	unsigned int materialIdx;
 };
 
 struct TextureData {
@@ -228,5 +228,9 @@ public:
 
     std::string get_absolute_path_of(std::string relativePath) {
         return m_dir + relativePath;
+    }
+
+    void remap_materials(std::vector<uint32_t> materialIds) {
+
     }
 };

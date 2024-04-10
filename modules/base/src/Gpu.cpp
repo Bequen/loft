@@ -248,11 +248,15 @@ Gpu::Gpu(Instance instance, VkSurfaceKHR supportedSurface) :
 }
 
 void Gpu::enqueue_present(VkPresentInfoKHR *pPresentInfo) const {
-    vkQueuePresentKHR(m_presentQueue, pPresentInfo);
+    if(vkQueuePresentKHR(m_presentQueue, pPresentInfo)) {
+        throw std::runtime_error("Failed to present");
+    }
 }
 
 void Gpu::enqueue_graphics(VkSubmitInfo2 *pSubmitInfo, VkFence fence) const {
-    vkQueueSubmit2(m_graphicsQueue, 1, pSubmitInfo, fence);
+    if(vkQueueSubmit2(m_graphicsQueue, 1, pSubmitInfo, fence)) {
+        throw std::runtime_error("Failed to submit to graphics queue");
+    }
 }
 
 void Gpu::enqueue_transfer(VkSubmitInfo *pSubmitInfo, VkFence fence) const {

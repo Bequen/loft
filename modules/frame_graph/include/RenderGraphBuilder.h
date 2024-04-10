@@ -111,7 +111,7 @@ public:
     explicit RenderGraphBuilder(std::string name, std::string outputName, uint32_t numImageInFlight);
 
     RenderGraphBuilder& add_graphics_pass(RenderPass *pRenderPass) {
-        m_renderpasses.emplace_back(RenderGraphNode(pRenderPass));
+        m_renderpasses.emplace_back(pRenderPass);
         m_numRenderpasses++;
         return *this;
     }
