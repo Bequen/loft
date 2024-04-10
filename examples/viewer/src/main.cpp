@@ -315,9 +315,6 @@ main(int32_t argc, char** argv) {
             auto sceneInputSetLayout = Scene::input_layout()
                     .build(info.gpu());
 
-            pContext->sceneInputSet = pContext->pSceneBuffer->input_set()
-                    .build(info.gpu(), sceneInputSetLayout);
-
             pContext->layout = PipelineLayoutBuilder()
                     .push_constant_range(0, sizeof(uint32_t) * 2, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
                     .input_set(0, globalInputSetLayout)
@@ -336,9 +333,6 @@ main(int32_t argc, char** argv) {
                 vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
                 vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
                                         0, 1, &globalInputSet, 0, nullptr);
-
-                vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                        2, 1, &pContext->sceneInputSet, 0, nullptr);
 
                 pContext->pSceneBuffer->draw(info.command_buffer(), pContext->pipeline.pipeline_layout());
         });

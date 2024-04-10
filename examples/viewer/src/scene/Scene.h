@@ -41,6 +41,12 @@ public:
             m_buffer(std::move(buffer)), m_primitives(std::move(primitives)) {
 
     }
+
+    void remap_materials(std::vector<uint32_t> materialIds) {
+        for(auto& primitive : m_primitives) {
+            primitive.objectIdx = materialIds[primitive.objectIdx];
+        }
+    }
 };
 
 class Scene {
@@ -67,12 +73,14 @@ private:
     TextureStorage m_normalTextures;
     TextureStorage m_pbrTextures;
 
+    ShaderInputSet m_textureInputSet;
+
     BufferBusWriter m_bufferWriter;
     ImageBusWriter m_textureWriter;
 
     VkSampler m_textureSampler;
 
-    VkDescriptorSet m_descriptorSet;
+    VkDescriptorSetLayout m_descriptorSetLayout;
 
     std::vector<uint32_t> load_materials(const SceneData* pData);
 
@@ -87,27 +95,11 @@ public:
 
     void draw(VkCommandBuffer cmdbuf, VkPipelineLayout layout);
 
-    ShaderInputSetBuilder input_set() {
-        return ShaderInputSetBuilder(4)
-                /* material buffer */
-                .buffer(0, m_materialBuffer, 0, m_numMaterials * sizeof(Material))
-                /* color texture storage */
-                .image(1, m_colorTextures.view(), m_textureSampler)
-                /* normal texture storage */
-                .image(2, m_normalTextures.view(), m_textureSampler)
-                /* pbr texture storage */
-                .image(3, m_pbrTextures.view(), m_textureSampler);
-    }
-
     static ShaderInputSetLayoutBuilder input_layout() {
-        return ShaderInputSetLayoutBuilder(4)
+        return ShaderInputSetLayoutBuilder(2)
                 /* material buffer */
                 .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                        /* color texture */
-                .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                        /* normal texture */
-                .binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                        /* pbr texture */
-                .binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+                /* color texture */
+                .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 128, VK_SHADER_STAGE_FRAGMENT_BIT);
     }
 };

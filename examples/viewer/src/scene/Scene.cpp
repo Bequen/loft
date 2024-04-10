@@ -72,26 +72,29 @@ VkCommandBuffer create_staging_command_buffer(Gpu *pGpu) {
     return commandBuffer;
 }
 
+VkDescriptorSetLayout create_layout(Gpu *pGpu) {
+    return ShaderInputSetLayoutBuilder(2)
+            /* material buffer */
+            .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                    /* color texture */
+            .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 128, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .build(pGpu);
+}
+
 Scene::Scene(Gpu *pGpu) :
 m_pGpu(pGpu),
-m_colorTextures(pGpu, {2048, 2048}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
-m_normalTextures(pGpu, {2048, 2048}, VK_FORMAT_R16G16B16A16_UNORM, 32, 8),
-m_pbrTextures(pGpu, {2048, 2048}, VK_FORMAT_R8G8B8A8_SRGB, 32, 8),
+m_colorTextures(pGpu, 32),
+m_normalTextures(pGpu, 32),
+m_pbrTextures(pGpu, 32),
 m_numMaterials(128),
 m_numTransforms(256),
 m_materialsBits(m_numMaterials, false),
 m_transformBits(m_numTransforms, false),
 m_bufferWriter(pGpu, sizeof(Vertex) * 1024 * 256),
-m_textureWriter(pGpu, nullptr, {1024, 1024}, 8, 8) {
-
-    m_colorTextures.image().set_debug_name(pGpu, "color_texture_storage");
-    m_colorTextures.view().set_debug_name(pGpu, "color_texture_storage_view");
-
-    m_normalTextures.image().set_debug_name(pGpu, "normal_texture_storage");
-    m_normalTextures.view().set_debug_name(pGpu, "normal_texture_storage_view");
-
-    m_pbrTextures.image().set_debug_name(pGpu, "pbr_texture_storage");
-    m_pbrTextures.view().set_debug_name(pGpu, "pbr_texture_storage_view");
+m_textureWriter(pGpu, nullptr, {1024, 1024}, 8, 8),
+m_descriptorSetLayout(create_layout(pGpu)),
+m_textureInputSet(VK_NULL_HANDLE) {
+    m_textureInputSet = ShaderInputSet(pGpu, m_descriptorSetLayout);
 
     MemoryAllocationInfo memoryAllocationInfo = {
             .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,
@@ -113,21 +116,6 @@ m_textureWriter(pGpu, nullptr, {1024, 1024}, 8, 8) {
     m_transformBuffer.set_debug_name(m_pGpu, "transform_buffer");
 
     VkCommandBuffer cmdbuf = create_staging_command_buffer(pGpu);
-
-    transfer_layout(pGpu,
-                    {m_colorTextures.image(), m_normalTextures.image(), m_pbrTextures.image()},
-                    (VkImageSubresourceRange) {
-                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                        .baseMipLevel = 0,
-                        .levelCount = 8,
-                        .baseArrayLayer = 0,
-                        .layerCount = 32,
-                    },
-                    cmdbuf,
-                    VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                    VK_PIPELINE_STAGE_TRANSFER_BIT);
 
     VkSamplerCreateInfo samplerInfo = {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -167,21 +155,34 @@ uint32_t Scene::push_material(const SceneData *pSceneData, const MaterialData& m
     memcpy(material.albedo, materialData.albedo(), sizeof(vec4));
     memcpy(material.bsdf, materialData.bsdf(), sizeof(vec4));
 
+    ShaderInputSetWriter writer(m_pGpu);
+
     if(materialData.color_texture().has_value()) {
         int32_t width, height, numChannels;
         unsigned char* pImageData = load_image_data(pSceneData->textures()[materialData.color_texture().value()].m_path,
                                                     &width, &height, &numChannels, 4);
 
-        material.colorTexture = m_colorTextures.upload(pImageData, width, height, 4);
+        material.colorTexture = m_colorTextures.upload((unsigned char*)pImageData,
+                                                       width, height, width * height * 4,
+                                                       VK_FORMAT_R8G8B8A8_SRGB);
         material.colorTextureBlend = 1.0;
+
+        writer.write_images(m_textureInputSet, 1, material.colorTexture, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            {
+                                    (VkDescriptorImageInfo){
+                                        .sampler = m_textureSampler,
+                                        .imageView = m_colorTextures.view(material.colorTexture).view,
+                                        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                    }
+                            });
     }
 
     if(materialData.normal_texture().has_value()) {
         int32_t width, height, numChannels;
-        unsigned short* pImageData = load_image_data_16(pSceneData->textures()[materialData.normal_texture().value()].m_path,
-                                                    &width, &height, &numChannels, 4);
+        /* unsigned short* pImageData = load_image_data_16(pSceneData->textures()[materialData.normal_texture().value()].m_path,
+                                                    &width, &height, &numChannels, 4); */
 
-        material.normalTexture = m_normalTextures.upload((unsigned char*)pImageData, width, height, 8);
+       //  material.normalTexture = m_normalTextures.upload((unsigned char*)pImageData, width, height, 8);
         material.normalTextureBlend = 1.0;
     }
 
@@ -190,7 +191,9 @@ uint32_t Scene::push_material(const SceneData *pSceneData, const MaterialData& m
         unsigned char* pImageData = load_image_data(pSceneData->textures()[materialData.metallic_roughness_texture().value()].m_path,
                                                         &width, &height, &numChannels, 4);
 
-        material.pbrTexture = m_pbrTextures.upload((unsigned char*)pImageData, width, height, 4);
+        material.pbrTexture = m_pbrTextures.upload((unsigned char*)pImageData,
+                                                   width, height, width * height * 4,
+                                                   VK_FORMAT_R8G8B8A8_SRGB);
         material.pbrTextureBlend = 1.0;
     }
 
@@ -200,6 +203,8 @@ uint32_t Scene::push_material(const SceneData *pSceneData, const MaterialData& m
     m_pGpu->memory()->unmap(m_materialBuffer.allocation);
 
     m_materialsBits[distance] = true;
+
+    writer.write();
 
     return distance;
 }
@@ -220,13 +225,28 @@ void Scene::pop_material(uint32_t materialIdx) {
 }
 
 void Scene::add_scene_data(const SceneData *pData) {
-    m_meshBuffers.emplace_back(MeshBuffer(m_pGpu, &m_bufferWriter, pData->vertices(), pData->indices()),
-                               pData->primitives());
-
     auto materialIds = load_materials(pData);
+
+    m_meshBuffers.emplace_back(MeshBuffer(m_pGpu, &m_bufferWriter, pData->vertices(), pData->indices()),
+                                         pData->primitives());
+
+    m_meshBuffers[m_meshBuffers.size() - 1].remap_materials(materialIds);
+
+    ShaderInputSetWriter writer(m_pGpu);
+    writer.write_buffer(m_textureInputSet, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {
+            (VkDescriptorBufferInfo){
+                .buffer = m_materialBuffer.buf,
+                .offset = 0,
+                .range = m_numMaterials * sizeof(Material)
+            }
+    }).write();
 }
 
 void Scene::draw(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {
+    auto descriptorSet = m_textureInputSet.descriptor_set();
+    vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout,
+                            2, 1, &descriptorSet, 0, nullptr);
+
     for(auto& meshBuffer : m_meshBuffers) {
         size_t offsets[] = {0};
         vkCmdBindVertexBuffers(cmdbuf, 0, 1, &meshBuffer.vertex_buffer().buf, offsets);

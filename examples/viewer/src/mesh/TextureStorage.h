@@ -9,9 +9,8 @@ class TextureStorage {
 private:
     Gpu *m_pGpu;
     std::vector<uint32_t> m_textures;
-
-    Image m_image;
-    ImageView m_view;
+    std::vector<Image> m_images;
+    std::vector<ImageView> m_views;
 
     TextureHandle m_idx = 0;
 
@@ -33,45 +32,51 @@ private:
                 .mipLevels = mipLevels
         };
 
-        pGpu->memory()->create_image(&imageInfo, &memoryAllocationInfo,
-                                     &m_image);
+        Image image;
 
-        return m_image;
+        pGpu->memory()->create_image(&imageInfo, &memoryAllocationInfo,
+                                     &image);
+
+        return image;
     }
 
 public:
-    [[nodiscard]] const Image& image() const {
-        return m_image;
+    [[nodiscard]] const Image& image(uint32_t idx) const {
+        return m_images[idx];
     }
 
-    const ImageView& view() const {
-        return m_view;
+    [[nodiscard]] const ImageView& view(uint32_t idx) const {
+        return m_views[idx];
     }
 
-    TextureStorage(Gpu *pGpu, VkExtent2D extent, VkFormat format, uint32_t arrayLayers, uint32_t mipLevels) :
+    TextureStorage(Gpu *pGpu, uint32_t numTextures) :
             m_pGpu(pGpu),
-            m_image(create_image(pGpu, extent, format, arrayLayers, mipLevels)),
-            m_view(m_image.create_view(pGpu, format, VkImageSubresourceRange {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = mipLevels,
-                .baseArrayLayer = 0,
-                .layerCount = arrayLayers,
-            })),
-            m_writer(pGpu, &m_image, extent, 8, 1),
-            m_textures(arrayLayers, false) {
+            m_images(numTextures),
+            m_views(numTextures),
+            m_textures(numTextures, false),
+            m_writer(pGpu, nullptr, {2048, 2048}, 8, 1)
+    {
         assert(pGpu != nullptr);
-        assert(format != 0);
-        assert(extent.width > 0 && extent.height > 0);
-        assert(arrayLayers > 1);
+        assert(numTextures > 0);
     }
 
-    TextureHandle find_free_handle() {
-        return m_idx++;
+    TextureHandle pop_handle() {
+        TextureHandle handle = m_idx;
+        m_textures[handle] = true;
+        m_idx++;
+
+        return handle;
     }
 
-    TextureHandle upload(unsigned char* pData, uint32_t width, uint32_t height, uint32_t perPixelSize) {
-        TextureHandle handle = find_free_handle();
+    /**
+     * Pushes new image into the storage and returns it's handle
+     * @param pData Data to be send
+     * @param width Width of the image
+     * @param height Height of the image
+     * @return Returns handle to the newly added image
+     */
+    TextureHandle upload(unsigned char* pData, uint32_t width, uint32_t height, size_t size, VkFormat format) {
+        TextureHandle handle = pop_handle();
 
         VkBufferImageCopy region = {
                 .bufferOffset = 0,
@@ -80,7 +85,7 @@ public:
                 .imageSubresource = {
                         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                         .mipLevel = 0,
-                        .baseArrayLayer = (uint32_t)handle,
+                        .baseArrayLayer = 0,
                         .layerCount = 1,
                 },
                 .imageOffset = { 0, 0, 0 },
@@ -89,9 +94,35 @@ public:
                 }
         };
 
-        m_writer.write(region, pData, width * height * perPixelSize);
+        ImageCreateInfo imageCreateInfo = {
+                .format = format,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT |
+                         VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .arrayLayers = 1,
+                .mipLevels = 1,
+                .extent = {
+                        width, height
+                }
+        };
 
-        m_textures[handle] = true;
+        MemoryAllocationInfo memoryInfo = {
+                .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE
+        };
+
+        m_pGpu->memory()->create_image(&imageCreateInfo, &memoryInfo, &m_images[handle]);
+        m_views[handle] = m_images[handle].create_view(m_pGpu, format, {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseArrayLayer = 0,
+            .baseMipLevel = 0,
+            .layerCount = 1,
+            .levelCount = 1
+        });
+
+        m_writer.set_target(&m_images[handle]);
+        m_writer.write(region, pData, size);
+        m_writer.flush();
 
         return handle;
     }

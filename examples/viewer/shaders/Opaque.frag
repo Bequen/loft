@@ -36,19 +36,19 @@ layout(set = 2, binding = 0) uniform Materials {
 	Material materials[128];
 } materials;
 
-layout(set = 2, binding = 1) uniform sampler2DArray colorTextures;
-layout(set = 2, binding = 2) uniform sampler2DArray normalTextures;
-layout(set = 2, binding = 3) uniform sampler2DArray pbrTextures;
+layout(set = 2, binding = 1) uniform sampler2D colorTextures[128];
+// layout(set = 2, binding = 2) uniform sampler2DArray normalTextures;
+// layout(set = 2, binding = 3) uniform sampler2DArray pbrTextures;
 
 
 void main() {
 	Material material = materials.materials[PushConstants.materialIdx];
 	vec2 uv = inUV;
 
-	vec3 color = texture(colorTextures, vec3(uv, material.colorTexture)).rgb;
-	vec3 normal = texture(normalTextures, vec3(uv, material.normalTexture)).rgb;
+	vec3 color = texture(colorTextures[material.colorTexture], uv).rgb;
+	vec3 normal = inNormal; // texture(normalTextures, vec3(uv, material.normalTexture)).rgb;
 	normal = normalize(normal * 2.0 - 1.0);
-	vec2 pbr = texture(pbrTextures, vec3(uv, material.pbrTexture)).bg;
+	vec2 pbr = vec2(0.0f); // texture(pbrTextures, vec3(uv, material.pbrTexture)).bg;
 
 	fragColor = vec4(mix(material.albedo.rgb, color, material.colorTextureBlend), 1.0);
 	fragNormal = vec4(mix(inNormal, normalize(inTBN * normalize(normal)), material.normalTextureBlend), 1.0);

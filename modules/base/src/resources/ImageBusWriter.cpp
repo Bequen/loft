@@ -3,10 +3,9 @@
 #include <string.h>
 #include <vulkan/vulkan_core.h>
 
-int ImageBusWriter::create_staging_buffer(VkExtent2D extent, uint32_t formatSize,
-										  uint32_t maxWrites) {
+int ImageBusWriter::create_staging_buffer(size_t size) {
 	BufferCreateInfo stagingBufferInfo = {
-		.size = m_imageSize * maxWrites,
+		.size = size,
 		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		.isExclusive = true
 	};
@@ -53,7 +52,7 @@ ImageBusWriter::ImageBusWriter(Gpu *pGpu, Image *pTarget,
 							   size_t maxWrites) :
 m_pGpu(pGpu), m_pTarget(pTarget), m_writes(maxWrites), m_numWrites(0),
 m_formatSize(formatSize), m_imageSize(extent.width * extent.height * formatSize) {
-	create_staging_buffer(extent, formatSize, maxWrites);
+	create_staging_buffer(extent.width * extent.height * formatSize);
 	create_staging_command_buffer();
 	create_fence();
 }
@@ -91,7 +90,7 @@ void ImageBusWriter::flush() {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .srcAccessMask = 0,
             .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,

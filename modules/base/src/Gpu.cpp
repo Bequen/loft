@@ -196,7 +196,7 @@ Result Gpu::choose_gpu(VkPhysicalDevice *pOut) {
 
     printf("num devices: %ld\n", devices.size());
 
-	VkPhysicalDevice chosen = devices[1];
+	VkPhysicalDevice chosen = devices[0];
 	*pOut = chosen;
 
 	return RESULT_OK;

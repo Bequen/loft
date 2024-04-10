@@ -14,39 +14,6 @@
 #include "resources/Image.hpp"
 #include "Gpu.hpp"
 
-/**
- * ShaderBinding
- *
- * Combines binding with storage name
- */
-struct ShaderBinding {
-private:
-    const uint32_t m_binding;
-    const std::string m_storageName;
-
-public:
-    [[nodiscard]] uint32_t binding() const { return m_binding; }
-    [[nodiscard]] const std::string& storage_name() const { return m_storageName; }
-
-    ShaderBinding(uint32_t binding, std::string storageName) :
-		m_binding(binding), m_storageName(std::move(storageName)) {
-
-    }
-};
-
-struct ShaderInputSet {
-private:
-    std::vector<ShaderBinding> m_bindings;
-
-public:
-    [[nodiscard]] const std::vector<ShaderBinding>& bindings() const { return m_bindings; }
-
-    ShaderInputSet(std::vector<ShaderBinding> bindings) :
-        m_bindings(std::move(bindings)){
-
-    }
-};
-
 
 /**
  * ShaderInputSetBufferWrite
@@ -214,5 +181,101 @@ public:
                                0, nullptr);
 
         return set;
+    }
+};
+
+struct ShaderInputSet {
+private:
+    VkDescriptorSet m_descriptorSet;
+
+public:
+    inline const VkDescriptorSet descriptor_set() const {
+        return m_descriptorSet;
+    }
+
+    ShaderInputSet(VkDescriptorSet descriptorSet) :
+        m_descriptorSet(descriptorSet) {
+
+    }
+
+    ShaderInputSet(Gpu *pGpu, VkDescriptorSetLayout layout) :
+        m_descriptorSet(VK_NULL_HANDLE) {
+
+        VkDescriptorSetAllocateInfo descriptorInfo = {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                .descriptorPool = pGpu->descriptor_pool(),
+                .descriptorSetCount = 1,
+                .pSetLayouts = &layout
+        };
+
+        if(vkAllocateDescriptorSets(pGpu->dev(), &descriptorInfo, &m_descriptorSet)) {
+            throw std::runtime_error("Failed to allocate descriptor set");
+        }
+    }
+};
+
+enum ShaderInputWriteType {
+
+};
+
+class ShaderInputSetWriter {
+private:
+    const Gpu *m_pGpu;
+    std::vector<VkWriteDescriptorSet> m_writes;
+
+    std::vector<std::vector<VkDescriptorImageInfo>> m_imageWrites;
+    std::vector<std::vector<VkDescriptorBufferInfo>> m_bufferWrites;
+
+public:
+    explicit ShaderInputSetWriter(const Gpu *pGpu) :
+        m_pGpu(pGpu) {
+
+    }
+
+    ShaderInputSetWriter& write_images(const ShaderInputSet& dstInputSet,
+                                       const uint32_t dstBinding,
+                                       const uint32_t dstArrayElement,
+                                       const VkDescriptorType type,
+                                       const std::vector<VkDescriptorImageInfo>& writes) {
+        /* copy write data, to not lose it */
+        m_imageWrites.push_back(writes);
+
+        m_writes.push_back((VkWriteDescriptorSet){
+               .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+               .dstSet = dstInputSet.descriptor_set(),
+               .dstBinding = dstBinding,
+               .dstArrayElement = dstArrayElement,
+               .descriptorCount = (uint32_t)writes.size(),
+               .descriptorType = type,
+               .pImageInfo = m_imageWrites[m_imageWrites.size() - 1].data()
+        });
+
+        return *this;
+    }
+
+    ShaderInputSetWriter& write_buffer(const ShaderInputSet& dstInputSet,
+                                       const uint32_t dstBinding,
+                                       const uint32_t dstArrayElement,
+                                       const VkDescriptorType type,
+                                       const std::vector<VkDescriptorBufferInfo>& writes) {
+        /* copy write data, to not lose it */
+        m_bufferWrites.push_back(writes);
+
+        m_writes.push_back((VkWriteDescriptorSet){
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = dstInputSet.descriptor_set(),
+                .dstBinding = dstBinding,
+                .dstArrayElement = dstArrayElement,
+                .descriptorCount = (uint32_t)writes.size(),
+                .descriptorType = type,
+                .pBufferInfo = m_bufferWrites[m_bufferWrites.size() - 1].data()
+        });
+
+        return *this;
+    }
+
+    ShaderInputSetWriter& write() {
+        vkUpdateDescriptorSets(m_pGpu->dev(), m_writes.size(), m_writes.data(), 0, nullptr);
+        return *this;
     }
 };
