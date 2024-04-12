@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <vulkan/vulkan_core.h>
+#include <cmath>
 
 int ImageBusWriter::create_staging_buffer(size_t size) {
 	BufferCreateInfo stagingBufferInfo = {
@@ -104,7 +105,7 @@ void ImageBusWriter::flush() {
         barriers[i++].subresourceRange = {
                 .aspectMask = write.imageSubresource.aspectMask,
                 .baseMipLevel = write.imageSubresource.mipLevel,
-                .levelCount = 1,
+                .levelCount = VK_REMAINING_MIP_LEVELS,
                 .baseArrayLayer = write.imageSubresource.baseArrayLayer,
                 .layerCount = write.imageSubresource.layerCount,
         };
@@ -129,9 +130,9 @@ void ImageBusWriter::flush() {
 
     for(auto& barrier : barriers) {
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = 0;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
     vkCmdPipelineBarrier(m_stagingCommandBuffer,

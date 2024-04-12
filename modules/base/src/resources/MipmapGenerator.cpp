@@ -49,21 +49,29 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
             .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
             .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
             .oldLayout = oldLayout,
-            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = image.img,
             .subresourceRange = {
                     .aspectMask = range.aspectMask,
                     .baseMipLevel = 0,
-                    .levelCount = 1,
+                    .levelCount = VK_REMAINING_MIP_LEVELS,
                     .baseArrayLayer = 0,
                     .layerCount = range.layerCount,
             },
     };
 
+    vkCmdPipelineBarrier(m_commandBuffer,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                         0, nullptr,
+                         0, nullptr,
+                         1, &barrier);
+
+    barrier.subresourceRange.levelCount = 1;
+
     int32_t width = extent.width;
-    auto layout = oldLayout;
+    auto layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     for (uint32_t i = 1; i < range.levelCount; i++) {
         std::vector<VkImageMemoryBarrier> barriers(2, barrier);
         barriers[0].oldLayout = layout;
@@ -120,6 +128,7 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
                              1, barriers.data());
 
         width /= 2;
+        // layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     }
 
     vkEndCommandBuffer(m_commandBuffer);

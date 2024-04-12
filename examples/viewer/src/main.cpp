@@ -247,7 +247,7 @@ main(int32_t argc, char** argv) {
     shadowmapView.set_debug_name(&gpu, "Shadowmap_view");
 
     /* Create lights for the scene */
-    vec3 position = {0.0f, 250.0f, 50.0f};
+    vec3 position = {20.0f, 250.0f, 50.0f};
     vec3 direction = {0.0f, 0.0f, 0.0f};
     vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
     std::vector<Light> lights = {
@@ -354,25 +354,25 @@ main(int32_t argc, char** argv) {
     shadingContext->shadowmap = shadowmapView.view;
     auto shading = LambdaRenderPass<ShadingPassContext>("shading", shadingContext,
         [&](ShadingPassContext* pContext, RenderPassBuildInfo info) {
-            pContext->perPassInputSetLayout = ShaderInputSetLayoutBuilder(5)
+            pContext->perPassInputSetLayout = ShaderInputSetLayoutBuilder(6)
                     .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                    // .binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                    .binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .build(info.gpu());
 
             pContext->descriptorSets.resize(info.num_images_in_flights());
             /* create input set */
             for(uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                pContext->descriptorSets[i] = ShaderInputSetBuilder(5)
+                pContext->descriptorSets[i] = ShaderInputSetBuilder(6)
                         .buffer(0, lightBuffer, 0, sizeof(Light))
                         .image(1, info.get_image("col_gbuf", i)->view, info.sampler())
                         .image(2, info.get_image("norm_gbuf", i)->view, info.sampler())
                         .image(3, info.get_image("pos_gbuf", i)->view, info.sampler())
                         .image(4, info.get_image("pbr_gbuf", i)->view, info.sampler())
-                        // .image(5, pContext->shadowmap, info.sampler())
+                        .image(5, pContext->shadowmap, info.sampler())
                         .build(info.gpu(), pContext->perPassInputSetLayout);
             }
 
@@ -649,9 +649,9 @@ main(int32_t argc, char** argv) {
             .add_graphics_pass(&geometry)
             .add_graphics_pass(&shading)
             .add_graphics_pass(&imguiPass)
-            //.add_external_image("shadowmap", {
-            //        ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
-            //})
+            .add_external_image("shadowmap", {
+                   ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
+            })
             .build(&gpu, swapchainImageChain, extent);
 
 
@@ -709,14 +709,8 @@ main(int32_t argc, char** argv) {
                 mat4 proj;
             } data;
             glm_mat4_copy(lights[0].view, data.view);
-            glm_mat4_identity(data.proj);
 
-            glm_ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.1, 10.0f, data.proj);
-
-            vkCmdPushConstants(info.command_buffer(),  pContext->pipeline.pipeline_layout(),
-                               VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4) * 2, &data);
-
-            // pContext->pSceneBuffer->draw_depth(info.command_buffer(), pContext->layout);
+            pContext->pSceneBuffer->draw_depth(info.command_buffer(), pContext->layout, data.view);
         }
     );
     shadowPass.set_depth_output("shadowmap", VK_FORMAT_D32_SFLOAT_S8_UINT);
@@ -726,7 +720,7 @@ main(int32_t argc, char** argv) {
 
     auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1)
             .add_graphics_pass(&shadowPass);
-    // auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
+    auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
 
     uint32_t i = 0;
     for(auto& image : swapchain.images()) {
@@ -756,8 +750,8 @@ main(int32_t argc, char** argv) {
     uint64_t elapsed = 0;
     uint64_t fps = 0;
 
-    //auto shadowSignal = shadowsRenderGraph.run(0);
-    //renderGraph.set_external_dependency("shadowmap", shadowSignal);
+    auto shadowSignal = shadowsRenderGraph.run(0);
+    renderGraph.set_external_dependency("shadowmap", shadowSignal);
 
     while(isOpen) {
         uint32_t imageIdx = 0;
@@ -836,7 +830,7 @@ main(int32_t argc, char** argv) {
 
         swapchain.present({signal}, imageIdx);
 
-        // renderGraph.set_external_dependency("shadowmap", VK_NULL_HANDLE);
+        renderGraph.set_external_dependency("shadowmap", VK_NULL_HANDLE);
     }
 
     return 0;

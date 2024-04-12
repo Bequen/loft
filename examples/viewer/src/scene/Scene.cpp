@@ -83,9 +83,9 @@ VkDescriptorSetLayout create_layout(Gpu *pGpu) {
 
 Scene::Scene(Gpu *pGpu) :
 m_pGpu(pGpu),
-m_colorTextures(pGpu, 32),
-m_normalTextures(pGpu, 32),
-m_pbrTextures(pGpu, 32),
+m_colorTextures(pGpu, 128),
+m_normalTextures(pGpu, 64),
+m_pbrTextures(pGpu, 64),
 m_numMaterials(128),
 m_numTransforms(256),
 m_materialsBits(m_numMaterials, false),
@@ -115,8 +115,6 @@ m_textureInputSet(VK_NULL_HANDLE) {
                                   &m_transformBuffer);
     m_transformBuffer.set_debug_name(m_pGpu, "transform_buffer");
 
-    VkCommandBuffer cmdbuf = create_staging_command_buffer(pGpu);
-
     VkSamplerCreateInfo samplerInfo = {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = VK_FILTER_LINEAR,
@@ -127,7 +125,7 @@ m_textureInputSet(VK_NULL_HANDLE) {
             .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
             .mipLodBias = 0.0f,
             .minLod = 0.0f,
-            .maxLod = (float)0,
+            .maxLod = (float)std::floor(std::log2(1024)) + 1,
     };
 
     if(vkCreateSampler(pGpu->dev(), &samplerInfo, nullptr, &m_textureSampler)) {
@@ -179,10 +177,21 @@ uint32_t Scene::push_material(const SceneData *pSceneData, const MaterialData& m
 
     if(materialData.normal_texture().has_value()) {
         int32_t width, height, numChannels;
-        /* unsigned short* pImageData = load_image_data_16(pSceneData->textures()[materialData.normal_texture().value()].m_path,
-                                                    &width, &height, &numChannels, 4); */
+        unsigned short* pImageData = load_image_data_16(pSceneData->textures()[materialData.normal_texture().value()].m_path,
+                                                    &width, &height, &numChannels, 4);
 
-       //  material.normalTexture = m_normalTextures.upload((unsigned char*)pImageData, width, height, 8);
+        material.normalTexture = m_colorTextures.upload((unsigned char*)pImageData,
+                                                        width, height, width * height * 8,
+                                                        VK_FORMAT_R16G16B16A16_UNORM);
+
+        writer.write_images(m_textureInputSet, 1, material.normalTexture, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            {
+                                    (VkDescriptorImageInfo){
+                                            .sampler = m_textureSampler,
+                                            .imageView = m_colorTextures.view(material.normalTexture).view,
+                                            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                    }
+                            });
         material.normalTextureBlend = 1.0;
     }
 
@@ -191,9 +200,21 @@ uint32_t Scene::push_material(const SceneData *pSceneData, const MaterialData& m
         unsigned char* pImageData = load_image_data(pSceneData->textures()[materialData.metallic_roughness_texture().value()].m_path,
                                                         &width, &height, &numChannels, 4);
 
-        material.pbrTexture = m_pbrTextures.upload((unsigned char*)pImageData,
-                                                   width, height, width * height * 4,
-                                                   VK_FORMAT_R8G8B8A8_SRGB);
+        material.pbrTexture = m_colorTextures.upload((unsigned char*)pImageData,
+                                                     width, height, width * height * 4,
+                                                     VK_FORMAT_R8G8B8A8_UNORM);
+
+
+
+
+        writer.write_images(m_textureInputSet, 1, material.pbrTexture, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            {
+                                    (VkDescriptorImageInfo){
+                                            .sampler = m_textureSampler,
+                                            .imageView = m_colorTextures.view(material.pbrTexture).view,
+                                            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                    }
+                            });
         material.pbrTextureBlend = 1.0;
     }
 
@@ -260,3 +281,15 @@ void Scene::draw(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {
     }
 }
 
+void Scene::draw_depth(VkCommandBuffer cmdbuf, VkPipelineLayout layout, mat4 transform) {
+    for(auto& meshBuffer : m_meshBuffers) {
+        size_t offsets[] = {0};
+        vkCmdBindVertexBuffers(cmdbuf, 0, 1, &meshBuffer.vertex_buffer().buf, offsets);
+        vkCmdBindIndexBuffer(cmdbuf, meshBuffer.index_buffer().buf, 0, VK_INDEX_TYPE_UINT32);
+
+        for(auto& primitive : meshBuffer.primitives()) {
+            vkCmdPushConstants(cmdbuf, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4), transform);
+            vkCmdDrawIndexed(cmdbuf, primitive.count, 1, primitive.offset, primitive.baseVertex, 0);
+        }
+    }
+}

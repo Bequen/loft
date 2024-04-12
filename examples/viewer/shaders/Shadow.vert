@@ -7,7 +7,6 @@ layout(location = 3) in vec3 tangent;
 
 layout( push_constant ) uniform constants {
     mat4 view;
-    mat4 proj;
 } Camera;
 
 void main() {

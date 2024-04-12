@@ -1,7 +1,10 @@
 #include <vulkan/vulkan_core.h>
 #include "Gpu.hpp"
 #include "resources/ImageBusWriter.h"
+#include "resources/MipmapGenerator.h"
 #include <assert.h>
+#include <cmath>
+#include <stdexcept>
 
 typedef uint32_t TextureHandle;
 
@@ -61,6 +64,10 @@ public:
     }
 
     TextureHandle pop_handle() {
+        if(m_idx >= m_textures.size()) {
+            throw std::runtime_error("Not enough space in texture storage");
+        }
+
         TextureHandle handle = m_idx;
         m_textures[handle] = true;
         m_idx++;
@@ -77,6 +84,8 @@ public:
      */
     TextureHandle upload(unsigned char* pData, uint32_t width, uint32_t height, size_t size, VkFormat format) {
         TextureHandle handle = pop_handle();
+
+        uint32_t mipmapLevels = std::floor(std::log2(std::max(width, height))) + 1;
 
         VkBufferImageCopy region = {
                 .bufferOffset = 0,
@@ -95,16 +104,16 @@ public:
         };
 
         ImageCreateInfo imageCreateInfo = {
+                .extent = {
+                        width, height
+                },
                 .format = format,
                 .usage = VK_IMAGE_USAGE_SAMPLED_BIT |
                          VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .arrayLayers = 1,
-                .mipLevels = 1,
-                .extent = {
-                        width, height
-                }
+                .mipLevels = mipmapLevels,
         };
 
         MemoryAllocationInfo memoryInfo = {
@@ -114,15 +123,26 @@ public:
         m_pGpu->memory()->create_image(&imageCreateInfo, &memoryInfo, &m_images[handle]);
         m_views[handle] = m_images[handle].create_view(m_pGpu, format, {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseArrayLayer = 0,
             .baseMipLevel = 0,
+            .levelCount = mipmapLevels,
+            .baseArrayLayer = 0,
             .layerCount = 1,
-            .levelCount = 1
         });
 
         m_writer.set_target(&m_images[handle]);
         m_writer.write(region, pData, size);
         m_writer.flush();
+
+        MipmapGenerator mipmapGenerator(m_pGpu);
+        mipmapGenerator.generate(m_images[handle], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {
+            width, height
+        }, (VkImageSubresourceRange ){
+            .levelCount = mipmapLevels,
+            .layerCount = 1,
+            .baseMipLevel = 0,
+            .baseArrayLayer = 0,
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        });
 
         return handle;
     }
