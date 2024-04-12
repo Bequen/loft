@@ -8,6 +8,9 @@ add_library(${PROJECT_NAME} STATIC ${CXXFILES})
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(Vulkan QUIET)
+
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(${PROJECT_NAME}
         loft_base
@@ -16,6 +19,8 @@ target_link_libraries(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC
+        include/
+        ${Vulkan_INCLUDE_DIR}
         ${PROJECT_SOURCE_DIR}/include/
         ${loft_base_SOURCE_DIR}/include/
         ${loft_window_SOURCE_DIR}/include

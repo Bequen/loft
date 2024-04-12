@@ -167,7 +167,7 @@ uint32_t Scene::push_material(const SceneData *pSceneData, const MaterialData& m
 
         writer.write_images(m_textureInputSet, 1, material.colorTexture, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                             {
-                                    (VkDescriptorImageInfo){
+                                    {
                                         .sampler = m_textureSampler,
                                         .imageView = m_colorTextures.view(material.colorTexture).view,
                                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -255,7 +255,7 @@ void Scene::add_scene_data(const SceneData *pData) {
 
     ShaderInputSetWriter writer(m_pGpu);
     writer.write_buffer(m_textureInputSet, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {
-            (VkDescriptorBufferInfo){
+            {
                 .buffer = m_materialBuffer.buf,
                 .offset = 0,
                 .range = m_numMaterials * sizeof(Material)

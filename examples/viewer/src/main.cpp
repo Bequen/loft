@@ -151,8 +151,8 @@ main(int32_t argc, char** argv) {
      * The program needs some glTF file to render
      */
     if(argc <= 1) {
-        fprintf(stderr, "Specify path to glTF file\n");
-        return 0;
+        // fprintf(stderr, "Specify path to glTF file\n");
+        // return 0;
     }
 
     VkExtent2D extent = {
@@ -168,7 +168,7 @@ main(int32_t argc, char** argv) {
     /**
      * Opens up a window
      */
-    Window *window = new SDLWindow("loft", (VkRect2D) {
+    Window *window = new SDLWindow("loft", {
             0, 0,
             extent.width, extent.height
     });
@@ -218,6 +218,13 @@ main(int32_t argc, char** argv) {
         auto sceneData = GltfSceneLoader().from_file(argv[i]);
         scene.add_scene_data(&sceneData);
     }
+
+    auto path = "C:\\Users\\marti\\packages\\glTF-Sample-Models\\2.0\\Sponza\\glTF\\Sponza.gltf";
+    std::cout << "Help1" << std::endl;
+    auto sceneData = GltfSceneLoader().from_file(path);
+    std::cout << "Help2" << std::endl;
+    scene.add_scene_data(&sceneData);
+    std::cout << "Help3" << std::endl;
 
 
     ImageCreateInfo imageInfo = {
@@ -284,6 +291,8 @@ main(int32_t argc, char** argv) {
 	auto shadowVert = shaderBuilder.from_file(io::path::shader("Shadow.vert.spirv"));
 	auto shadowFrag = shaderBuilder.from_file(io::path::shader("Shadow.frag.spirv"));
 
+    std::cout << "Help" << std::endl;
+
 	auto globalInputSetLayout = ShaderInputSetLayoutBuilder(1)
             .uniform_buffer(0)
 			.build(&gpu);
@@ -294,7 +303,7 @@ main(int32_t argc, char** argv) {
 
     auto geometryContext = new GeometryContext();
     geometryContext->pSceneBuffer = &scene;
-
+    std::cout << "Help" << std::endl;
     /*
      * Geometry Pass
      * Draws information about screen space geometry into GBuffer for post processing.
@@ -643,7 +652,7 @@ main(int32_t argc, char** argv) {
     );
     imguiPass.add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f})
              .add_pass_dependency("composition");
-
+    std::cout << "Help" << std::endl;
     auto swapchainImageChain = ImageChain(swapchain.views());
     auto renderGraph = renderGraphBuilder
             .add_graphics_pass(&geometry)
@@ -654,7 +663,7 @@ main(int32_t argc, char** argv) {
             })
             .build(&gpu, swapchainImageChain, extent);
 
-
+    std::cout << "Help" << std::endl;
 
 
     ShadowPassContext shadowPassCtx = {};
@@ -726,6 +735,7 @@ main(int32_t argc, char** argv) {
     for(auto& image : swapchain.images()) {
         image.set_debug_name(&gpu, std::string("swapchain_") + std::to_string(i));
     }
+    std::cout << "Help" << std::endl;
 
     // GraphVizVisualizer graphVizVisualizer = GraphVizVisualizer()
     //        .add_graph(&renderGraphBuilder, &renderGraph)
@@ -752,6 +762,8 @@ main(int32_t argc, char** argv) {
 
     auto shadowSignal = shadowsRenderGraph.run(0);
     renderGraph.set_external_dependency("shadowmap", shadowSignal);
+
+    
 
     while(isOpen) {
         uint32_t imageIdx = 0;

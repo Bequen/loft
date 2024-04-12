@@ -30,13 +30,13 @@ Building is done using CMake.
 
 You need to have installed:
 - CMake: Either as part of Visual Studio or https://cmake.org/download/
-- Vulkan: Use LunarG SDK package here https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe
+- Vulkan: Use LunarG SDK package here https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe (I recommend download the latest version now, there was a mistake recently, causing this project to not work)
     - NOTE: Make sure that you have SDL2 selected in Components
     - After installation, make sure you have environment variable VULKAN_SDK set to the path with Vulkan installed.
 
 Then you can build with cmake:
 
-In developer console, go to this directory and use:
+In developer console, go to project directory and use:
 
 ```bash
 $ cmake -S . -B build/

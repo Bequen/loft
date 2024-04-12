@@ -70,13 +70,14 @@ public:
     [[nodiscard]] inline VkRenderPass renderpass() const { return m_renderpass; }
 
     [[nodiscard]] inline VkViewport viewport() const {
-        return {
-                .x = 0, .y = 0,
-                .width = (float)m_extent.width,
-                .height = (float)m_extent.height,
-                .minDepth = 0.0f, .maxDepth = 1.0f
-        };
+        VkViewport result = {};
+        result.x = 0; result.y = 0;
+        result.width = (float)m_extent.width;
+        result.height = (float)m_extent.height;
+        result.minDepth = 0.0f; result.maxDepth = 1.0f;
+        return result;
     }
+    
 };
 
 /**

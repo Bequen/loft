@@ -62,14 +62,13 @@ public:
 
     void present(std::vector<VkSemaphore> waitSemaphores,
                  uint32_t imageIdx) {
-        VkPresentInfoKHR presentInfo = {
-                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-                .waitSemaphoreCount = (uint32_t)waitSemaphores.size(),
-                .pWaitSemaphores = waitSemaphores.data(),
-                .swapchainCount = 1,
-                .pSwapchains = &m_swapchain,
-                .pImageIndices = &imageIdx
-        };
+        VkPresentInfoKHR presentInfo = {};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.size();
+		presentInfo.pWaitSemaphores = waitSemaphores.data();
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = &m_swapchain;
+		presentInfo.pImageIndices = &imageIdx;
 
         m_pGpu->enqueue_present(&presentInfo);
     }

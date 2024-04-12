@@ -240,7 +240,7 @@ public:
         /* copy write data, to not lose it */
         m_imageWrites.push_back(writes);
 
-        m_writes.push_back((VkWriteDescriptorSet){
+        m_writes.push_back({
                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                .dstSet = dstInputSet.descriptor_set(),
                .dstBinding = dstBinding,
@@ -261,7 +261,7 @@ public:
         /* copy write data, to not lose it */
         m_bufferWrites.push_back(writes);
 
-        m_writes.push_back((VkWriteDescriptorSet){
+        m_writes.push_back({
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = dstInputSet.descriptor_set(),
                 .dstBinding = dstBinding,
