@@ -6,11 +6,12 @@ file(GLOB FILES ./*.cpp ./backends/imgui_impl_vulkan.cpp ./backends/imgui_impl_s
 
 include_directories(backends ${CMAKE_CURRENT_SOURCE_DIR})
 
-
+find_package(SDL2 QUIET)
+find_package(Vulkan REQUIRED)
 
 add_library(${PROJECT_NAME} ${FILES})
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${SDL2_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC

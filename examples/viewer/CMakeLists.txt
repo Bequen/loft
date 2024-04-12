@@ -2,17 +2,20 @@
 cmake_minimum_required(VERSION 3.25)
 project(loft_viewer)
 
+set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+
+
 # Settings
 # ========
 
 # Please set default paths for vulkan and SDL2
-set(VULKAN_PATH ENV{VULKAN_SDK} CACHE STRING "Path to vulkan directory")
+set(VULKAN_PATH "$ENV{VULKAN_SDK}" CACHE STRING "Path to vulkan directory")
 
 option(TRACY_ENABLED 0)
 
-
 # Compile parameters
-
 
 find_package(Vulkan REQUIRED)
 find_package(SDL2 REQUIRED)
@@ -62,16 +65,6 @@ FetchContent_Declare(cglm
 
 FetchContent_MakeAvailable(cgltf cglm)
 
-
-##ExternalProject_Add(imgui
-#        GIT_REPOSITORY https://github.com/ocornut/imgui
-#        GIT_TAG        master
-#        SOURCE_DIR     ./external/imgui/
-#        BUILD_COMMAND ""
-#        CONFIGURE_COMMAND ""
-#        INSTALL_COMMAND ""
-#)
-
 file(DOWNLOAD https://raw.githubusercontent.com/nothings/stb/master/stb_image.h ${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image.h)
 
 add_subdirectory(external/imgui/)
@@ -84,11 +77,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_definitions(-DTRACY_ENABLE=1)
 add_executable(${PROJECT_NAME} ${FILES})
 
+if ( MSVC )
+	set_target_properties( ${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+	set_target_properties( ${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR} )
+	set_target_properties( ${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR} )
+	# etc for the other available configuration types (MinSizeRel, RelWithDebInfo)
+endif ( MSVC )
+
 add_dependencies(${PROJECT_NAME} shaders imgui)
 
 target_include_directories(
 		${PROJECT_NAME}
-		PRIVATE
+		PUBLIC
 		${cglm_SOURCE_DIR}/include/
 		${cgltf_SOURCE_DIR}
 		${PROJECT_SOURCE_DIR}/external
@@ -99,7 +99,7 @@ target_include_directories(
 )
 
 target_link_libraries(
-		${PROJECT_NAME} PRIVATE
+		${PROJECT_NAME} PUBLIC
 
 		# modules
 		loft_base
@@ -107,7 +107,12 @@ target_link_libraries(
 		loft_framegraph
 
 		# external libraries
-		${SDL2_LIBRARIES}
+
 		${Vulkan_LIBRARIES}
 		imgui
+)
+
+target_link_libraries(
+		${PROJECT_NAME} PRIVATE
+		${SDL2_LIBRARIES}
 )

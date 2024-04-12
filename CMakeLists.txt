@@ -3,6 +3,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 cmake_minimum_required(VERSION 3.5)
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
+# Please set default paths for vulkan and SDL2
+set(VULKAN_PATH "$ENV{VULKAN_SDK}" CACHE STRING "Path to vulkan directory")
+set(SDL2_PATH "$ENV{VULKAN_SDK}/cmake" CACHE STRING "Path to SDL2 directory")
+
+list(APPEND CMAKE_PREFIX_PATH "$ENV{VULKAN_SDK}/cmake")
+
 include(FetchContent)
 
 FetchContent_Declare(

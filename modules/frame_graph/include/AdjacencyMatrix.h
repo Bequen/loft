@@ -13,7 +13,7 @@ private:
 public:
     explicit AdjacencyMatrix(uint32_t width);
 
-    [[nodiscard]] constexpr bool get(uint32_t from, uint32_t to) const {
+    [[nodiscard]] bool get(uint32_t from, uint32_t to) const {
         return m_matrix[from][to];
     }
 
@@ -27,7 +27,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] constexpr uint32_t num_dependencies(uint32_t to) const {
+    [[nodiscard]] uint32_t num_dependencies(uint32_t to) const {
         uint32_t numDependencies = 0;
         for(uint32_t x = 0; x < m_matrix.size(); x++) {
             if(get(x, to)) {

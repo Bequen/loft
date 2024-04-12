@@ -95,6 +95,9 @@ public:
         };
 
         ImageCreateInfo imageCreateInfo = {
+                .extent = {
+                        width, height
+                },
                 .format = format,
                 .usage = VK_IMAGE_USAGE_SAMPLED_BIT |
                          VK_IMAGE_USAGE_TRANSFER_DST_BIT |
@@ -102,9 +105,6 @@ public:
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .arrayLayers = 1,
                 .mipLevels = 1,
-                .extent = {
-                        width, height
-                }
         };
 
         MemoryAllocationInfo memoryInfo = {
@@ -114,10 +114,10 @@ public:
         m_pGpu->memory()->create_image(&imageCreateInfo, &memoryInfo, &m_images[handle]);
         m_views[handle] = m_images[handle].create_view(m_pGpu, format, {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseArrayLayer = 0,
             .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
             .layerCount = 1,
-            .levelCount = 1
         });
 
         m_writer.set_target(&m_images[handle]);

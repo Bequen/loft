@@ -32,14 +32,14 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
     std::vector<VkAttachmentDescription2> attachments(pPass->renderpass()->num_outputs() + depthOutput.has_value());
     std::vector<VkAttachmentReference2> references(pPass->renderpass()->num_outputs() + depthOutput.has_value());
 
-    uint i = 0;
+    unsigned int i = 0;
 
     for(auto output : pPass->renderpass()->outputs()) {
         auto layout = output->name() == "swapchain" ?
                       VK_IMAGE_LAYOUT_PRESENT_SRC_KHR :
                       (VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-        attachments[i] = (VkAttachmentDescription2){
+        attachments[i] = {
                 .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
                 .format = ((ImageResourceLayout*)output)->format(),
                 .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -53,7 +53,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
                 .finalLayout = layout,
         };
 
-        references[i] = (VkAttachmentReference2) {
+        references[i] = {
                 .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
                 .attachment = i,
                 .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -67,7 +67,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
                       (VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         // add depth attachment and reference
-        attachments[i] = (VkAttachmentDescription2){
+        attachments[i] = {
                 .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
                 .format = depthOutput.value()->format(),
                 .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -79,7 +79,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
                 .finalLayout = layout,
         };
 
-        references[i] = (VkAttachmentReference2) {
+        references[i] = {
                 .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
                 .attachment = i,
                 .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
@@ -173,9 +173,9 @@ Image RenderGraphBuilder::create_image_from_layout(Gpu *pGpu, VkExtent2D extent,
                      (VkImageUsageFlags)(isDepth ?
                                          VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT :
                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
-            .aspectMask = isDepth ?
+            .aspectMask = (VkImageAspectFlags)(isDepth ?
                           VK_IMAGE_ASPECT_DEPTH_BIT :
-                          VK_IMAGE_ASPECT_COLOR_BIT,
+                          VK_IMAGE_ASPECT_COLOR_BIT),
             .arrayLayers = 1,
             .mipLevels = 1,
     };
@@ -193,7 +193,7 @@ RenderGraphBuilder::get_attachment(Gpu *pGpu, RenderGraphBuilderCache *pCache,
     std::vector<Image> images(numImagesInFlight);
     std::vector<ImageView> views(numImagesInFlight);
 
-    auto aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageAspectFlags aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
     /* create image for each frame */
     for(uint32_t f = 0; f < numImagesInFlight; f++) {
@@ -201,7 +201,7 @@ RenderGraphBuilder::get_attachment(Gpu *pGpu, RenderGraphBuilderCache *pCache,
         images[f].set_debug_name(pGpu, pLayout->name());
 
         views[f] = images[f].create_view(pGpu, pLayout->format(),
-                                         (VkImageSubresourceRange) {
+                                         {
                                                  .aspectMask = aspectMask,
                                                  .baseMipLevel = 0,
                                                  .levelCount = 1,
