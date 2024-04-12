@@ -30,7 +30,7 @@ public:
     }
 
     void update() {
-        timespec currentTimeSpec = {};
+        /* timespec currentTimeSpec = {};
         if(clock_gettime(CLOCK_MONOTONIC_RAW, &currentTimeSpec) == -1) {}
         uint64_t currentTimeInNS = (currentTimeSpec.tv_sec * NS_IN_SECOND) + currentTimeSpec.tv_nsec;
 
@@ -45,6 +45,6 @@ public:
             nanosleep(&tim, &tim2);
         }
 
-        m_prevTimeInNS = currentTimeInNS;
+        m_prevTimeInNS = currentTimeInNS; */
     }
 };

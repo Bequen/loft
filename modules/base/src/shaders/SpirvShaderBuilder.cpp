@@ -28,7 +28,7 @@ Shader SpirvShaderBuilder::from_file(std::string path) {
 
     VkShaderModule module = VK_NULL_HANDLE;
     if(vkCreateShaderModule(m_pGpu->dev(), &moduleInfo, nullptr, &module)) {
-		return Shader(VK_NULL_HANDLE);
+		throw std::runtime_error("Failed to create shader module");
 	}
 
     auto shader = Shader(module);
