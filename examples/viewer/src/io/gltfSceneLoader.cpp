@@ -125,11 +125,11 @@ const bool load_mesh_data(cgltf_data *pData, SceneData *pOutData) {
 		for(uint32_t p = 0; p < pData->meshes[m].primitives_count; p++) {
 			cgltf_primitive *pPrimitive = &pData->meshes[m].primitives[p];
 
-			load_indices(pPrimitive,
-						 pOutData->suballoc_indices(pPrimitive->indices->count));
+            auto indices = pOutData->suballoc_indices(pPrimitive->indices->count);
+			load_indices(pPrimitive, indices);
 
-			load_primitive(pPrimitive, 
-						   pOutData->suballoc_vertices(pPrimitive->attributes[0].data->count));
+            auto vertices = pOutData->suballoc_vertices(pPrimitive->attributes[0].data->count);
+			load_primitive(pPrimitive, vertices);
 
             Primitive primitive = {
                     .objectIdx = (uint32_t)cgltf_material_index(pData, pPrimitive->material),

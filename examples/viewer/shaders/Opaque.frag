@@ -46,9 +46,9 @@ void main() {
 	vec2 uv = inUV;
 
 	vec3 color = texture(colorTextures[material.colorTexture], uv).rgb;
-	vec3 normal = inNormal; // texture(normalTextures, vec3(uv, material.normalTexture)).rgb;
+	vec3 normal = texture(colorTextures[material.normalTexture], uv).rgb;
 	normal = normalize(normal * 2.0 - 1.0);
-	vec2 pbr = vec2(0.0f); // texture(pbrTextures, vec3(uv, material.pbrTexture)).bg;
+	vec2 pbr = texture(colorTextures[material.pbrTexture], uv).bg;
 
 	fragColor = vec4(mix(material.albedo.rgb, color, material.colorTextureBlend), 1.0);
 	fragNormal = vec4(mix(inNormal, normalize(inTBN * normalize(normal)), material.normalTextureBlend), 1.0);

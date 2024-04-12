@@ -95,6 +95,8 @@ public:
 
     void draw(VkCommandBuffer cmdbuf, VkPipelineLayout layout);
 
+    void draw_depth(VkCommandBuffer cmdbuf, VkPipelineLayout layout, mat4 transform);
+
     static ShaderInputSetLayoutBuilder input_layout() {
         return ShaderInputSetLayoutBuilder(2)
                 /* material buffer */

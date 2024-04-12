@@ -11,7 +11,7 @@ layout(set = 1, binding = 1) uniform sampler2D inAlbedo;
 layout(set = 1, binding = 2) uniform sampler2D inNormal;
 layout(set = 1, binding = 3) uniform sampler2D inPosition;
 layout(set = 1, binding = 4) uniform sampler2D inPbr;
-//layout(set = 1, binding = 5) uniform sampler2D shadowMap;
+layout(set = 1, binding = 5) uniform sampler2D shadowMap;
 float ggx_normal_distr(float NoH, float roughness) {
 	float a = NoH * roughness;
 	float k = roughness / (1.0 - NoH * NoH + a * a);
@@ -61,21 +61,19 @@ float linearize_depth(float depth) {
 
 float textureProj(vec4 shadowCoord, vec2 off) {
 	float shadow = 0.0f;
-	return shadow;
-	/*
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 )
 	{
 		float dist = texture( shadowMap, shadowCoord.st + off ).r;
 		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z )
 		{
-			shadow = 0.0f;
+			shadow = 1.0f;
 		}
 	}
-	return shadow; */
+	return shadow;
 }
 
 float filterPCF(vec4 sc) {
-	/* ivec2 texDim = textureSize(shadowMap, 0);
+	ivec2 texDim = textureSize(shadowMap, 0);
 	float scale = 1.0f;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
@@ -93,8 +91,7 @@ float filterPCF(vec4 sc) {
 		}
 
 	}
-	return shadowFactor / count; */
-	return 0.0f;
+	return shadowFactor / count;
 }
 
 const mat4 biasMat = mat4(
@@ -181,11 +178,11 @@ void main() {
 
 	float occlusion = get_shadow(lights.lights[0], vec4(position, 1.0));
 
-	float lightIntensity = 3.0f;
+	float lightIntensity = 2.5f;
 	vec3 Lo = bsdf(normal, viewDir, lightDir, color, metallic, roughness);
 
 	vec3 ambient = vec3(0.3) * color;
-	vec3 prd = ambient + Lo * (1.0f) * lightIntensity;
+	vec3 prd = ambient + Lo * (1.0 - occlusion) * lightIntensity;
 
 	outColor = vec4(prd, 1.0);
 
