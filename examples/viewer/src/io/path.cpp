@@ -25,7 +25,7 @@ const char DIRECTORY_SEPARATOR = '\\';
 void io::path::setup_exe_path(char *pArg) {
 	char *pBuffer = nullptr;
 #ifdef __linux__
-	pBuffer = malloc(PATH_MAX);
+	pBuffer = (char*)malloc(PATH_MAX);
 	size_t bytes = readlink("/proc/self/exe", pBuffer, PATH_MAX);
     pBuffer[bytes] = '\0';
 #elif _WIN32

@@ -151,8 +151,8 @@ main(int32_t argc, char** argv) {
      * The program needs some glTF file to render
      */
     if(argc <= 1) {
-        // fprintf(stderr, "Specify path to glTF file\n");
-        // return 0;
+        fprintf(stderr, "Specify path to glTF file\n");
+        return 0;
     }
 
     VkExtent2D extent = {
@@ -218,13 +218,6 @@ main(int32_t argc, char** argv) {
         auto sceneData = GltfSceneLoader().from_file(argv[i]);
         scene.add_scene_data(&sceneData);
     }
-
-    auto path = "C:\\Users\\marti\\packages\\glTF-Sample-Models\\2.0\\Sponza\\glTF\\Sponza.gltf";
-    std::cout << "Help1" << std::endl;
-    auto sceneData = GltfSceneLoader().from_file(path);
-    std::cout << "Help2" << std::endl;
-    scene.add_scene_data(&sceneData);
-    std::cout << "Help3" << std::endl;
 
 
     ImageCreateInfo imageInfo = {
