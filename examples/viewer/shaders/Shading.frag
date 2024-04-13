@@ -74,13 +74,13 @@ float textureProj(vec4 shadowCoord, vec2 off) {
 
 float filterPCF(vec4 sc) {
 	ivec2 texDim = textureSize(shadowMap, 0);
-	float scale = 1.0f;
+	float scale = 2.0f;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
 
 	float shadowFactor = 0.0;
 	int count = 0;
-	int range = 4;
+	int range = 8;
 
 	for (int x = -range; x <= range; x++)
 	{
@@ -178,10 +178,10 @@ void main() {
 
 	float occlusion = get_shadow(lights.lights[0], vec4(position, 1.0));
 
-	float lightIntensity = 2.5f;
+	float lightIntensity = 3.0f;
 	vec3 Lo = bsdf(normal, viewDir, lightDir, color, metallic, roughness);
 
-	vec3 ambient = vec3(0.3) * color;
+	vec3 ambient = vec3(0.4) * color;
 	vec3 prd = ambient + Lo * (1.0 - occlusion) * lightIntensity;
 
 	outColor = vec4(prd, 1.0);

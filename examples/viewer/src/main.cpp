@@ -156,8 +156,8 @@ main(int32_t argc, char** argv) {
     }
 
     VkExtent2D extent = {
-            .width = 1200,
-            .height = 800
+            .width = 2400,
+            .height = 1200
     };
 
     /**
@@ -617,7 +617,7 @@ main(int32_t argc, char** argv) {
         [&](ImGuiContext* pContext, RenderPassBuildInfo info) {
             ImGui::CreateContext();
             ImGuiIO& io = ImGui::GetIO(); (void)io;
-            io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 16.0f);
+            io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 12.0f);
 
             ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window)->get_handle());
             ImGui_ImplVulkan_InitInfo init_info = {
