@@ -15,7 +15,7 @@ struct Vertex : VertexInput {
 	float norm[3];
 	float uv[2];
 
-    float tangent[3];
+    float tangent[4];
 
     static inline std::vector<VertexBinding> bindings() {
         return {
@@ -32,7 +32,7 @@ struct Vertex : VertexInput {
             { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos) },
             { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, norm) },
             { 2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv) },
-            { 3, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, tangent) }
+            { 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, tangent) }
         };
     }
 };

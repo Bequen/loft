@@ -28,7 +28,7 @@ public:
 
     BufferResourceLayout m_resource;
 
-    Camera(Gpu *pGpu);
+    Camera(Gpu *pGpu, float aspect);
 
     void update();
 

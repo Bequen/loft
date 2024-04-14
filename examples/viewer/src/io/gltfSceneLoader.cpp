@@ -96,7 +96,7 @@ bool load_primitive(cgltf_primitive *pPrimitive, Vertex *pOut) {
 				offset = offsetof(Vertex, uv);
 				break;
             case cgltf_attribute_type_tangent:
-                singleSize = sizeof(float) * 3;
+                singleSize = sizeof(float) * 4;
                 offset = offsetof(Vertex, tangent);
 			default:
 				break;
