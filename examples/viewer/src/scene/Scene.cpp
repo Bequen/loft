@@ -162,7 +162,7 @@ uint32_t Scene::push_material(const SceneData *pSceneData, const MaterialData& m
 
         material.colorTexture = m_colorTextures.upload((unsigned char*)pImageData,
                                                        width, height, width * height * 4,
-                                                       VK_FORMAT_R8G8B8A8_SRGB);
+                                                       VK_FORMAT_R8G8B8A8_UNORM);
         material.colorTextureBlend = 1.0;
 
         writer.write_images(m_textureInputSet, 1, material.colorTexture, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,

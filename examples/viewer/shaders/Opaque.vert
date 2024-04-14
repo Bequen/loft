@@ -3,7 +3,7 @@
 layout(location = 0) in vec3 pos;
 layout(location = 1) in vec3 norm;
 layout(location = 2) in vec2 uv;
-layout(location = 3) in vec3 tangent;
+layout(location = 3) in vec4 tangent;
 
 layout(set = 0, binding = 0) uniform Camera {
 	mat4 proj;
@@ -32,8 +32,8 @@ layout(location = 3) out mat3 outTBN;
 
 
 void main() {
-	vec3 bitangent = normalize(cross(normalize(tangent), normalize(norm)));
-	outTBN = mat3(normalize(tangent), bitangent, normalize(norm));
+	vec3 bitangent = cross(norm, tangent.xyz) * tangent.w;
+	outTBN = mat3(tangent.xyz, bitangent, norm);
 
 	outPos = pos.xyz * 0.05;
 	outNormal = norm.xyz;

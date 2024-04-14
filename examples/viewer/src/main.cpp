@@ -199,7 +199,7 @@ main(int32_t argc, char** argv) {
      * Gpu manages stuff around rendering. Needed for most graphics operations.
      */
     Gpu gpu = Gpu(instance, surface);
-    Camera camera(&gpu);
+    Camera camera(&gpu, extent.width / extent.height);
 
     /**
      * Swapchain is a queue storage of images to render to for the Window we opened.

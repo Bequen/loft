@@ -5,7 +5,7 @@
 #include "Camera.h"
 #include "resources/GpuAllocator.h"
 
-Camera::Camera(Gpu *pGpu):
+Camera::Camera(Gpu *pGpu, float aspect):
         m_pGpu(pGpu), m_resource("camera", VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) {
 
     glm_mat4_identity(data.view);
@@ -14,7 +14,7 @@ Camera::Camera(Gpu *pGpu):
     vec3 center = {0.0f, 1.0f, 0.0f};
     vec3 up = {0.0f, 1.0f, 0.0f};
     glm_lookat(eye, center, up, data.view);
-    glm_perspective(glm_rad(60.0f), 1.0f, 0.1f, 1000.0f, data.projection);
+    glm_perspective(glm_rad(60.0f), aspect, 0.1f, 1000.0f, data.projection);
 
 	MemoryAllocationInfo allocInfo = {
 		.usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,
