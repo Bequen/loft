@@ -178,7 +178,7 @@ void main() {
 
 	float occlusion = get_shadow(lights.lights[0], vec4(position, 1.0));
 
-	float lightIntensity = 2.0f;
+	float lightIntensity = 1.5f;
 	vec3 Lo = bsdf(normal, viewDir, lightDir, color, metallic, roughness);
 
 	vec3 ambient = vec3(0.2) * color;
