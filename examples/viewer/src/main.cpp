@@ -138,6 +138,9 @@ struct CompositionContext {
     std::vector<VkDescriptorSet> inputSets;
     Pipeline pipeline;
 
+    float *pExposure;
+    float *pGamma;
+
     CompositionContext() :
     pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE) {
 
@@ -563,7 +566,13 @@ main(int32_t argc, char** argv) {
      */
     auto compositeShader = shaderBuilder.from_file(io::path::shader("Composite.frag.spirv"));
 
+    float gamma = 2.2;
+    float exposure = 0.5;
+
     auto compositionContext = CompositionContext();
+    compositionContext.pExposure = &exposure;
+    compositionContext.pGamma = &gamma;
+
     auto compositionPass = LambdaRenderPass<CompositionContext>("composition", &compositionContext,
         [&](CompositionContext* pContext, RenderPassBuildInfo info) {
             pContext->inputSets.resize(info.num_images_in_flights());
@@ -579,7 +588,7 @@ main(int32_t argc, char** argv) {
             auto layout = PipelineLayoutBuilder()
                     .input_set(0, globalInputSetLayout)
                     .input_set(1, upsamplePerPassInputSetLayout)
-                    .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
+                    .push_constant_range(0, sizeof(float) * 2, VK_SHADER_STAGE_FRAGMENT_BIT)
                     .build(info.gpu());
 
             pContext->pipeline = PipelineBuilder(info.gpu(),
@@ -601,6 +610,9 @@ main(int32_t argc, char** argv) {
             vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
                                     pContext->pipeline.pipeline_layout(),
                                     1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
+
+            float constants[] = {*pContext->pExposure, *pContext->pGamma};
+            vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 2, constants);
 
             vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
         }
@@ -791,6 +803,11 @@ main(int32_t argc, char** argv) {
         ImGui::End();
 
         ImGui::ShowDemoWindow();
+
+        ImGui::Begin("Settings");
+        ImGui::InputFloat("Exposure", &exposure);
+        ImGui::InputFloat("Gamma", &gamma);
+        ImGui::End();
 
         ImGui::Begin("Scene Outline");
 

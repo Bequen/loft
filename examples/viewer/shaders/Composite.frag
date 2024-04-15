@@ -7,6 +7,12 @@ layout(location = 0) in vec2 inUV;
 layout(set = 1, binding = 0) uniform sampler2D inHdr;
 layout(set = 1, binding = 1) uniform sampler2D inBloom;
 
+layout( push_constant ) uniform constants
+{
+    float exposure;
+    float gamma;
+} PushConstants;
+
 const mat3x3 ACESInputMat =
 {
     {0.59719, 0.35458, 0.04823},
@@ -66,5 +72,10 @@ vec4 upscale() {
 }
 
 void main() {
-    fragColor = vec4(ACESFitted(texture(inHdr, inUV).rgb + upscale().rgb), 1.0f);
+
+    vec3 color = ACESFitted(texture(inHdr, inUV).rgb * PushConstants.exposure + upscale().rgb);
+
+    color = pow(color.rgb, vec3(1.0/PushConstants.gamma));
+
+    fragColor = vec4(color, 1.0);
 }
