@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <algorithm>
 #include "vulkan/vulkan_core.h"
 #include <optional>
 #include <functional>
