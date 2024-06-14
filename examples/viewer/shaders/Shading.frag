@@ -186,5 +186,5 @@ void main() {
 
 	outColor = vec4(prd, 1.0);
 
-	outBloomThreshold = vec4(bloom_threshold(prd), 1.0);
+	outBloomThreshold = vec4(bloom_threshold(prd), dot(bloom_threshold(prd), bloom_threshold(prd)));
 }

@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <string>
+#include "ShaderBinary.h"
 
 namespace io::file {
 	/**
@@ -9,5 +10,5 @@ namespace io::file {
 	 * @param pOutSize Pointer to the size_t variable to which the number of 
 	 * bytes of the file will be set.
 	 */
-	uint32_t *read_binary(const std::string& path, size_t *pOutSize);
+	ShaderBinary read_binary(const std::string& path);
 }

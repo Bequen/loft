@@ -4,7 +4,6 @@
 
 #include "DebugUtils.h"
 
-#include "cglm/cam.h"
 #include "cglm/mat4.h"
 #include "mesh/Vertex.hpp"
 #include "SDLWindow.h"
@@ -13,10 +12,7 @@
 #include "shaders/SpirvShaderBuilder.hpp"
 #include "shaders/ShaderInputSetLayoutBuilder.hpp"
 
-#include "mesh/DrawMeshInfo.hpp"
-#include "shaders/SpirvShaderBuilder.hpp"
 #include "io/gltfSceneLoader.hpp"
-#include "mesh/SceneBuffer.hpp"
 #include "io/path.hpp"
 #include "shaders/Pipeline.hpp"
 #include "shaders/PipelineBuilder.h"
@@ -25,27 +21,12 @@
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
 #include "imgui/backends/imgui_impl_sdl2.h"
-#include "RenderGraph.hpp"
 #include "RenderPass.hpp"
 #include "RenderGraphBuilder.h"
 #include "FramebufferBuilder.hpp"
-#include "RenderGraph.hpp"
 #include "scene/Light.h"
 #include "runtime/FrameLock.h"
-#include "RenderGraphScheduler.h"
-#include "GraphVizVisualizer.h"
-#include "scene/Scene.h"
-
-
-struct MeshInfo {
-  uint32_t materialIdx;
-  uint32_t modelIdx;
-};
-
-struct ShaderBucket {
-  VkPipeline pipeline;
-  std::vector<DrawMeshInfo> meshes;
-};
+#include "mesh/runtime/Scene.h"
 
 struct ShadowPassContext {
   Pipeline pipeline;
@@ -171,10 +152,10 @@ main(int32_t argc, char** argv) {
     /**
      * Opens up a window
      */
-    Window *window = new SDLWindow("loft", {
+    std::shared_ptr<Window> window = std::make_shared<SDLWindow>(SDLWindow("loft", {
             0, 0,
             extent.width, extent.height
-    });
+    }));
 
     /**
      * Different platforms has different extension needs.
@@ -215,11 +196,11 @@ main(int32_t argc, char** argv) {
      * Frame graph manages renderpass dependencies and synchronization.
      */
     RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1);
+    auto sceneData = GltfSceneLoader().from_file(argv[1]);
 
-    Scene scene(&gpu);
+    Scene scene(&gpu, &sceneData);
     for(uint32_t i = 1; i < argc; i++) {
-        auto sceneData = GltfSceneLoader().from_file(argv[i]);
-        scene.add_scene_data(&sceneData);
+        // scene.add_scene_data(&sceneData);
     }
 
 
@@ -299,7 +280,6 @@ main(int32_t argc, char** argv) {
 
     auto geometryContext = new GeometryContext();
     geometryContext->pSceneBuffer = &scene;
-    std::cout << "Help" << std::endl;
     /*
      * Geometry Pass
      * Draws information about screen space geometry into GBuffer for post processing.
@@ -355,9 +335,9 @@ main(int32_t argc, char** argv) {
      * Takes gbuffer and lights as inputs and calculates how it interacts with the scene.
      * Deferred approach.
      */
-    auto shadingContext = new ShadingPassContext();
-    shadingContext->shadowmap = shadowmapView.view;
-    auto shading = LambdaRenderPass<ShadingPassContext>("shading", shadingContext,
+    auto shadingContext = ShadingPassContext();
+    shadingContext.shadowmap = shadowmapView.view;
+    auto shading = LambdaRenderPass<ShadingPassContext>("shading", &shadingContext,
         [&](ShadingPassContext* pContext, RenderPassBuildInfo info) {
             pContext->perPassInputSetLayout = ShaderInputSetLayoutBuilder(6)
                     .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -629,9 +609,9 @@ main(int32_t argc, char** argv) {
         [&](ImGuiContext* pContext, RenderPassBuildInfo info) {
             ImGui::CreateContext();
             ImGuiIO& io = ImGui::GetIO(); (void)io;
-            io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 12.0f);
+            io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 14.0f);
 
-            ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window)->get_handle());
+            ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
             ImGui_ImplVulkan_InitInfo init_info = {
                     .Instance = instance.instance(),
                     .PhysicalDevice = gpu.gpu(),
@@ -657,7 +637,7 @@ main(int32_t argc, char** argv) {
     );
     imguiPass.add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f})
              .add_pass_dependency("composition");
-    std::cout << "Help" << std::endl;
+
     auto swapchainImageChain = ImageChain(swapchain.views());
     auto renderGraph = renderGraphBuilder
             .add_graphics_pass(&geometry)
@@ -667,9 +647,6 @@ main(int32_t argc, char** argv) {
                    ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
             })
             .build(&gpu, swapchainImageChain, extent);
-
-    std::cout << "Help" << std::endl;
-
 
     ShadowPassContext shadowPassCtx = {};
     shadowPassCtx.pSceneBuffer = &scene;
@@ -740,15 +717,6 @@ main(int32_t argc, char** argv) {
     for(auto& image : swapchain.images()) {
         image.set_debug_name(&gpu, std::string("swapchain_") + std::to_string(i));
     }
-    std::cout << "Help" << std::endl;
-
-    // GraphVizVisualizer graphVizVisualizer = GraphVizVisualizer()
-    //        .add_graph(&renderGraphBuilder, &renderGraph)
-    //        .add_graph(&shadowsRenderGraphBuilder, &shadowsRenderGraph)
-    //        .visualize_into(stdout);
-
-    /* Prepare ImGui */
-
 
     bool isOpen = true;
     vec3 velocity = {0.0f, 0.0f, 0.0f};

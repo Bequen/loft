@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vulkan/vulkan_core.h>
 #include "Gpu.hpp"
 #include "resources/ImageBusWriter.h"
@@ -136,12 +138,12 @@ public:
         MipmapGenerator mipmapGenerator(m_pGpu);
         mipmapGenerator.generate(m_images[handle], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {
             width, height
-        }, (VkImageSubresourceRange ){
-            .levelCount = mipmapLevels,
-            .layerCount = 1,
-            .baseMipLevel = 0,
-            .baseArrayLayer = 0,
+        }, {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = mipmapLevels,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
         });
 
         return handle;

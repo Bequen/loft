@@ -46,6 +46,7 @@ public:
 	void write(VkBufferImageCopy region, void *pData, size_t size);
 
     void set_target(Image *pTarget) {
+        flush();
         m_pTarget = pTarget;
     }
 

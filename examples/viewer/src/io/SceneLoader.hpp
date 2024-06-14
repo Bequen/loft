@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../mesh/SceneData.hpp"
+#include "../mesh/data/SceneData.hpp"
 
 /**
  * Defines interface to load objects from file

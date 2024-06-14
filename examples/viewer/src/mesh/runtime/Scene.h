@@ -3,12 +3,14 @@
 #include <utility>
 
 #include "Gpu.hpp"
-#include "../mesh/SceneData.hpp"
-#include "../mesh/TextureStorage.h"
-#include "../mesh/MeshBuffer.h"
+#include "mesh/data/SceneData.hpp"
+#include "mesh/TextureStorage.h"
+#include "mesh/MeshBuffer.h"
 #include "shaders/ShaderInputSet.h"
 #include "shaders/ShaderInputSetLayoutBuilder.hpp"
 #include "Material.h"
+#include "mesh/MaterialBuffer.h"
+#include "mesh/Transform.hpp"
 
 struct SceneObject {
     uint32_t m_transformIdx;
@@ -56,9 +58,7 @@ private:
     std::vector<MeshScene> m_meshBuffers;
 
     /* material buffer */
-    Buffer m_materialBuffer;
-    uint32_t m_numMaterials;
-    std::vector<bool> m_materialsBits;
+    MaterialBuffer m_materialBuffer;
 
     /* transform buffer */
     Buffer m_transformBuffer;
@@ -67,11 +67,6 @@ private:
 
     Buffer m_lightBuffer;
     uint32_t m_numLights;
-
-    /* texture storages */
-    TextureStorage m_colorTextures;
-    TextureStorage m_normalTextures;
-    TextureStorage m_pbrTextures;
 
     ShaderInputSet m_textureInputSet;
 
@@ -85,7 +80,7 @@ private:
     std::vector<uint32_t> load_materials(const SceneData* pData);
 
 public:
-    Scene(Gpu *pGpu);
+    Scene(Gpu *pGpu, const SceneData *pData);
 
     uint32_t push_material(const SceneData *pData, const MaterialData& material);
 

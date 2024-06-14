@@ -1,9 +1,12 @@
 #include "gltfSceneLoader.hpp"
 
 #include <stdio.h>
+#include <queue>
 
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
+#include "mesh/SceneTree.h"
+#include "mesh/Transform.hpp"
 
 #include <stdexcept>
 
@@ -192,8 +195,77 @@ bool load_materials(cgltf_data *pData, SceneData *pOutData) {
 	return true;
 }
 
+std::vector<uint32_t> collect_scene_root_ids(cgltf_data *pData) {
+    std::vector<uint32_t> roots;
+
+    for(uint32_t i = 0; i < pData->nodes_count; i++) {
+        /* only append roots */
+        if (pData->nodes[i].children_count == 0) {
+            roots.push_back(cgltf_node_index(pData, &pData->nodes[i]));
+        }
+    }
+
+    return roots;
+}
+
+std::optional<Transform> get_transform_for_node(const cgltf_node *pNode) {
+    Transform transform = Transform::identity();
+
+    bool hasTransform = false;
+    if(pNode->has_matrix) {
+        memcpy(transform.model, pNode->matrix, sizeof(float) * 16);
+        hasTransform = true;
+    }
+
+    if(pNode->has_translation) {
+        transform.translate((float*)pNode->translation);
+        hasTransform = true;
+    }
+
+    if(pNode->has_rotation) {
+        transform.rotate((float*)pNode->rotation);
+        hasTransform = true;
+    }
+
+    if(pNode->has_scale) {
+        transform.scale((float*)pNode->scale);
+        hasTransform = true;
+    }
+
+    if(hasTransform) {
+        return transform;
+    } else {
+        return {};
+    }
+}
+
 void load_nodes(cgltf_data *pData, SceneData *pOutData) {
-    pOutData->resize_nodes(pData->nodes_count);
+    SceneTree tree(pData->nodes_count);
+
+    auto roots = collect_scene_root_ids(pData);
+    auto queue = std::queue<uint32_t>();
+    for(auto& root : roots) {
+        queue.push(root);
+    }
+
+    while(!queue.empty()) {
+        auto current = queue.front();
+        queue.pop();
+
+        auto node = &pData->nodes[current];
+        std::optional<Transform> transform = get_transform_for_node(node);
+        uint32_t transformIdx = 0;
+
+        if(transform.has_value()) {
+            transformIdx = pOutData->push_transform(transform.value());
+        }
+
+        int32_t meshIdx = node->mesh != nullptr ? (int32_t)cgltf_mesh_index(pData, node->mesh) : -1;
+
+        auto sceneNode = SceneNode(std::string(node->name == nullptr ? "" : node->name), transformIdx, meshIdx);
+    }
+
+    /* pOutData->resize_nodes(pData->nodes_count);
     for(uint32_t ni = 0; ni < pData->nodes_count; ni++) {
         const auto node = &pData->nodes[ni];
         SceneNode nodeData = SceneNode();
@@ -206,7 +278,7 @@ void load_nodes(cgltf_data *pData, SceneData *pOutData) {
         }
 
         pOutData->set_node(ni, nodeData);
-    }
+    } */
 }
 
 const SceneData GltfSceneLoader::from_file(std::string path) {
@@ -243,6 +315,8 @@ const SceneData GltfSceneLoader::from_file(std::string path) {
 	}
 
     load_nodes(data, &scene);
+
+    cgltf_free(data);
 
 	return scene;
 }
