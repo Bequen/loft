@@ -284,14 +284,18 @@ void load_nodes(cgltf_data *pData, SceneData *pOutData) {
 const SceneData GltfSceneLoader::from_file(std::string path) {
     cgltf_options options = {};
     cgltf_data* data = nullptr;
-    cgltf_result status = cgltf_parse_file(&options, path.c_str(), &data);
 
+    cgltf_result status = cgltf_parse_file(&options, path.c_str(), &data);
     if (status != cgltf_result_success) {
         cgltf_free(data);
-        throw std::runtime_error("Failed to find file");
+        throw std::runtime_error("Failed to find glTF file");
     }
 
-	cgltf_load_buffers(&options, data, path.c_str());
+	status = cgltf_load_buffers(&options, data, path.c_str());
+    if(status != cgltf_result_success) {
+        cgltf_free(data);
+        throw std::runtime_error("Failed to find glTF file data");
+    }
 
 	SceneEntityCounts counts = {};
 	if(!count_elements(data, &counts)) {

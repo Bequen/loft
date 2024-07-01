@@ -43,6 +43,10 @@ std::vector<int32_t> Gpu::get_queues(VkSurfaceKHR surface) {
     vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, &numQueues,
                                              properties.data());
 
+    if(numQueues == 0) {
+        throw std::runtime_error("Failed to find any queue family");
+    }
+
     int32_t graphicsQueue = -1;
 
     int32_t transferQueue = -1;

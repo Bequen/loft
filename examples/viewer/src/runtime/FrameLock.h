@@ -1,14 +1,15 @@
 #pragma once
 
 #include <cstdint>
-#include <ctime>
+#include <thread>
+#include <chrono>
 
 /**
  * Utilities to lock maximum number of frames per second
  */
 struct FrameLock {
 private:
-    uint64_t m_prevTimeInNS;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_prevTimeInNS;
     uint64_t m_maxFrameTimeInNS;
 
     uint64_t m_deltaTime;
@@ -25,26 +26,20 @@ public:
     }
 
     explicit FrameLock(uint64_t maxFramesPerSecond) :
-    m_prevTimeInNS(0), m_maxFrameTimeInNS(maxFramesPerSecond == 0 ? 0 : NS_IN_SECOND / maxFramesPerSecond) {
+    m_maxFrameTimeInNS(maxFramesPerSecond == 0 ? 0 : NS_IN_SECOND / maxFramesPerSecond) {
         
     }
 
     void update() {
-        /* timespec currentTimeSpec = {};
-        if(clock_gettime(CLOCK_MONOTONIC_RAW, &currentTimeSpec) == -1) {}
-        uint64_t currentTimeInNS = (currentTimeSpec.tv_sec * NS_IN_SECOND) + currentTimeSpec.tv_nsec;
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_prevTimeInNS).count();
+        m_deltaTime = duration;
 
-        m_deltaTime = currentTimeInNS - m_prevTimeInNS;
         if(m_deltaTime < m_maxFrameTimeInNS) {
             auto sleepTimeInNS = m_maxFrameTimeInNS - m_deltaTime;
-            const timespec tim {
-                    .tv_sec = 0,
-                    .tv_nsec = (long)sleepTimeInNS
-            };
-            struct timespec tim2{};
-            nanosleep(&tim, &tim2);
+            std::this_thread::sleep_for(std::chrono::nanoseconds (sleepTimeInNS));
         }
 
-        m_prevTimeInNS = currentTimeInNS; */
+        m_prevTimeInNS = now;
     }
 };
