@@ -34,7 +34,14 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION ${CMAKE_CURRENT_BINARY_
 
 add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
 
-file(GLOB FILES src/*.cpp src/mesh/*.cpp src/io/*.cpp src/runtime/*.cpp src/scene/*.cpp)
+file(GLOB FILES
+		src/*.cpp
+		src/mesh/*.cpp
+		src/mesh/runtime/*.cpp
+		src/mesh/data/*.cpp
+		src/io/*.cpp
+		src/runtime/*.cpp
+		src/scene/*.cpp)
 
 
 
@@ -84,6 +91,7 @@ add_dependencies(${PROJECT_NAME} shaders imgui)
 target_include_directories(
 		${PROJECT_NAME}
 		PUBLIC
+		${PROJECT_SOURCE_DIR}/src/
 		${cglm_SOURCE_DIR}/include/
 		${cgltf_SOURCE_DIR}
 		${PROJECT_SOURCE_DIR}/external
@@ -111,3 +119,11 @@ target_link_libraries(
 		${PROJECT_NAME} PRIVATE
 		${SDL2_LIBRARIES}
 )
+
+file(ARCHIVE_CREATE
+OUTPUT "loft_viewer.zip"
+PATHS
+		"${CMAKE_CURRENT_BINARY_DIR}/shaders"
+FORMAT "zip")
+
+include(CPack)

@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Vertex.hpp"
-
 #include <string>
 #include <utility>
 #include <vector>
@@ -9,8 +7,11 @@
 #include <optional>
 #include <cstring>
 #include "props.hpp"
-#include "Transform.hpp"
-#include "DrawMeshInfo.hpp"
+
+#include "MaterialData.h"
+#include "TextureData.h"
+#include "../Vertex.hpp"
+#include "mesh/Transform.hpp"
 
 struct Mesh {
 	unsigned int primitiveIdx;
@@ -24,95 +25,18 @@ struct Primitive {
 	unsigned int baseVertex;
 };
 
-struct TextureData {
-    std::string m_name;
-    std::string m_path;
-
-    TextureData() {
-
-    }
-
-    TextureData(std::string name, std::string path) :
-    m_name(std::move(name)), m_path(std::move(path)) {
-
-    }
-};
-
-struct MaterialData {
-private:
-    std::optional<uint32_t> m_colorTexture;
-    std::optional<uint32_t> m_metallicRoughnessTexture;
-    std::optional<uint32_t> m_normalTexture;
-
-    float m_albedo[4]{};
-    float m_bsdf[4]{};
-
-    float m_colorTextureBlend;
-    float m_normalTextureBlend;
-    float m_pbrTextureBlend;
-
-    bool m_isBlend;
-
-public:
-    [[nodiscard]] inline std::optional<uint32_t> color_texture() const {
-        return m_colorTexture;
-    }
-
-    [[nodiscard]] inline std::optional<uint32_t> normal_texture() const {
-        return m_normalTexture;
-    }
-
-    [[nodiscard]] inline std::optional<uint32_t> metallic_roughness_texture() const {
-        return m_metallicRoughnessTexture;
-    }
-
-    [[nodiscard]] inline const float* albedo() const {
-        return &m_albedo[0];
-    }
-
-    [[nodiscard]] inline const float* bsdf() const {
-        return &m_bsdf[0];
-    }
-
-    [[nodiscard]] inline const bool is_blended() const {
-        return m_isBlend;
-    }
-
-
-    inline MaterialData& set_alpha_blend(bool value) {
-        this->m_isBlend = value;
-        return *this;
-    }
-
-    inline MaterialData& set_color_texture(const uint32_t idx) {
-        m_colorTexture = idx;
-        return *this;
-    }
-
-    inline MaterialData& set_normal_texture(const uint32_t idx) {
-        m_normalTexture = idx;
-        return *this;
-    }
-
-    inline MaterialData& set_metallic_roughness_texture(const uint32_t idx) {
-        m_metallicRoughnessTexture = idx;
-        return *this;
-    }
-
-    MaterialData() :
-    m_isBlend(false) {
-
-    }
-
-    explicit MaterialData(float albedo[4]) : MaterialData() {
-        memcpy(m_albedo, albedo, sizeof(m_albedo));
-    }
-};
-
-
 struct SceneNode {
+    std::string name;
 	uint32_t transformIdx;
     int32_t meshIdx;
+
+    SceneNode() {
+
+    }
+
+    SceneNode(std::string name, uint32_t transformIdx, int32_t meshIdx) {
+
+    }
 };
 
 class SceneData {
@@ -131,6 +55,8 @@ class SceneData {
 	std::vector<SceneNode> m_nodes;
 	std::vector<Mesh> m_meshes;
     std::vector<Primitive> m_primitives;
+
+    std::vector<Transform> m_transforms;
 	uint32_t m_numMeshes;
 
 public:
@@ -152,9 +78,15 @@ public:
     GET(m_textures.size(), num_textures);
 
     REF(m_primitives, primitives);
+    REF(m_transforms, transforms);
 
 	SceneData(uint32_t numNodes, uint32_t numMaterials, uint32_t numVertices,
 			  uint32_t numIndices, uint32_t numMeshes, uint32_t numPrimitives);
+
+    inline uint32_t push_transform(Transform transform) {
+        m_transforms.push_back(transform);
+        return m_transforms.size() - 1;
+    }
 
 	inline Vertex* suballoc_vertices(size_t numVertices) {
 		auto result = m_vertices.data() + m_numVertices;

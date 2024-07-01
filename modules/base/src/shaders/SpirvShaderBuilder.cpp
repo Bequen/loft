@@ -13,17 +13,12 @@ m_pGpu(pGpu) {
 }
 
 Shader SpirvShaderBuilder::from_file(std::string path) {
-    size_t size = 0;
-    uint32_t *pData = io::file::read_binary(path, &size);
-
-    if(pData == nullptr) {
-        throw std::runtime_error("Failed to read shader binary");
-    }
+    auto shaderBinary = io::file::read_binary(path);
 
     VkShaderModuleCreateInfo moduleInfo = {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = size,
-            .pCode = pData,
+            .codeSize = shaderBinary.code_size(),
+            .pCode = shaderBinary.data().data(),
     };
 
     VkShaderModule module = VK_NULL_HANDLE;

@@ -1,23 +1,23 @@
+#include <stdexcept>
 #include "io/file.hpp"
+#include "io/ShaderBinary.h"
 
-uint32_t *io::file::read_binary(const std::string& path, size_t *pOutSize) {
+ShaderBinary io::file::read_binary(const std::string& path) {
 	FILE *f = fopen(path.c_str(), "rb");
 
 	if(!f) {
-		return nullptr;
+		throw std::runtime_error("Failed to open file");
 	}
 
 	fseek(f, 0, SEEK_END);
 	size_t size = ftell(f);
-	uint32_t *buf = new uint32_t[size + 1];
+	std::vector<uint32_t> data(size + 1);
 	fseek(f, 0, SEEK_SET);
 
-	fread(buf, 4, size, f);
+	fread(data.data(), 4, size, f);
 	fclose(f);
 
-	buf[size] = '\0';
+	data[size] = '\0';
 
-	if(pOutSize) *pOutSize = size;
-
-	return buf;
+	return ShaderBinary(data);
 }
