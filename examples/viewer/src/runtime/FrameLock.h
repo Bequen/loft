@@ -1,14 +1,14 @@
 #pragma once
 
 #include <cstdint>
-#include <ctime>
+#include <chrono>
 
 /**
  * Utilities to lock maximum number of frames per second
  */
 struct FrameLock {
 private:
-    uint64_t m_prevTimeInNS;
+    std::chrono::time_point<std::chrono::system_clock> m_prevTimeInNS;
     uint64_t m_maxFrameTimeInNS;
 
     uint64_t m_deltaTime;
@@ -25,16 +25,15 @@ public:
     }
 
     explicit FrameLock(uint64_t maxFramesPerSecond) :
-    m_prevTimeInNS(0), m_maxFrameTimeInNS(maxFramesPerSecond == 0 ? 0 : NS_IN_SECOND / maxFramesPerSecond) {
+    m_maxFrameTimeInNS(maxFramesPerSecond == 0 ? 0 : NS_IN_SECOND / maxFramesPerSecond) {
         
     }
 
     void update() {
-        /* timespec currentTimeSpec = {};
-        if(clock_gettime(CLOCK_MONOTONIC_RAW, &currentTimeSpec) == -1) {}
-        uint64_t currentTimeInNS = (currentTimeSpec.tv_sec * NS_IN_SECOND) + currentTimeSpec.tv_nsec;
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = duration_cast<std::chrono::nanoseconds>(now - m_prevTimeInNS);
+        m_deltaTime = duration.count();
 
-        m_deltaTime = currentTimeInNS - m_prevTimeInNS;
         if(m_deltaTime < m_maxFrameTimeInNS) {
             auto sleepTimeInNS = m_maxFrameTimeInNS - m_deltaTime;
             const timespec tim {
@@ -45,6 +44,6 @@ public:
             nanosleep(&tim, &tim2);
         }
 
-        m_prevTimeInNS = currentTimeInNS; */
+        m_prevTimeInNS = now;
     }
 };
