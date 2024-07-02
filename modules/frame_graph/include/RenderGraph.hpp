@@ -5,7 +5,7 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 #include <stdexcept>
 
 #include "ResourceLayout.hpp"

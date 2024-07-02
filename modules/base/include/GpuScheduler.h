@@ -5,7 +5,7 @@
 #ifndef LOFT_GPUSCHEDULER_H
 #define LOFT_GPUSCHEDULER_H
 
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 
 class GpuScheduler {
 public:

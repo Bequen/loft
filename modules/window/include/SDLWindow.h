@@ -8,7 +8,7 @@
 #include "Window.hpp"
 #include "event.h"
 #include <SDL2/SDL.h>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 #include <string>
 
 class SDLWindow : public Window {

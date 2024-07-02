@@ -1,5 +1,6 @@
 #include <stdio.h>
-#include <vulkan/vulkan_core.h>
+#define VOLK_IMPLEMENTATION
+#include <volk/volk.h>
 #include <iostream>
 
 #include "DebugUtils.h"
@@ -148,6 +149,10 @@ int runtime(int argc, char** argv) {
      */
     io::path::setup_exe_path(argv[0]);
 
+    if(volkInitialize()) {
+        throw std::runtime_error("Failed to initialize volk");
+    }
+
     /**
      * Opens up a window
      */
@@ -170,6 +175,7 @@ int runtime(int argc, char** argv) {
     Instance instance("loft", "loft", count, extensions);
     delete [] extensions;
     load_debug_utils(instance.instance());
+    volkLoadInstance(instance.instance());
 
 
     /*
@@ -604,11 +610,17 @@ int runtime(int argc, char** argv) {
     renderGraphBuilder.add_graphics_pass(&compositionPass);
 
     auto imguiPassContext = ImGuiContext();
+    auto ins = instance.instance();
+    ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
+        return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
+    }, &ins);
     auto imguiPass = LambdaRenderPass<ImGuiContext>("imgui", &imguiPassContext,
                                                     [&](ImGuiContext* pContext, RenderPassBuildInfo info) {
                                                         ImGui::CreateContext();
+                                                        // ImGui_ImplVulkan_LoadFunctions();
                                                         ImGuiIO& io = ImGui::GetIO(); (void)io;
                                                         io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 14.0f);
+
 
                                                         ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
                                                         ImGui_ImplVulkan_InitInfo init_info = {

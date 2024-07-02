@@ -8,7 +8,7 @@
 #include "Gpu.hpp"
 #include "DebugUtils.h"
 
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 
 
 struct Shader {

@@ -5,11 +5,33 @@
 #include "Gpu.hpp"
 
 DefaultAllocator::DefaultAllocator(Gpu *pGpu) {
+    VmaVulkanFunctions vma_vulkan_func{};
+    vma_vulkan_func.vkAllocateMemory                    = vkAllocateMemory;
+    vma_vulkan_func.vkBindBufferMemory                  = vkBindBufferMemory;
+    vma_vulkan_func.vkBindImageMemory                   = vkBindImageMemory;
+    vma_vulkan_func.vkCreateBuffer                      = vkCreateBuffer;
+    vma_vulkan_func.vkCreateImage                       = vkCreateImage;
+    vma_vulkan_func.vkDestroyBuffer                     = vkDestroyBuffer;
+    vma_vulkan_func.vkDestroyImage                      = vkDestroyImage;
+    vma_vulkan_func.vkFlushMappedMemoryRanges           = vkFlushMappedMemoryRanges;
+    vma_vulkan_func.vkFreeMemory                        = vkFreeMemory;
+    vma_vulkan_func.vkGetBufferMemoryRequirements       = vkGetBufferMemoryRequirements;
+    vma_vulkan_func.vkGetImageMemoryRequirements        = vkGetImageMemoryRequirements;
+    vma_vulkan_func.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties;
+    vma_vulkan_func.vkGetPhysicalDeviceProperties       = vkGetPhysicalDeviceProperties;
+    vma_vulkan_func.vkInvalidateMappedMemoryRanges      = vkInvalidateMappedMemoryRanges;
+    vma_vulkan_func.vkMapMemory                         = vkMapMemory;
+    vma_vulkan_func.vkUnmapMemory                       = vkUnmapMemory;
+    vma_vulkan_func.vkCmdCopyBuffer                     = vkCmdCopyBuffer;
+    vma_vulkan_func.vkGetDeviceProcAddr                 = vkGetDeviceProcAddr;
+    vma_vulkan_func.vkGetInstanceProcAddr               = vkGetInstanceProcAddr;
+
     VmaAllocatorCreateInfo allocatorCreateInfo = {
             .physicalDevice = pGpu->gpu(),
             .device = pGpu->dev(),
+            .pVulkanFunctions = &vma_vulkan_func,
             .instance = pGpu->instance().instance(),
-            .vulkanApiVersion = VK_API_VERSION_1_2,
+            .vulkanApiVersion = VK_API_VERSION_1_0,
     };
 
     vmaCreateAllocator(&allocatorCreateInfo, &m_allocator);

@@ -1,11 +1,12 @@
 #pragma once
 
 #include "RenderPass.hpp"
+#include <volk/volk.h>
 
 #include <vector>
 #include <cstdint>
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
+
 
 /**
  * Internal wrapper around RenderPass, mainly to sign that is has been

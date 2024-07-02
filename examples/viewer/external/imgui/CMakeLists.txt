@@ -9,6 +9,7 @@ include_directories(backends ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(SDL2 QUIET)
 find_package(Vulkan REQUIRED)
 
+# add_definitions(-DVK_NO_PROTOTYPES=1)
 add_library(${PROJECT_NAME} ${FILES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})

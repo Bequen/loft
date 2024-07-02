@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 
 struct VertexBinding {
     uint32_t binding;

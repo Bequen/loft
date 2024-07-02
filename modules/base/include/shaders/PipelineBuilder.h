@@ -4,7 +4,7 @@
 #include "VertexAttribute.h"
 #include "BlendingInfo.h"
 #include "Pipeline.hpp"
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 #include <stdexcept>
 
 class PipelineLayoutBuilder {

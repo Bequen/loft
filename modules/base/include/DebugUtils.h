@@ -3,7 +3,7 @@
 #ifndef _DEBUG_UTILS_H
 #define _DEBUG_UTILS_H
 
-#include <vulkan/vulkan.h>
+#include <volk/volk.h>
 
 extern PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName;
 

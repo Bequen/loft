@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 #include <utility>
 #include <vector>
 #include "ResourceType.h"

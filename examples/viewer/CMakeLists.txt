@@ -99,6 +99,7 @@ target_include_directories(
 		${VMA_SOURCE_DIR}/include/
 		${Vulkan_INCLUDE_DIR}
 		${SDL2_INCLUDE_DIR}
+		../../
 )
 
 target_link_libraries(
@@ -118,6 +119,7 @@ target_link_libraries(
 target_link_libraries(
 		${PROJECT_NAME} PRIVATE
 		${SDL2_LIBRARIES}
+		volk
 )
 
 file(ARCHIVE_CREATE

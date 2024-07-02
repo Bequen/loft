@@ -1,4 +1,4 @@
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 #include <signal.h>
 #include <string>
 #include <vector>
@@ -52,9 +52,9 @@ Instance::Instance(std::string applicationName, std::string engineName,
                    uint32_t numExtensions, char** extensions) {
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = applicationName.c_str(),
+        .pApplicationName = "applicationName.c_str()",
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-        .pEngineName = engineName.c_str(),
+        .pEngineName = "engineName.c_str()",
         .apiVersion = VK_API_VERSION_1_3
     };
 

@@ -12,10 +12,14 @@ static const char *DEVICE_EXTENSIONS[] = {
 
 static const int NUM_DEVICE_EXTENSIONS = sizeof(DEVICE_EXTENSIONS) / sizeof(*DEVICE_EXTENSIONS);
 
-
+#if VK_LAYERS_ENABLE
 static const char* LAYERS[] = {
         "VK_LAYER_KHRONOS_validation"
 };
+#else
+static const char* LAYERS[] = {
+};
+#endif
 
 static const int NUM_LAYERS = sizeof(LAYERS) / sizeof(*LAYERS);
 

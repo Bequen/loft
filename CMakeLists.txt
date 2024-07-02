@@ -5,6 +5,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 cmake_minimum_required(VERSION 3.5)
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
+if (WIN32)
+    set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
+elseif(UNIX)
+    set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_XCB_KHR)
+endif()
+
+add_subdirectory(volk)
+
 # Please set default paths for vulkan and SDL2
 set(VULKAN_PATH "$ENV{VULKAN_SDK}" CACHE STRING "Path to vulkan directory")
 set(SDL2_PATH "$ENV{VULKAN_SDK}/cmake" CACHE STRING "Path to SDL2 directory")
@@ -28,6 +36,6 @@ project(loft)
 add_subdirectory(modules)
 add_subdirectory(examples)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

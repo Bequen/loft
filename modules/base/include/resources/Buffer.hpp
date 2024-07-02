@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 #include "GpuAllocation.h"
 
 class Gpu;

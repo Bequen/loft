@@ -1,7 +1,7 @@
 #include <valarray>
 #include <stdexcept>
 #include <iostream>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 #include "MaterialBuffer.h"
 #include "resources/GpuAllocator.h"
 #include "resources/ImageBusWriter.h"

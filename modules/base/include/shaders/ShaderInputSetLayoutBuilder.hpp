@@ -3,7 +3,7 @@
 #include "Gpu.hpp"
 
 #include <vector>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 #include <assert.h>
 #include <stdexcept>
 

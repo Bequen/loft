@@ -2,7 +2,7 @@
 
 #include <string>
 #include <utility>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 
 #include "resources/Image.hpp"
 #include "resources/Buffer.hpp"

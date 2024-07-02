@@ -10,7 +10,7 @@
 #include <vector>
 #include <cstdint>
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 
 struct ExternalImageResource {
     ImageView view;
