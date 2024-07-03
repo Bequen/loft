@@ -3,6 +3,7 @@
 //
 
 #include <stdexcept>
+#include <iostream>
 #include "shaders/SpirvShaderBuilder.hpp"
 
 #include "io/file.hpp"
@@ -13,6 +14,7 @@ m_pGpu(pGpu) {
 }
 
 Shader SpirvShaderBuilder::from_file(std::string path) {
+    std::cout << "Loading shader: " << path << std::endl;
     auto shaderBinary = io::file::read_binary(path);
 
     VkShaderModuleCreateInfo moduleInfo = {

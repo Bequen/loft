@@ -616,13 +616,17 @@ int runtime(int argc, char** argv) {
     }, &ins);
     auto imguiPass = LambdaRenderPass<ImGuiContext>("imgui", &imguiPassContext,
                                                     [&](ImGuiContext* pContext, RenderPassBuildInfo info) {
+        std::cout << "Fuck" << std::endl;
                                                         ImGui::CreateContext();
                                                         // ImGui_ImplVulkan_LoadFunctions();
                                                         ImGuiIO& io = ImGui::GetIO(); (void)io;
+                                                        std::cout << "Loading font: " << io::path::asset("fonts/ProggyClean.ttf") << std::endl;
                                                         io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 14.0f);
 
 
+                                                        std::cout << "Initializing ImGui SDL2 for Vulkan..." << std::endl;
                                                         ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
+                                                        std::cout << "Initialized ImGui SDL2 for Vulkan" << std::endl;
                                                         ImGui_ImplVulkan_InitInfo init_info = {
                                                                 .Instance = instance.instance(),
                                                                 .PhysicalDevice = gpu.gpu(),
@@ -638,7 +642,9 @@ int runtime(int argc, char** argv) {
                                                                 .Allocator = nullptr,
                                                                 .CheckVkResultFn = nullptr,
                                                         };
+                                                        std::cout << "Initializing ImGui for Vulkan..." << std::endl;
                                                         ImGui_ImplVulkan_Init(&init_info, info.output().renderpass());
+                                                        std::cout << "Initialized ImGui for Vulkan" << std::endl;
                                                     },
                                                     [&](ImGuiContext* pContext, RenderPassRecordInfo recordInfo) {
                                                         ImGui::Render();
@@ -746,8 +752,6 @@ int runtime(int argc, char** argv) {
 
     auto shadowSignal = shadowsRenderGraph.run(0);
     renderGraph.set_external_dependency("shadowmap", shadowSignal);
-
-
 
     while(isOpen) {
         uint32_t imageIdx = 0;

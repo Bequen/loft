@@ -13,11 +13,17 @@ static const char* EXTENSIONS[] = {
 
 static const int NUM_EXTENSIONS = sizeof(EXTENSIONS) / sizeof(*EXTENSIONS);
 
+#if VK_LAYERS_ENABLE
 static const char* LAYERS[] = {
         "VK_LAYER_KHRONOS_validation"
 };
 
 static const int NUM_LAYERS = sizeof(LAYERS) / sizeof(*LAYERS);
+#else
+#define LAYERS nullptr
+
+static const int NUM_LAYERS = 0;
+#endif
 
 static const char *DEVICE_EXTENSIONS[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,

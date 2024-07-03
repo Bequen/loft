@@ -16,12 +16,14 @@ static const int NUM_DEVICE_EXTENSIONS = sizeof(DEVICE_EXTENSIONS) / sizeof(*DEV
 static const char* LAYERS[] = {
         "VK_LAYER_KHRONOS_validation"
 };
+static const int NUM_LAYERS = sizeof(LAYERS) / sizeof(*LAYERS);
+
 #else
-static const char* LAYERS[] = {
-};
+#define LAYERS nullptr
+static const int NUM_LAYERS = 0;
+
 #endif
 
-static const int NUM_LAYERS = sizeof(LAYERS) / sizeof(*LAYERS);
 
 
 int32_t get_graphics_score(VkQueueFamilyProperties props) {

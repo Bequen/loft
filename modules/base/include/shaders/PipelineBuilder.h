@@ -6,6 +6,7 @@
 #include "Pipeline.hpp"
 #include <volk/volk.h>
 #include <stdexcept>
+#include <algorithm>
 
 class PipelineLayoutBuilder {
 private:

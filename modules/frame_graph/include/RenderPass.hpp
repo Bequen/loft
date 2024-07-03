@@ -7,6 +7,7 @@
 #include "volk/volk.h"
 #include <optional>
 #include <functional>
+#include <iostream>
 #include "ResourceLayout.hpp"
 #include "RenderPassBuildInfo.hpp"
 
@@ -43,6 +44,7 @@ public:
     }
 
     inline RenderPass& add_pass_dependency(const std::string& name) {
+        std::cout << "Adding pass dependency" << std::endl;
         m_passDependencies.push_back(name);
         return *this;
     }
@@ -59,6 +61,7 @@ public:
     virtual void record(RenderPassRecordInfo info) = 0;
     
 	inline RenderPass& add_color_output(std::string name, VkFormat format, VkClearColorValue clearValue = { 0.0f, 0.0f, 0.0f, 1.0f }) {
+        std::cout << "Adding color output" << name << std::endl;
         auto resource = new ImageResourceLayout(std::move(name), format);
         resource->set_clear_color_value(clearValue);
         m_outputs.push_back(resource);
@@ -66,6 +69,7 @@ public:
 	}
 
     inline RenderPass& set_depth_output(std::string name, VkFormat format, VkClearDepthStencilValue clearValue = { 1.0f, 0 }) {
+        std::cout << "Adding depth output" << name << std::endl;
         auto resource = new ImageResourceLayout(std::move(name), format);
         resource->set_clear_depth_value(clearValue);
         m_pDepthOutput = resource;
@@ -141,7 +145,7 @@ public:
                      std::function<void(T*, RenderPassBuildInfo)> onBuild,
                      std::function<void(T*, RenderPassRecordInfo)> onRecord) :
                      m_onBuild(onBuild), m_onRecord(onRecord), m_pContext(pContext), RenderPass(name) {
-
+        std::cout << "Creating Lambda Render Pass: " << name << std::endl;
     }
 
     void prepare(RenderPassBuildInfo info) override {

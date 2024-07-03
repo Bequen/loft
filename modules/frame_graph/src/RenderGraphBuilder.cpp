@@ -319,6 +319,7 @@ int RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCa
                                           RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass,
                                           int depth, uint32_t renderpassIdx) {
     if(pPass->is_visited()) return 0;
+    std::cout << "Building renderpass " << pPass->renderpass()->name() << std::endl;
 
     build_renderpass_dependencies(pGpu, pCache, pCmdBuf, renderpassIdx, depth - 1);
 
@@ -366,23 +367,29 @@ RenderGraphBuilder::build_renderpasses(Gpu *pGpu, RenderGraphBuilderCache *pCach
 }
 
 RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const ImageChain& outputChain, VkExtent2D extent) {
+    std::cout << "Building render graph" << std::endl;
     m_extent = extent;
 
     // Build matrix
     auto adjacencyMatrix = build_adjacency_matrix();
+    std::cout << "Transitive reduction" << std::endl;
     adjacencyMatrix.transitive_reduction();
 
     auto sampler = create_attachment_sampler(pGpu);
 
     // Prepare cache
+    std::cout << "Preparing cache" << std::endl;
     RenderGraphBuilderCache cache(m_outputName, m_numImagesInFlight, adjacencyMatrix, sampler, outputChain);
 
     auto queue = build_renderpasses(pGpu, &cache);
 
+    std::cout << "Transfering layout" << std::endl;
     cache.transfer_layout(pGpu);
 
+    std::cout << "Constructing render graph" << std::endl;
     auto graph = RenderGraph(pGpu, m_name, outputChain, queue, m_numImagesInFlight);
 
+    std::cout << "Setting external dependencies" << std::endl;
     for(const auto& externalDependency : m_externalImageDependencies) {
         graph.set_external_dependency(externalDependency.name, VK_NULL_HANDLE);
     }
@@ -392,6 +399,7 @@ RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const ImageChain& outputChain, 
 
 const AdjacencyMatrix
 RenderGraphBuilder::build_adjacency_matrix() const {
+    std::cout << "Building adjacency matrix" << std::endl;
     AdjacencyMatrix matrix(m_numRenderpasses + m_externalImageDependencies.size() + 1);
 
     for(uint32_t x = 0; x < m_numRenderpasses; x++) {
@@ -426,6 +434,7 @@ RenderGraphBuilder::build_adjacency_matrix() const {
         }
     }
 
+    std::cout << "Done building adjacency matrix" << std::endl;
     return matrix;
 }
 
