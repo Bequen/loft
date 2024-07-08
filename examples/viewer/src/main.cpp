@@ -130,14 +130,15 @@ struct CompositionContext {
 };
 
 
+
 int runtime(int argc, char** argv) {
     /**
      * The program needs some glTF file to render
      */
-    if(argc <= 1) {
+    /* if(argc <= 1) {
         fprintf(stderr, "Specify path to glTF file\n");
         return 0;
-    }
+    } */
 
     VkExtent2D extent = {
             .width = 2400,
@@ -273,7 +274,6 @@ int runtime(int argc, char** argv) {
     auto shadowVert = shaderBuilder.from_file(io::path::shader("Shadow.vert.spirv"));
     auto shadowFrag = shaderBuilder.from_file(io::path::shader("Shadow.frag.spirv"));
 
-    std::cout << "Help" << std::endl;
 
     auto globalInputSetLayout = ShaderInputSetLayoutBuilder(1)
             .uniform_buffer(0)
@@ -395,6 +395,8 @@ int runtime(int argc, char** argv) {
             .add_input("pos_gbuf")
             .add_input("pbr_gbuf")
             .add_input("depth_gbuf");
+
+
 
 
 
@@ -729,6 +731,8 @@ int runtime(int argc, char** argv) {
     auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1)
             .add_graphics_pass(&shadowPass);
     auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
+
+    return 0;
 
     uint32_t i = 0;
     for(auto& image : swapchain.images()) {

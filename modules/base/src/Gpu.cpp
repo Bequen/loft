@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <iostream>
+#include <memory>
 
 static const char *DEVICE_EXTENSIONS[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -162,27 +163,28 @@ Result Gpu::create_logical_device(VkSurfaceKHR supportedSurface) {
 
     vkGetDeviceQueue(m_dev, queueFamilies[0], 0, &m_graphicsQueue);
     if(queueFamilies[0] == queueFamilies[1]) {
-        m_transferCommandPool = m_graphicsCommandPool;
+        if(vkCreateCommandPool(m_dev, &poolInfo, nullptr, &m_transferCommandPool)) {
+            return RESULT_GPU_COMMAND_POOL_CREATION_FAILED;
+        }
         m_transferQueue = m_graphicsQueue;
     } else {
         poolInfo.queueFamilyIndex = (uint32_t)queueFamilies[1];
-        if(vkCreateCommandPool(m_dev, &poolInfo, nullptr, &m_graphicsCommandPool)) {
+        if(vkCreateCommandPool(m_dev, &poolInfo, nullptr, &m_transferCommandPool)) {
             return RESULT_GPU_COMMAND_POOL_CREATION_FAILED;
         }
         vkGetDeviceQueue(m_dev, queueFamilies[1], 0, &m_transferQueue);
     }
 
+    if(vkCreateCommandPool(m_dev, &poolInfo, nullptr, &m_presentCommandPool)) {
+        return RESULT_GPU_COMMAND_POOL_CREATION_FAILED;
+    }
+
     if(queueFamilies[0] == queueFamilies[2]) {
         m_presentQueue = m_graphicsQueue;
-        m_presentCommandPool = m_graphicsCommandPool;
     } else if(queueFamilies[1] == queueFamilies[2]) {
         m_presentQueue = m_transferQueue;
-        m_presentCommandPool = m_transferCommandPool;
-    } else {
-        poolInfo.queueFamilyIndex = (uint32_t)queueFamilies[2];
-        if(vkCreateCommandPool(m_dev, &poolInfo, nullptr, &m_graphicsCommandPool)) {
-            return RESULT_GPU_COMMAND_POOL_CREATION_FAILED;
-        }
+    } if(queueFamilies[2] != queueFamilies[1] &&
+           queueFamilies[2] != queueFamilies[0]) {
         vkGetDeviceQueue(m_dev, queueFamilies[2], 0, &m_presentQueue);
     }
 
@@ -252,7 +254,15 @@ Gpu::Gpu(Instance instance, VkSurfaceKHR supportedSurface) :
         throw std::runtime_error("Failed to create descriptor pool");
     }
 
-    m_pAllocator = new DefaultAllocator(this);
+    m_pAllocator = std::make_unique<DefaultAllocator>(DefaultAllocator(this));
+}
+
+Gpu::~Gpu() {
+    vkDestroyDescriptorPool(m_dev, m_descriptorPool, nullptr);
+    vkDestroyCommandPool(m_dev, m_graphicsCommandPool, nullptr);
+    vkDestroyCommandPool(m_dev, m_transferCommandPool, nullptr);
+    vkDestroyCommandPool(m_dev, m_presentCommandPool, nullptr);
+    vkDestroyDevice(m_dev, nullptr);
 }
 
 void Gpu::enqueue_present(VkPresentInfoKHR *pPresentInfo) const {

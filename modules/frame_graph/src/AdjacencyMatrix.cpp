@@ -9,7 +9,6 @@ m_matrix(width, std::vector<bool>(width)) {
 void AdjacencyMatrix::find_dft(uint32_t node, uint32_t target, uint32_t maxDepth) {
     if(maxDepth == 0) {
         throw std::runtime_error("Contains loop");
-        return;
     }
 
     for(uint32_t x = 0; x < m_matrix.size(); x++) {

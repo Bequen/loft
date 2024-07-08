@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 /**
  * Basic engine unit
@@ -41,7 +42,7 @@ private:
 
     Result create_descriptor_pool();
 
-    GpuAllocator *m_pAllocator;
+    std::unique_ptr<GpuAllocator> m_pAllocator;
 
 public:
 	GET(m_gpu, gpu);
@@ -58,10 +59,15 @@ public:
 
     GET(m_tracyCommandBuffer, tracy_cmd_buf);
 
-    GET(m_pAllocator, memory);
+    GET(m_pAllocator.get(), memory);
 
 	explicit 
 	Gpu(Instance instance, VkSurfaceKHR surface);
+
+    ~Gpu();
+
+    // Forbid copy
+    Gpu(const Gpu&) = delete;
 
     inline std::vector<uint32_t> present_queue_ids() const {
         return {m_presentQueueIdx};

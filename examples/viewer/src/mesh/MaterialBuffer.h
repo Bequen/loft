@@ -27,7 +27,11 @@ public:
     void allocate_for(const SceneData *pSceneData);
 
 public:
-    const size_t material_buffer_size() const {
+    /**
+     * Size in bytes of the material data buffer
+     * @return Returns the size in bytes
+     */
+    [[nodiscard]] size_t material_buffer_size() const {
         return m_materials.size() * sizeof(Material);
     }
 
@@ -40,7 +44,19 @@ public:
         m_materialsValidity[idx] = true;
     }
 
+    /**
+     * Create a new MaterialBuffer for the given Gpu and SceneData and stores the textures and material data.
+     * @brief Constructor
+     * @param pGpu
+     * @param pSceneData
+     */
     MaterialBuffer(Gpu *pGpu, const SceneData *pSceneData);
+
+    /**
+     * @brief Copy constructor is disabled
+     * @param other
+     */
+    MaterialBuffer(const MaterialBuffer& other) = delete;
 
     uint32_t
     upload_texture(const TextureData& texture, VkFormat format);

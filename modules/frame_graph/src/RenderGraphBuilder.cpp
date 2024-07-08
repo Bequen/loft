@@ -248,8 +248,8 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
     for(auto attachment : pPass->renderpass()->outputs()) {
         if(attachment->resource_type() != RESOURCE_TYPE_IMAGE) continue;
 
-        auto views = get_attachment(pGpu, pCache, m_numImagesInFlight, extent,
-                                    false, (ImageResourceLayout*)attachment);
+        auto views = pCache->get_image();// get_attachment(pGpu, pCache, m_numImagesInFlight, extent,
+                     //               false, (ImageResourceLayout*)attachment);
 
         for(uint32_t o = 0; o < m_numImagesInFlight; o++) {
             attachments[o][i] = views[o];
@@ -354,6 +354,8 @@ int RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCa
 std::vector<RenderGraphVkCommandBuffer>
 RenderGraphBuilder::build_renderpasses(Gpu *pGpu, RenderGraphBuilderCache *pCache) {
     std::vector<uint32_t> dependencies = pCache->adjacency_matrix().get_dependencies(m_numRenderpasses + m_externalImageDependencies.size());
+
+    if(dependencies.empty()) return {};
 
     /* create command buffer for each dependency */
     std::vector<RenderGraphVkCommandBuffer> cmdbufs(dependencies.size(), RenderGraphVkCommandBuffer(pGpu, m_numImagesInFlight));

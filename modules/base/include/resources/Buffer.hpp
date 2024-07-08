@@ -32,6 +32,6 @@ struct Buffer {
     void set_debug_name(const Gpu *pGpu, const std::string& name) const;
 
     /* disable copy */
-    // void operator=(Buffer&) = delete;
-    // Buffer(Buffer& a) = delete;
+    void operator=(Buffer&) = delete;
+    Buffer(Buffer& a) = delete;
 };
