@@ -140,5 +140,5 @@ public:
         return *this;
     }
 
-    std::optional<Pipeline> build();
+    Pipeline build();
 };

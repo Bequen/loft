@@ -139,7 +139,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
             .subpassCount = 1,
             .pSubpasses = &subpass,
 
-            .dependencyCount = 1,
+            .dependencyCount = 0,
             .pDependencies = subpassDependencies
     };
 
@@ -248,8 +248,8 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
     for(auto attachment : pPass->renderpass()->outputs()) {
         if(attachment->resource_type() != RESOURCE_TYPE_IMAGE) continue;
 
-        auto views = pCache->get_image();// get_attachment(pGpu, pCache, m_numImagesInFlight, extent,
-                     //               false, (ImageResourceLayout*)attachment);
+        auto views =  get_attachment(pGpu, pCache, m_numImagesInFlight, extent,
+                                   false, (ImageResourceLayout*)attachment);
 
         for(uint32_t o = 0; o < m_numImagesInFlight; o++) {
             attachments[o][i] = views[o];

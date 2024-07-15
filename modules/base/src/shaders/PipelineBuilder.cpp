@@ -4,7 +4,7 @@
 PipelineBuilder::PipelineBuilder(const Gpu *pGpu, const VkViewport& viewport,
         VkPipelineLayout layout, VkRenderPass outputLayout,
         uint32_t numAttachments,
-const Shader& vertexShader, const Shader& fragmentShader) :
+        const Shader& vertexShader, const Shader& fragmentShader) :
 m_pGpu(pGpu),
 m_viewport(viewport),
 m_scissor({
@@ -72,7 +72,7 @@ m_blendingInfo(numAttachments)
     }
 }
 
-std::optional<Pipeline> PipelineBuilder::build() {
+Pipeline PipelineBuilder::build() {
     m_vertexInputInfo.vertexBindingDescriptionCount = m_vertexBindings.size();
     m_vertexInputInfo.pVertexBindingDescriptions = (VkVertexInputBindingDescription*)m_vertexBindings.data();
     m_vertexInputInfo.vertexAttributeDescriptionCount = m_vertexAttributes.size();
@@ -128,7 +128,7 @@ std::optional<Pipeline> PipelineBuilder::build() {
     VkPipeline pipeline;
     if(vkCreateGraphicsPipelines(m_pGpu->dev(), VK_NULL_HANDLE, 1,
                                  &pipelineInfo, nullptr, &pipeline)) {
-        return {};
+        throw std::runtime_error("Failed to create graphics pipeline");
     }
 
     return Pipeline(m_layout, pipeline);

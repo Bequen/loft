@@ -316,8 +316,7 @@ int runtime(int argc, char** argv) {
                                                                                                pContext->layout, info.output().renderpass(),
                                                                                                4, vert, frag)
                                                                   .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
-                                                                  .build()
-                                                                  .value();
+                                                                  .build();
                                                       },
                                                       [&](GeometryContext* pContext, RenderPassRecordInfo info) {
                                                           vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
@@ -375,8 +374,7 @@ int runtime(int argc, char** argv) {
                                                                                                  layout, info.output().renderpass(),
                                                                                                  2, offscr, shade)
                                                                     .set_vertex_input_info({}, {})
-                                                                    .build()
-                                                                    .value();
+                                                                    .build();
                                                         },
                                                         [&](ShadingPassContext* pContext, RenderPassRecordInfo recordInfo) {
                                                             vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
@@ -456,8 +454,7 @@ int runtime(int argc, char** argv) {
                                                                                                           info.output().renderpass(),
                                                                                                           1, offscr, bloomShader)
                                                                              .set_vertex_input_info({}, {})
-                                                                             .build()
-                                                                             .value();
+                                                                             .build();
                                                                  },
                                                                  [&](DownsampleContext *pContext, RenderPassRecordInfo recordInfo) {
                                                                      vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -517,8 +514,7 @@ int runtime(int argc, char** argv) {
                                                                                                       info.output().renderpass(),
                                                                                                       1, offscr, upscaleShader)
                                                                          .set_vertex_input_info({}, {})
-                                                                         .build()
-                                                                         .value();
+                                                                         .build();
                                                              },
                                                              [&](UpsampleContext *pContext, RenderPassRecordInfo recordInfo) {
                                                                  vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -584,8 +580,7 @@ int runtime(int argc, char** argv) {
                                                                                                          info.output().renderpass(),
                                                                                                          1, offscr, compositeShader)
                                                                             .set_vertex_input_info({}, {})
-                                                                            .build()
-                                                                            .value();
+                                                                            .build();
                                                                 },
                                                                 [&](CompositionContext* pContext, RenderPassRecordInfo recordInfo) {
                                                                     vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -700,8 +695,7 @@ int runtime(int argc, char** argv) {
                                                                                                    pContext->layout, info.output().renderpass(),
                                                                                                    1, shadowVert, shadowFrag)
                                                                       .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
-                                                                      .build()
-                                                                      .value();
+                                                                      .build();
                                                           },
                                                           [&](ShadowPassContext* pContext, RenderPassRecordInfo info) {
                                                               vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());

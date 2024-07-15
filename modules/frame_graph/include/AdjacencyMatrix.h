@@ -6,7 +6,7 @@
 #include "modules/common/src/Assert.h"
 
 /**
- * Stores a graph as an adjacency matrix.
+ * Represents a graph as an adjacency matrix.
  */
 struct AdjacencyMatrix {
 private:

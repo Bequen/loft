@@ -97,7 +97,6 @@ target_include_directories(
 		${PROJECT_SOURCE_DIR}/external
 		${PROJECT_SOURCE_DIR}/external/imgui
 		${VMA_SOURCE_DIR}/include/
-		${Vulkan_INCLUDE_DIR}
 		${SDL2_INCLUDE_DIR}
 		../../
 )
@@ -111,8 +110,6 @@ target_link_libraries(
 		loft_framegraph
 
 		# external libraries
-
-		${Vulkan_LIBRARIES}
 		imgui
 )
 
