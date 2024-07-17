@@ -121,23 +121,6 @@ public:
             frames[f] = barriers;
         }
 
-        /* auto swapchainImages = swapchain()->images();
-        std::vector<VkImageMemoryBarrier> barriers(swapchain()->num_images(), barrier);
-        uint32_t i = 0;
-        for(auto& image : swapchainImages) {
-            barriers[i].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barriers[i].image = image.img;
-            i++;
-        }
-
-        vkCmdPipelineBarrier(
-                commandBuffer,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                0,
-                0, nullptr,
-                0, nullptr,
-                barriers.size(), barriers.data()); */
-
         vkEndCommandBuffer(commandBuffer);
 
         VkSubmitInfo submitInfo = {};

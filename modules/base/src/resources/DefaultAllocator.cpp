@@ -30,7 +30,7 @@ DefaultAllocator::DefaultAllocator(Gpu *pGpu) {
             .physicalDevice = pGpu->gpu(),
             .device = pGpu->dev(),
             .pVulkanFunctions = &vma_vulkan_func,
-            .instance = pGpu->instance().instance(),
+            .instance = pGpu->instance()->instance(),
             .vulkanApiVersion = VK_API_VERSION_1_0,
     };
 

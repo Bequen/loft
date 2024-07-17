@@ -173,17 +173,17 @@ int runtime(int argc, char** argv) {
     /**
      * Instance initializes a connection with Vulkan driver
      */
-    Instance instance("loft", "loft", count, extensions);
+    auto instance = std::make_shared<const Instance>("loft", "loft", count, extensions);
     delete [] extensions;
-    load_debug_utils(instance.instance());
-    volkLoadInstance(instance.instance());
+    load_debug_utils(instance->instance());
+    volkLoadInstance(instance->instance());
 
 
     /*
      * Surface is a way to tell window:
      * Hey, I am going to render to you from GPU. I need some surface to render to.
      */
-    auto surface = window->create_surface(instance.instance());
+    auto surface = window->create_surface(instance->instance());
 
     /**
      * Gpu manages stuff around rendering. Needed for most graphics operations.
@@ -607,7 +607,7 @@ int runtime(int argc, char** argv) {
     renderGraphBuilder.add_graphics_pass(&compositionPass);
 
     auto imguiPassContext = ImGuiContext();
-    auto ins = instance.instance();
+    auto ins = instance->instance();
     ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
         return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
     }, &ins);
@@ -625,7 +625,7 @@ int runtime(int argc, char** argv) {
                                                         ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
                                                         std::cout << "Initialized ImGui SDL2 for Vulkan" << std::endl;
                                                         ImGui_ImplVulkan_InitInfo init_info = {
-                                                                .Instance = instance.instance(),
+                                                                .Instance = instance->instance(),
                                                                 .PhysicalDevice = gpu.gpu(),
                                                                 .Device = gpu.dev(),
                                                                 .QueueFamily = 0,
@@ -725,8 +725,6 @@ int runtime(int argc, char** argv) {
     auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1)
             .add_graphics_pass(&shadowPass);
     auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
-
-    return 0;
 
     uint32_t i = 0;
     for(auto& image : swapchain.images()) {

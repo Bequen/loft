@@ -139,12 +139,12 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
             .subpassCount = 1,
             .pSubpasses = &subpass,
 
-            .dependencyCount = 0,
+            .dependencyCount = 1,
             .pDependencies = subpassDependencies
     };
 
-    VkRenderPass renderpass;
-    if(vkCreateRenderPass2(pGpu->dev(), &renderPassInfo, nullptr, &renderpass)) {
+    VkRenderPass renderpass = VK_NULL_HANDLE;
+    if(vkCreateRenderPass2KHR(pGpu->dev(), &renderPassInfo, nullptr, &renderpass)) {
         throw std::runtime_error("Failed to create renderpass");
     }
 
@@ -374,24 +374,19 @@ RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const ImageChain& outputChain, 
 
     // Build matrix
     auto adjacencyMatrix = build_adjacency_matrix();
-    std::cout << "Transitive reduction" << std::endl;
     adjacencyMatrix.transitive_reduction();
 
     auto sampler = create_attachment_sampler(pGpu);
 
     // Prepare cache
-    std::cout << "Preparing cache" << std::endl;
     RenderGraphBuilderCache cache(m_outputName, m_numImagesInFlight, adjacencyMatrix, sampler, outputChain);
 
     auto queue = build_renderpasses(pGpu, &cache);
 
-    std::cout << "Transfering layout" << std::endl;
     cache.transfer_layout(pGpu);
 
-    std::cout << "Constructing render graph" << std::endl;
     auto graph = RenderGraph(pGpu, m_name, outputChain, queue, m_numImagesInFlight);
 
-    std::cout << "Setting external dependencies" << std::endl;
     for(const auto& externalDependency : m_externalImageDependencies) {
         graph.set_external_dependency(externalDependency.name, VK_NULL_HANDLE);
     }

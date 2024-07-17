@@ -15,7 +15,7 @@
  */
 class Gpu {
 private:
-    Instance m_instance;
+    std::shared_ptr<const Instance> m_instance;
 	VkPhysicalDevice m_gpu = VK_NULL_HANDLE;
 	VkDevice m_dev = VK_NULL_HANDLE;
     VkDescriptorPool m_descriptorPool{};
@@ -47,7 +47,10 @@ private:
 public:
 	GET(m_gpu, gpu);
 	GET(m_dev, dev);
-    GET(m_instance, instance);
+
+    [[nodiscard]] std::shared_ptr<const Instance> instance() const {
+        return m_instance;
+    }
     
 	GET(m_descriptorPool, descriptor_pool);
     
@@ -62,7 +65,7 @@ public:
     GET(m_pAllocator.get(), memory);
 
 	explicit 
-	Gpu(Instance instance, VkSurfaceKHR surface);
+	Gpu(std::shared_ptr<const Instance> instance, VkSurfaceKHR surface);
 
     ~Gpu();
 

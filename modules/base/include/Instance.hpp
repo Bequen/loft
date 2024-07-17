@@ -16,6 +16,9 @@ private:
 public:
     GET(m_instance, instance);
 
+    // disable copy
+    Instance(const Instance&) = delete;
+
     explicit Instance(std::string applicationName,
                       std::string engineName,
                       uint32_t numExtensions,

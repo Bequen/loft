@@ -8,7 +8,10 @@
 #include <memory>
 
 static const char *DEVICE_EXTENSIONS[] = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+        VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
 };
 
 static const int NUM_DEVICE_EXTENSIONS = sizeof(DEVICE_EXTENSIONS) / sizeof(*DEVICE_EXTENSIONS);
@@ -198,13 +201,13 @@ Result Gpu::create_logical_device(VkSurfaceKHR supportedSurface) {
 Result Gpu::choose_gpu(VkPhysicalDevice *pOut) {
 
 	uint32_t numDevices = 0;
-	vkEnumeratePhysicalDevices(m_instance.instance(), &numDevices, nullptr);
+	vkEnumeratePhysicalDevices(m_instance->instance(), &numDevices, nullptr);
     if(numDevices == 0) {
         return RESULT_NO_AVAILABLE_GPU;
     }
 
 	auto devices = std::vector<VkPhysicalDevice>(numDevices);
-	vkEnumeratePhysicalDevices(m_instance.instance(), &numDevices, devices.data());
+	vkEnumeratePhysicalDevices(m_instance->instance(), &numDevices, devices.data());
 
 	VkPhysicalDevice chosen = devices[0];
 	*pOut = chosen;
@@ -239,8 +242,8 @@ Result Gpu::create_descriptor_pool() {
 }
 
 
-Gpu::Gpu(Instance instance, VkSurfaceKHR supportedSurface) :
-    m_instance(instance), m_pAllocator(nullptr) {
+Gpu::Gpu(std::shared_ptr<const Instance> instance, VkSurfaceKHR supportedSurface) :
+    m_instance(std::move(instance)), m_pAllocator(nullptr) {
 
 	if(choose_gpu(&m_gpu)) {
 		throw std::runtime_error("Failed to choose gpu");
@@ -272,7 +275,7 @@ void Gpu::enqueue_present(VkPresentInfoKHR *pPresentInfo) const {
 }
 
 void Gpu::enqueue_graphics(VkSubmitInfo2 *pSubmitInfo, VkFence fence) const {
-    if(vkQueueSubmit2(m_graphicsQueue, 1, pSubmitInfo, fence)) {
+    if(vkQueueSubmit2KHR(m_graphicsQueue, 1, pSubmitInfo, fence)) {
         throw std::runtime_error("Failed to submit to graphics queue");
     }
 }
