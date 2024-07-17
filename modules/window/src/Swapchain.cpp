@@ -7,8 +7,8 @@ VkSurfaceFormatKHR Swapchain::choose_format() {
 	vkGetPhysicalDeviceSurfaceFormatsKHR(m_pGpu->gpu(), m_surface, &formatCount, nullptr);
 	assert(formatCount > 0);
 
-	auto formats = new VkSurfaceFormatKHR[formatCount];
-	vkGetPhysicalDeviceSurfaceFormatsKHR(m_pGpu->gpu(), m_surface, &formatCount, formats);
+	auto formats = std::vector<VkSurfaceFormatKHR>(formatCount);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(m_pGpu->gpu(), m_surface, &formatCount, formats.data());
 
 	for(uint32_t i = 0; i < formatCount; i++) {
 		if(formats[i].format == VK_FORMAT_B8G8R8A8_UNORM &&
@@ -18,8 +18,6 @@ VkSurfaceFormatKHR Swapchain::choose_format() {
 	}
 
     auto result = formats[0];
-
-    delete [] formats;
 
 	return result;
 }

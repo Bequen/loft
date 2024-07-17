@@ -1,9 +1,10 @@
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-
 cmake_minimum_required(VERSION 3.5)
-add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0 -DNOMINMAX=1)
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0 -DNOMINMAX=1 -DVK_LAYERS_ENABLE=1 -DVK_KHR_create_renderpass2 -DVK_KHR_synchronization2 -DVK_KHR_shader_non_semantic_info)
+
+#add_compile_options(-fsanitize=address)
+#add_link_options(-fsanitize=address)
 
 if (WIN32)
     set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)

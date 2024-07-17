@@ -45,14 +45,14 @@ struct RenderGraphVkRenderPass {
                             clearValues(clearValues),
                             framebuffers(framebuffers.size()),
                             isGraphOutput(isGraphOutput) {
-        assert(renderpass != VK_NULL_HANDLE &&
+        ASSERT(renderpass != VK_NULL_HANDLE &&
                pRenderPass != nullptr);
 
-        assert(extent.width != 0 && extent.height != 0);
+        ASSERT(extent.width != 0 && extent.height != 0);
 
-        assert(clearValues.size() >= pRenderPass->num_outputs());
+        ASSERT(clearValues.size() >= pRenderPass->num_outputs());
 
-        assert(!framebuffers.empty());
+        ASSERT(!framebuffers.empty());
 
         color[0] = color[1] = color[2] = color[3] = 0.0f;
 
@@ -214,16 +214,13 @@ class RenderGraph {
 private:
     const std::string m_name;
 	const Gpu *m_pGpu;
+    const ImageChain m_outputChain;
 
     const std::vector<RenderGraphVkCommandBuffer> m_root;
 
-    const ImageChain m_outputChain;
-
-	/* Information about frame index */
-    uint32_t m_frameIdx;
-
-	/* Exact number of images in flight that this RenderGraph was built from */
 	const uint32_t m_numFrames;
+
+    uint32_t m_frameIdx;
 
     std::vector<VkFence> m_frameFinished;
 
@@ -231,8 +228,6 @@ private:
 
     VkCommandBufferSubmitInfo run_tree(const RenderGraphVkCommandBuffer *pNode,
                   uint32_t bufferIdx, uint32_t chainImageIdx) const;
-
-
 
 public:
     GET(m_root, dependencies);

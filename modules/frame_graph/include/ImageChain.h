@@ -3,6 +3,9 @@
 #include <vector>
 #include "resources/ImageView.hpp"
 
+/**
+ * Chain of image views. Used for swapchain and render graph output.
+ */
 struct ImageChain {
 private:
     const std::vector<ImageView> m_images;

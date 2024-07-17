@@ -13,6 +13,8 @@ class Pipeline {
     VkPipelineLayout m_layout;
 
 public:
+    Pipeline(const Pipeline&) = delete;
+
     Pipeline(VkPipelineLayout layout, VkPipeline pipeline) :
     m_layout(layout), m_pipeline(pipeline) {
 

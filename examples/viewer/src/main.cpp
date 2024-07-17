@@ -130,14 +130,15 @@ struct CompositionContext {
 };
 
 
+
 int runtime(int argc, char** argv) {
     /**
      * The program needs some glTF file to render
      */
-    if(argc <= 1) {
+    /* if(argc <= 1) {
         fprintf(stderr, "Specify path to glTF file\n");
         return 0;
-    }
+    } */
 
     VkExtent2D extent = {
             .width = 2400,
@@ -172,17 +173,17 @@ int runtime(int argc, char** argv) {
     /**
      * Instance initializes a connection with Vulkan driver
      */
-    Instance instance("loft", "loft", count, extensions);
+    auto instance = std::make_shared<const Instance>("loft", "loft", count, extensions);
     delete [] extensions;
-    load_debug_utils(instance.instance());
-    volkLoadInstance(instance.instance());
+    load_debug_utils(instance->instance());
+    volkLoadInstance(instance->instance());
 
 
     /*
      * Surface is a way to tell window:
      * Hey, I am going to render to you from GPU. I need some surface to render to.
      */
-    auto surface = window->create_surface(instance.instance());
+    auto surface = window->create_surface(instance->instance());
 
     /**
      * Gpu manages stuff around rendering. Needed for most graphics operations.
@@ -273,7 +274,6 @@ int runtime(int argc, char** argv) {
     auto shadowVert = shaderBuilder.from_file(io::path::shader("Shadow.vert.spirv"));
     auto shadowFrag = shaderBuilder.from_file(io::path::shader("Shadow.frag.spirv"));
 
-    std::cout << "Help" << std::endl;
 
     auto globalInputSetLayout = ShaderInputSetLayoutBuilder(1)
             .uniform_buffer(0)
@@ -316,8 +316,7 @@ int runtime(int argc, char** argv) {
                                                                                                pContext->layout, info.output().renderpass(),
                                                                                                4, vert, frag)
                                                                   .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
-                                                                  .build()
-                                                                  .value();
+                                                                  .build();
                                                       },
                                                       [&](GeometryContext* pContext, RenderPassRecordInfo info) {
                                                           vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
@@ -375,8 +374,7 @@ int runtime(int argc, char** argv) {
                                                                                                  layout, info.output().renderpass(),
                                                                                                  2, offscr, shade)
                                                                     .set_vertex_input_info({}, {})
-                                                                    .build()
-                                                                    .value();
+                                                                    .build();
                                                         },
                                                         [&](ShadingPassContext* pContext, RenderPassRecordInfo recordInfo) {
                                                             vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
@@ -395,6 +393,8 @@ int runtime(int argc, char** argv) {
             .add_input("pos_gbuf")
             .add_input("pbr_gbuf")
             .add_input("depth_gbuf");
+
+
 
 
 
@@ -454,8 +454,7 @@ int runtime(int argc, char** argv) {
                                                                                                           info.output().renderpass(),
                                                                                                           1, offscr, bloomShader)
                                                                              .set_vertex_input_info({}, {})
-                                                                             .build()
-                                                                             .value();
+                                                                             .build();
                                                                  },
                                                                  [&](DownsampleContext *pContext, RenderPassRecordInfo recordInfo) {
                                                                      vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -515,8 +514,7 @@ int runtime(int argc, char** argv) {
                                                                                                       info.output().renderpass(),
                                                                                                       1, offscr, upscaleShader)
                                                                          .set_vertex_input_info({}, {})
-                                                                         .build()
-                                                                         .value();
+                                                                         .build();
                                                              },
                                                              [&](UpsampleContext *pContext, RenderPassRecordInfo recordInfo) {
                                                                  vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -582,8 +580,7 @@ int runtime(int argc, char** argv) {
                                                                                                          info.output().renderpass(),
                                                                                                          1, offscr, compositeShader)
                                                                             .set_vertex_input_info({}, {})
-                                                                            .build()
-                                                                            .value();
+                                                                            .build();
                                                                 },
                                                                 [&](CompositionContext* pContext, RenderPassRecordInfo recordInfo) {
                                                                     vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -610,7 +607,7 @@ int runtime(int argc, char** argv) {
     renderGraphBuilder.add_graphics_pass(&compositionPass);
 
     auto imguiPassContext = ImGuiContext();
-    auto ins = instance.instance();
+    auto ins = instance->instance();
     ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
         return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
     }, &ins);
@@ -628,7 +625,7 @@ int runtime(int argc, char** argv) {
                                                         ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
                                                         std::cout << "Initialized ImGui SDL2 for Vulkan" << std::endl;
                                                         ImGui_ImplVulkan_InitInfo init_info = {
-                                                                .Instance = instance.instance(),
+                                                                .Instance = instance->instance(),
                                                                 .PhysicalDevice = gpu.gpu(),
                                                                 .Device = gpu.dev(),
                                                                 .QueueFamily = 0,
@@ -698,8 +695,7 @@ int runtime(int argc, char** argv) {
                                                                                                    pContext->layout, info.output().renderpass(),
                                                                                                    1, shadowVert, shadowFrag)
                                                                       .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
-                                                                      .build()
-                                                                      .value();
+                                                                      .build();
                                                           },
                                                           [&](ShadowPassContext* pContext, RenderPassRecordInfo info) {
                                                               vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());

@@ -50,7 +50,7 @@ private:
     AdjacencyMatrix m_adjacencyMatrix;
 
     VkSampler m_sampler;
-    ImageChain m_outputChain;
+    const ImageChain& m_outputChain;
 
 public:
     GET(m_outputChain, output_chain);
@@ -60,9 +60,13 @@ public:
 
     RenderGraphBuilderCache(std::string outputName, uint32_t numFrames,
                             AdjacencyMatrix adjacencyMatrix,
-                            VkSampler sampler, ImageChain outputChain) :
-    m_outputName(std::move(outputName)), m_frame(numFrames), m_adjacencyMatrix(std::move(adjacencyMatrix)),
-    m_outputChain(std::move(outputChain)), m_numCachedResources(0), m_sampler(sampler) {
+                            VkSampler sampler, const ImageChain& outputChain) :
+    m_outputName(std::move(outputName)),
+    m_frame(numFrames),
+    m_adjacencyMatrix(std::move(adjacencyMatrix)),
+    m_outputChain(outputChain),
+    m_numCachedResources(0),
+    m_sampler(sampler) {
 
     }
 
@@ -116,23 +120,6 @@ public:
 
             frames[f] = barriers;
         }
-
-        /* auto swapchainImages = swapchain()->images();
-        std::vector<VkImageMemoryBarrier> barriers(swapchain()->num_images(), barrier);
-        uint32_t i = 0;
-        for(auto& image : swapchainImages) {
-            barriers[i].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barriers[i].image = image.img;
-            i++;
-        }
-
-        vkCmdPipelineBarrier(
-                commandBuffer,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                0,
-                0, nullptr,
-                0, nullptr,
-                barriers.size(), barriers.data()); */
 
         vkEndCommandBuffer(commandBuffer);
 
