@@ -7,6 +7,7 @@
 #include <volk/volk.h>
 #include <stdexcept>
 #include <algorithm>
+#include <utility>
 
 class PipelineLayoutBuilder {
 private:
@@ -39,7 +40,7 @@ public:
         return *this;
     }
 
-	VkPipelineLayout build(const Gpu *pGpu) {
+	VkPipelineLayout build(const std::shared_ptr<const Gpu>& gpu) {
         VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                 .setLayoutCount = m_numLayouts,
@@ -49,7 +50,7 @@ public:
         };
 
         VkPipelineLayout inputLayout = VK_NULL_HANDLE;
-        if (vkCreatePipelineLayout(pGpu->dev(), &pipelineLayoutInfo, nullptr, &inputLayout)) {
+        if (vkCreatePipelineLayout(gpu->dev(), &pipelineLayoutInfo, nullptr, &inputLayout)) {
             throw std::runtime_error("Failed to build pipeline layout");
         }
 
@@ -59,7 +60,7 @@ public:
 
 class PipelineBuilder {
 private:
-    const Gpu *m_pGpu;
+    const std::shared_ptr<const Gpu> m_gpu;
 
     VkPipelineLayout m_layout;
     VkRenderPass m_renderpass;
@@ -81,15 +82,15 @@ private:
 public:
     inline size_t num_attachments() { return m_blendingInfo.size(); }
 
-    PipelineBuilder(const Gpu *pGpu, const VkViewport& viewport,
+    PipelineBuilder(const std::shared_ptr<const Gpu>& gpu, const VkViewport& viewport,
                     VkPipelineLayout layout, VkRenderPass outputLayout,
                     uint32_t numAttachments,
                     const Shader& vertexShader, const Shader& fragmentShader);
 
     inline PipelineBuilder& set_vertex_input_info(std::vector<VertexBinding> bindings,
                                                   std::vector<VertexAttribute> attributes) {
-        m_vertexBindings = bindings;
-        m_vertexAttributes = attributes;
+        m_vertexBindings = std::move(bindings);
+        m_vertexAttributes = std::move(attributes);
         return *this;
     }
 

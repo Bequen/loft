@@ -26,7 +26,7 @@ VkExtent2D RenderGraphBuilder::extent_for(RenderPass *pPass) const {
     };
 }
 
-VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass) {
+VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<const Gpu>& gpu, RenderGraphNode *pPass) {
     // Create storage for all the attachments
     auto depthOutput = pPass->renderpass()->depth_output();
     std::vector<VkAttachmentDescription2> attachments(pPass->renderpass()->num_outputs() + depthOutput.has_value());
@@ -144,7 +144,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
     };
 
     VkRenderPass renderpass = VK_NULL_HANDLE;
-    if(vkCreateRenderPass2KHR(pGpu->dev(), &renderPassInfo, nullptr, &renderpass)) {
+    if(vkCreateRenderPass2KHR(gpu->dev(), &renderPassInfo, nullptr, &renderpass)) {
         throw std::runtime_error("Failed to create renderpass");
     }
 
@@ -155,12 +155,12 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(Gpu *pGpu, RenderGraphNod
             .pObjectName                   = pPass->renderpass()->name().c_str(),
     };
 
-    vkSetDebugUtilsObjectName(pGpu->dev(), &nameInfo);
+    vkSetDebugUtilsObjectName(gpu->dev(), &nameInfo);
 
     return renderpass;
 }
 
-Image RenderGraphBuilder::create_image_from_layout(Gpu *pGpu, VkExtent2D extent, ImageResourceLayout *pLayout, bool isDepth) {
+Image RenderGraphBuilder::create_image_from_layout(const std::shared_ptr<const Gpu>& gpu, VkExtent2D extent, ImageResourceLayout *pLayout, bool isDepth) {
     MemoryAllocationInfo memoryInfo = {
             .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE
     };
@@ -181,13 +181,13 @@ Image RenderGraphBuilder::create_image_from_layout(Gpu *pGpu, VkExtent2D extent,
     };
 
     Image image = {};
-    pGpu->memory()->create_image(&imageInfo, &memoryInfo, &image);
+    gpu->memory()->create_image(&imageInfo, &memoryInfo, &image);
 
     return image;
 }
 
 std::vector<ImageView>
-RenderGraphBuilder::get_attachment(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+RenderGraphBuilder::get_attachment(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
                                    uint32_t numImagesInFlight, VkExtent2D extent,
                                    bool isDepth, ImageResourceLayout* pLayout) {
     std::vector<Image> images(numImagesInFlight);
@@ -197,10 +197,10 @@ RenderGraphBuilder::get_attachment(Gpu *pGpu, RenderGraphBuilderCache *pCache,
 
     /* create image for each frame */
     for(uint32_t f = 0; f < numImagesInFlight; f++) {
-        images[f] = create_image_from_layout(pGpu, extent, pLayout, isDepth);
-        images[f].set_debug_name(pGpu, pLayout->name());
+        images[f] = create_image_from_layout(gpu, extent, pLayout, isDepth);
+        images[f].set_debug_name(gpu, pLayout->name());
 
-        views[f] = images[f].create_view(pGpu, pLayout->format(),
+        views[f] = images[f].create_view(gpu, pLayout->format(),
                                          {
                                                  .aspectMask = aspectMask,
                                                  .baseMipLevel = 0,
@@ -209,7 +209,7 @@ RenderGraphBuilder::get_attachment(Gpu *pGpu, RenderGraphBuilderCache *pCache,
                                                  .layerCount = 1,
                                          });
 
-        views[f].set_debug_name(pGpu, pLayout->name() + "_view");
+        views[f].set_debug_name(gpu, pLayout->name() + "_view");
     }
 
     pCache->cache_image(pLayout->name(), images, views, isDepth);
@@ -219,7 +219,7 @@ RenderGraphBuilder::get_attachment(Gpu *pGpu, RenderGraphBuilderCache *pCache,
 
 
 
-std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRenderPass rp, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass) {
+std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(const std::shared_ptr<const Gpu>& gpu, VkRenderPass rp, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass) {
     uint32_t numOutputs = pPass->renderpass()->num_outputs() + pPass->renderpass()->depth_output().has_value();
 
     std::vector<std::vector<ImageView>> attachments(pCache->output_chain().count(),
@@ -233,7 +233,7 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
         std::vector<Framebuffer> framebuffers(pCache->output_chain().count(), VK_NULL_HANDLE);
 
         for(uint32_t f = 0; f < pCache->output_chain().count(); f++) {
-            framebuffers[f] = FramebufferBuilder(rp, extent, { pCache->output_chain().views()[f] }).build(pGpu);
+            framebuffers[f] = FramebufferBuilder(rp, extent, { pCache->output_chain().views()[f] }).build(gpu);
         }
 
         clearValues[0] = ((ImageResourceLayout*)chainOutput.value())->clear_value();
@@ -248,7 +248,7 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
     for(auto attachment : pPass->renderpass()->outputs()) {
         if(attachment->resource_type() != RESOURCE_TYPE_IMAGE) continue;
 
-        auto views =  get_attachment(pGpu, pCache, m_numImagesInFlight, extent,
+        auto views =  get_attachment(gpu, pCache, m_numImagesInFlight, extent,
                                    false, (ImageResourceLayout*)attachment);
 
         for(uint32_t o = 0; o < m_numImagesInFlight; o++) {
@@ -259,7 +259,7 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
     }
 
     if(depthOutput.has_value()) {
-        auto views = get_attachment(pGpu, pCache, m_numImagesInFlight, extent_for(pPass->renderpass()),
+        auto views = get_attachment(gpu, pCache, m_numImagesInFlight, extent_for(pPass->renderpass()),
                                     true, (ImageResourceLayout*)depthOutput.value());
 
         for(uint32_t o = 0; o < m_numImagesInFlight; o++) {
@@ -279,24 +279,24 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(Gpu *pGpu, VkRe
         framebuffers[f] = FramebufferBuilder(rp,
                                              extent_for(pPass->renderpass()),
                                              attachments[f])
-                                .build(pGpu);
+                                .build(gpu);
     }
 
     return framebuffers;
 }
 
-void RenderGraphBuilder::build_renderpass_dependencies(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+void RenderGraphBuilder::build_renderpass_dependencies(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
                                                        RenderGraphVkCommandBuffer *pCmdBuf, uint32_t renderpassIdx,
                                                        int depth) {
     for(uint32_t i = 0; i < m_numRenderpasses; i++) {
         if(pCache->adjacency_matrix().get(i, renderpassIdx)) {
             RenderGraphVkCommandBuffer *pNextCmdBuf = pCmdBuf;
             if(pCache->adjacency_matrix().num_dependencies(renderpassIdx) > 1) {
-                pNextCmdBuf = new RenderGraphVkCommandBuffer(pGpu, m_numImagesInFlight);
+                pNextCmdBuf = new RenderGraphVkCommandBuffer(gpu, m_numImagesInFlight);
                 pCmdBuf->add_dependency(pNextCmdBuf);
             }
 
-            depth = build_renderpass(pGpu, pCache, pNextCmdBuf, &m_renderpasses[i], depth, i);
+            depth = build_renderpass(gpu, pCache, pNextCmdBuf, &m_renderpasses[i], depth, i);
         }
     }
 }
@@ -315,19 +315,19 @@ RenderGraphBuilder::get_external_dependency_ids_for_renderpass(RenderGraphBuilde
     return externalDependencies;
 }
 
-int RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+int RenderGraphBuilder::build_renderpass(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
                                           RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass,
                                           int depth, uint32_t renderpassIdx) {
     if(pPass->is_visited()) return 0;
     std::cout << "Building renderpass " << pPass->renderpass()->name() << std::endl;
 
-    build_renderpass_dependencies(pGpu, pCache, pCmdBuf, renderpassIdx, depth - 1);
+    build_renderpass_dependencies(gpu, pCache, pCmdBuf, renderpassIdx, depth - 1);
 
     pCmdBuf->set_external_dependencies(get_external_dependency_ids_for_renderpass(pCache, pCmdBuf, renderpassIdx));
 
     /* does not matter, how many framebuffers returns */
-    auto rp = create_renderpass_for(pGpu, pPass);
-    auto framebuffers = collect_attachments(pGpu, rp, pCache, pPass);
+    auto rp = create_renderpass_for(gpu, pPass);
+    auto framebuffers = collect_attachments(gpu, rp, pCache, pPass);
     auto extent = extent_for(pPass->renderpass());
 
     pCmdBuf->add_render_pass({
@@ -342,7 +342,7 @@ int RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCa
 
     // wrap it into single structure
     auto outputInfo = RenderPassOutputInfo(rp, framebuffers, extent);
-    auto buildInfo = RenderPassBuildInfo(pGpu, pCache, outputInfo, pCache->sampler(), m_numImagesInFlight);
+    auto buildInfo = RenderPassBuildInfo(gpu, pCache, outputInfo, pCache->sampler(), m_numImagesInFlight);
 
     pPass->renderpass()->prepare(buildInfo);
 
@@ -352,23 +352,23 @@ int RenderGraphBuilder::build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCa
 }
 
 std::vector<RenderGraphVkCommandBuffer>
-RenderGraphBuilder::build_renderpasses(Gpu *pGpu, RenderGraphBuilderCache *pCache) {
+RenderGraphBuilder::build_renderpasses(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache) {
     std::vector<uint32_t> dependencies = pCache->adjacency_matrix().get_dependencies(m_numRenderpasses + m_externalImageDependencies.size());
 
     if(dependencies.empty()) return {};
 
     /* create command buffer for each dependency */
-    std::vector<RenderGraphVkCommandBuffer> cmdbufs(dependencies.size(), RenderGraphVkCommandBuffer(pGpu, m_numImagesInFlight));
+    std::vector<RenderGraphVkCommandBuffer> cmdbufs(dependencies.size(), RenderGraphVkCommandBuffer(gpu, m_numImagesInFlight));
 
     uint32_t i = 0;
     for(auto dependency : dependencies) {
-        build_renderpass(pGpu, pCache, &cmdbufs[i++], &m_renderpasses[dependency], 0, dependency);
+        build_renderpass(gpu, pCache, &cmdbufs[i++], &m_renderpasses[dependency], 0, dependency);
     }
 
     return cmdbufs;
 }
 
-RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const ImageChain& outputChain, VkExtent2D extent) {
+RenderGraph RenderGraphBuilder::build(const std::shared_ptr<const Gpu>& gpu, const ImageChain& outputChain, VkExtent2D extent) {
     std::cout << "Building render graph" << std::endl;
     m_extent = extent;
 
@@ -376,16 +376,16 @@ RenderGraph RenderGraphBuilder::build(Gpu *pGpu, const ImageChain& outputChain, 
     auto adjacencyMatrix = build_adjacency_matrix();
     adjacencyMatrix.transitive_reduction();
 
-    auto sampler = create_attachment_sampler(pGpu);
+    auto sampler = create_attachment_sampler(gpu);
 
     // Prepare cache
     RenderGraphBuilderCache cache(m_outputName, m_numImagesInFlight, adjacencyMatrix, sampler, outputChain);
 
-    auto queue = build_renderpasses(pGpu, &cache);
+    auto queue = build_renderpasses(gpu, &cache);
 
-    cache.transfer_layout(pGpu);
+    cache.transfer_layout(gpu);
 
-    auto graph = RenderGraph(pGpu, m_name, outputChain, queue, m_numImagesInFlight);
+    auto graph = RenderGraph(gpu, m_name, outputChain, queue, m_numImagesInFlight);
 
     for(const auto& externalDependency : m_externalImageDependencies) {
         graph.set_external_dependency(externalDependency.name, VK_NULL_HANDLE);
@@ -435,7 +435,7 @@ RenderGraphBuilder::build_adjacency_matrix() const {
     return matrix;
 }
 
-VkSampler RenderGraphBuilder::create_attachment_sampler(Gpu *pGpu) {
+VkSampler RenderGraphBuilder::create_attachment_sampler(const std::shared_ptr<const Gpu>& gpu) {
     VkSamplerCreateInfo samplerInfo = {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = VK_FILTER_LINEAR,
@@ -448,7 +448,7 @@ VkSampler RenderGraphBuilder::create_attachment_sampler(Gpu *pGpu) {
     };
 
     VkSampler sampler = VK_NULL_HANDLE;
-    if(vkCreateSampler(pGpu->dev(), &samplerInfo, nullptr, &sampler)) {
+    if(vkCreateSampler(gpu->dev(), &samplerInfo, nullptr, &sampler)) {
         throw std::runtime_error("failed to create sampler");
     }
 

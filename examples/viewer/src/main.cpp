@@ -188,13 +188,13 @@ int runtime(int argc, char** argv) {
     /**
      * Gpu manages stuff around rendering. Needed for most graphics operations.
      */
-    Gpu gpu = Gpu(instance, surface);
-    Camera camera(&gpu, extent.width / extent.height);
+    auto gpu = std::make_shared<const Gpu>(instance, surface);
+    Camera camera(gpu, extent.width / extent.height);
 
     /**
      * Swapchain is a queue storage of images to render to for the Window we opened.
      */
-    Swapchain swapchain = Swapchain(&gpu, surface);
+    Swapchain swapchain = Swapchain(gpu, surface);
 
 
     /**
@@ -204,7 +204,7 @@ int runtime(int argc, char** argv) {
     RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1);
     auto sceneData = GltfSceneLoader().from_file(argv[1]);
 
-    Scene scene(&gpu, &sceneData);
+    Scene scene(gpu, &sceneData);
     for(uint32_t i = 1; i < argc; i++) {
         // scene.add_scene_data(&sceneData);
     }
@@ -224,17 +224,17 @@ int runtime(int argc, char** argv) {
     };
 
     Image shadowmap;
-    gpu.memory()->create_image(&imageInfo, &memoryInfo, &shadowmap);
-    shadowmap.set_debug_name(&gpu, "Shadowmap");
+    gpu->memory()->create_image(&imageInfo, &memoryInfo, &shadowmap);
+    shadowmap.set_debug_name(gpu, "Shadowmap");
 
-    ImageView shadowmapView = shadowmap.create_view(&gpu, imageInfo.format, {
+    ImageView shadowmapView = shadowmap.create_view(gpu, imageInfo.format, {
             .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
             .baseMipLevel = 0,
             .levelCount = 1,
             .baseArrayLayer = 0,
             .layerCount = 1
     });
-    shadowmapView.set_debug_name(&gpu, "Shadowmap_view");
+    shadowmapView.set_debug_name(gpu, "Shadowmap_view");
 
     /* Create lights for the scene */
     vec3 position = {20.0f, 250.0f, 50.0f};
@@ -251,19 +251,19 @@ int runtime(int argc, char** argv) {
     };
 
     Buffer lightBuffer;
-    gpu.memory()->create_buffer(&lightInfoBuffer, &memoryInfo, &lightBuffer);
+    gpu->memory()->create_buffer(&lightInfoBuffer, &memoryInfo, &lightBuffer);
 
 
     void *pPtr;
-    gpu.memory()->map(lightBuffer.allocation, &pPtr);
+    gpu->memory()->map(lightBuffer.allocation, &pPtr);
     memcpy(pPtr, lights.data(), lightInfoBuffer.size);
-    gpu.memory()->unmap(lightBuffer.allocation);
+    gpu->memory()->unmap(lightBuffer.allocation);
 
     /*
      * Create pipelines
      * Load and compile shaders
      */
-    SpirvShaderBuilder shaderBuilder(&gpu);
+    SpirvShaderBuilder shaderBuilder(gpu);
     auto vert = shaderBuilder.from_file(io::path::shader("Opaque.vert.spirv"));
     auto frag = shaderBuilder.from_file(io::path::shader("Opaque.frag.spirv"));
     auto blendFrag = shaderBuilder.from_file(io::path::shader("Transparent.frag.spirv"));
@@ -277,11 +277,11 @@ int runtime(int argc, char** argv) {
 
     auto globalInputSetLayout = ShaderInputSetLayoutBuilder(1)
             .uniform_buffer(0)
-            .build(&gpu);
+            .build(gpu);
 
     auto globalInputSet = ShaderInputSetBuilder(1)
             .buffer(0, camera.buffer(), 0, sizeof(mat4) * 2 + sizeof(vec4))
-            .build(&gpu, globalInputSetLayout);
+            .build(gpu, globalInputSetLayout);
 
     auto geometryContext = new GeometryContext();
     geometryContext->pSceneBuffer = &scene;
@@ -406,7 +406,7 @@ int runtime(int argc, char** argv) {
             .binding(0,
                      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                      1, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .build(&gpu);
+            .build(gpu);
 
     std::vector<LambdaRenderPass<UpsampleContext>*> upsamples(numIters);
     auto upsamplePerPassInputSetLayout = ShaderInputSetLayoutBuilder(4)
@@ -416,7 +416,7 @@ int runtime(int argc, char** argv) {
             .binding(1,
                      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                      1, VK_SHADER_STAGE_FRAGMENT_BIT) /* upsampling */
-            .build(&gpu);
+            .build(gpu);
 
     auto bloomShader = shaderBuilder.from_file(io::path::shader("Bloom.frag.spirv"));
     auto upscaleShader = shaderBuilder.from_file(io::path::shader("Upsample.frag.spirv"));
@@ -613,7 +613,6 @@ int runtime(int argc, char** argv) {
     }, &ins);
     auto imguiPass = LambdaRenderPass<ImGuiContext>("imgui", &imguiPassContext,
                                                     [&](ImGuiContext* pContext, RenderPassBuildInfo info) {
-        std::cout << "Fuck" << std::endl;
                                                         ImGui::CreateContext();
                                                         // ImGui_ImplVulkan_LoadFunctions();
                                                         ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -626,12 +625,12 @@ int runtime(int argc, char** argv) {
                                                         std::cout << "Initialized ImGui SDL2 for Vulkan" << std::endl;
                                                         ImGui_ImplVulkan_InitInfo init_info = {
                                                                 .Instance = instance->instance(),
-                                                                .PhysicalDevice = gpu.gpu(),
-                                                                .Device = gpu.dev(),
+                                                                .PhysicalDevice = gpu->gpu(),
+                                                                .Device = gpu->dev(),
                                                                 .QueueFamily = 0,
-                                                                .Queue = gpu.graphics_queue(),
+                                                                .Queue = gpu->graphics_queue(),
                                                                 .PipelineCache = nullptr,
-                                                                .DescriptorPool = gpu.descriptor_pool(),
+                                                                .DescriptorPool = gpu->descriptor_pool(),
                                                                 .Subpass = 0,
                                                                 .MinImageCount = 2,
                                                                 .ImageCount = 2,
@@ -660,7 +659,7 @@ int runtime(int argc, char** argv) {
             .add_external_image("shadowmap", {
                     ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
             })
-            .build(&gpu, swapchainImageChain, extent);
+            .build(gpu, swapchainImageChain, extent);
 
     ShadowPassContext shadowPassCtx = {};
     shadowPassCtx.pSceneBuffer = &scene;
@@ -724,11 +723,11 @@ int runtime(int argc, char** argv) {
 
     auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1)
             .add_graphics_pass(&shadowPass);
-    auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(&gpu, shadowmapChain, {1024*4, 1024*4});
+    auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(gpu, shadowmapChain, {1024*4, 1024*4});
 
     uint32_t i = 0;
     for(auto& image : swapchain.images()) {
-        image.set_debug_name(&gpu, std::string("swapchain_") + std::to_string(i));
+        image.set_debug_name(gpu, std::string("swapchain_") + std::to_string(i));
     }
 
     bool isOpen = true;
@@ -741,7 +740,7 @@ int runtime(int argc, char** argv) {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     };
 
-    vkCreateFence(gpu.dev(), &fenceInfo, nullptr, &imageIndexFence);
+    vkCreateFence(gpu->dev(), &fenceInfo, nullptr, &imageIndexFence);
 
     uint64_t elapsed = 0;
     uint64_t fps = 0;
@@ -759,8 +758,8 @@ int runtime(int argc, char** argv) {
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
-        vkWaitForFences(gpu.dev(), 1, &imageIndexFence, VK_TRUE, UINT64_MAX);
-        vkResetFences(gpu.dev(), 1, &imageIndexFence);
+        vkWaitForFences(gpu->dev(), 1, &imageIndexFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(gpu->dev(), 1, &imageIndexFence);
 
         frameLock.update();
 

@@ -9,7 +9,7 @@ struct Framebuffer {
 
     Framebuffer(VkFramebuffer fb);
 
-    Framebuffer(const Gpu *pGpu, const VkRenderPass renderpass, const VkExtent2D extent,
+    Framebuffer(std::shared_ptr<const Gpu> gpu, const VkRenderPass renderpass, const VkExtent2D extent,
                 const std::vector<VkImageView>& attachments);
 };
 
@@ -29,5 +29,5 @@ public:
 
     FramebufferBuilder& set_attachment(uint32_t index, VkImageView view);
 
-    Framebuffer build(Gpu *pGpu);
+    Framebuffer build(const std::shared_ptr<const Gpu>& gpu);
 };

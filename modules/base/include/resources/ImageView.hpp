@@ -2,6 +2,7 @@
 
 #include <volk/volk.h>
 #include <string>
+#include <memory>
 
 class Gpu;
 
@@ -16,5 +17,5 @@ struct ImageView {
 	view(view) {
 	}
 
-    void set_debug_name(const Gpu *pGpu, const std::string& name) const;
+    void set_debug_name(const std::shared_ptr<const Gpu>& gpu, const std::string& name) const;
 };

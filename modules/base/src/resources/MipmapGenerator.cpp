@@ -1,41 +1,41 @@
 #include "resources/MipmapGenerator.h"
 #include "Gpu.hpp"
 
-MipmapGenerator::MipmapGenerator(Gpu *pGpu) :
-m_pGpu(pGpu), m_commandBuffer(create_command_buffer(pGpu)), m_fence(create_fence(pGpu)) {
+MipmapGenerator::MipmapGenerator(const std::shared_ptr<const Gpu>& gpu) :
+m_gpu(gpu), m_commandBuffer(create_command_buffer(gpu)), m_fence(create_fence(gpu)) {
 
 }
 
-VkFence MipmapGenerator::create_fence(Gpu *pGpu) {
+VkFence MipmapGenerator::create_fence(const std::shared_ptr<const Gpu>& gpu) {
     VkFenceCreateInfo fenceInfo = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
             .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
     VkFence fence = VK_NULL_HANDLE;
-    vkCreateFence(pGpu->dev(), &fenceInfo, nullptr, &fence);
+    vkCreateFence(gpu->dev(), &fenceInfo, nullptr, &fence);
 
     return fence;
 }
 
-VkCommandBuffer MipmapGenerator::create_command_buffer(Gpu *pGpu) {
+VkCommandBuffer MipmapGenerator::create_command_buffer(const std::shared_ptr<const Gpu>& gpu) {
     VkCommandBufferAllocateInfo allocInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool = pGpu->transfer_command_pool(),
+            .commandPool = gpu->transfer_command_pool(),
             .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1,
     };
 
     VkCommandBuffer cmdbuf = VK_NULL_HANDLE;
-    vkAllocateCommandBuffers(pGpu->dev(), &allocInfo,
+    vkAllocateCommandBuffers(gpu->dev(), &allocInfo,
                              &cmdbuf);
 
     return cmdbuf;
 }
 
 uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExtent2D extent, VkImageSubresourceRange range) {
-    vkWaitForFences(m_pGpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(m_pGpu->dev(), 1, &m_fence);
+    vkWaitForFences(m_gpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(m_gpu->dev(), 1, &m_fence);
 
     VkCommandBufferBeginInfo beginInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -139,7 +139,7 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
             .pCommandBuffers = &m_commandBuffer
     };
 
-    m_pGpu->enqueue_transfer(&submitInfo, m_fence);
+    m_gpu->enqueue_transfer(&submitInfo, m_fence);
 
     return 0;
 }

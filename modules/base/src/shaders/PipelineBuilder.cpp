@@ -1,11 +1,11 @@
 #include "shaders/PipelineBuilder.h"
 #include "shaders/Shader.hpp"
 
-PipelineBuilder::PipelineBuilder(const Gpu *pGpu, const VkViewport& viewport,
+PipelineBuilder::PipelineBuilder(const std::shared_ptr<const Gpu>& gpu, const VkViewport& viewport,
         VkPipelineLayout layout, VkRenderPass outputLayout,
         uint32_t numAttachments,
         const Shader& vertexShader, const Shader& fragmentShader) :
-m_pGpu(pGpu),
+m_gpu(gpu),
 m_viewport(viewport),
 m_scissor({
                   .offset = {0, 0},
@@ -126,7 +126,7 @@ Pipeline PipelineBuilder::build() {
     };
 
     VkPipeline pipeline;
-    if(vkCreateGraphicsPipelines(m_pGpu->dev(), VK_NULL_HANDLE, 1,
+    if(vkCreateGraphicsPipelines(m_gpu->dev(), VK_NULL_HANDLE, 1,
                                  &pipelineInfo, nullptr, &pipeline)) {
         throw std::runtime_error("Failed to create graphics pipeline");
     }

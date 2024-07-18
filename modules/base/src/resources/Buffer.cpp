@@ -6,7 +6,7 @@
 #include "Gpu.hpp"
 #include "DebugUtils.h"
 
-void Buffer::set_debug_name(const Gpu *pGpu, const std::string& name) const {
+void Buffer::set_debug_name(const std::shared_ptr<const Gpu>& gpu, const std::string& name) const {
     VkDebugUtilsObjectNameInfoEXT nameInfo = {
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .objectType                    = VK_OBJECT_TYPE_BUFFER,
@@ -14,5 +14,5 @@ void Buffer::set_debug_name(const Gpu *pGpu, const std::string& name) const {
             .pObjectName                   = name.c_str(),
     };
 
-    vkSetDebugUtilsObjectName(pGpu->dev(), &nameInfo);
+    vkSetDebugUtilsObjectName(gpu->dev(), &nameInfo);
 }

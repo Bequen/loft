@@ -6,7 +6,7 @@
 
 class BufferBusWriter {
 private:
-    Gpu *m_pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
 
     Buffer m_stagingBuffer;
     size_t m_busSize;
@@ -24,7 +24,7 @@ private:
 	int create_staging_buffer(size_t size);
 
 public:
-    BufferBusWriter(Gpu *pGpu, size_t size);
+    BufferBusWriter(const std::shared_ptr<const Gpu>& gpu, size_t size);
     ~BufferBusWriter();
 
     void write(Buffer* pTarget, void *pData, size_t offset, size_t size);

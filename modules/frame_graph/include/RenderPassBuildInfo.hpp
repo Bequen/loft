@@ -35,14 +35,6 @@ public:
     }
 };
 
-struct RenderPassInputInfoFrame {
-    std::vector<Resource> resources;
-};
-
-struct RenderPassInputInfo {
-
-};
-
 struct RenderPassOutputInfo {
 private:
     VkRenderPass m_renderpass;
@@ -85,7 +77,7 @@ public:
  */
 struct RenderPassBuildInfo {
 private:
-    Gpu *m_pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
 
     RenderGraphBuilderCache *m_pCache;
 
@@ -95,11 +87,11 @@ private:
     uint32_t m_numImagesInFlight;
 
 public:
-	RenderPassBuildInfo(Gpu *pGpu,
+	RenderPassBuildInfo(const std::shared_ptr<const Gpu>& gpu,
                         RenderGraphBuilderCache *pCache,
                         RenderPassOutputInfo output, VkSampler sampler,
                         uint32_t numImagesInFlight) :
-        m_pGpu(pGpu),
+        m_gpu(gpu),
 		m_pCache(pCache),
         m_output(std::move(output)),
         m_sampler(sampler),
@@ -108,10 +100,8 @@ public:
 	}
 
     [[nodiscard]] inline const RenderPassOutputInfo& output() const { return m_output; }
-    [[nodiscard]] inline const Gpu* gpu() const { return m_pGpu; }
+    [[nodiscard]] inline const std::shared_ptr<const Gpu>& gpu() const { return m_gpu; }
     [[nodiscard]] inline uint32_t num_images_in_flights() const { return m_numImagesInFlight; }
-
-	std::vector<ImageResource*> collect_attachments(RenderPass *pRenderPass);
 
     ImageResource* get_image(const std::string& name, uint32_t idx) {
         return m_pCache->get_image(name, idx);

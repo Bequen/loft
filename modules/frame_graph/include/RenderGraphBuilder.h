@@ -54,7 +54,7 @@ private:
 
     std::vector<ImageResourceDependency> m_externalImageDependencies;
 
-    VkRenderPass create_renderpass_for(Gpu *pGpu, RenderGraphNode *pPass);
+    VkRenderPass create_renderpass_for(const std::shared_ptr<const Gpu>& gpu, RenderGraphNode *pPass);
 
     /**
      * Build each renderpass that output into swapchain. Starting the tree. Then add those renderpasses to the root node.
@@ -63,32 +63,32 @@ private:
      * @param pSwapchainNode Root node.
      */
     std::vector<RenderGraphVkCommandBuffer>
-    build_renderpasses(Gpu *pGpu, RenderGraphBuilderCache *pCache);
+    build_renderpasses(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache);
 
     /*
      * Prepares single node
      * Marks the renderpass as visited.
      */
-    int build_renderpass(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+    int build_renderpass(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
                          RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass,
                          int depth, uint32_t renderpassIdx);
 
     std::vector<Framebuffer>
-    collect_attachments(Gpu *pGpu, VkRenderPass rp, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass);
+    collect_attachments(const std::shared_ptr<const Gpu>& gpu, VkRenderPass rp, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass);
 
-    VkSampler create_attachment_sampler(Gpu *pGpu);
+    VkSampler create_attachment_sampler(const std::shared_ptr<const Gpu>& gpu);
 
-    std::vector<ImageView> get_attachment(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+    std::vector<ImageView> get_attachment(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
                                           uint32_t numImagesInFlight, VkExtent2D extent,
                                           bool isDepth, ImageResourceLayout* pLayout);
 
-    Image create_image_from_layout(Gpu *pGpu, VkExtent2D extent, ImageResourceLayout *pLayout, bool isDepth);
+    Image create_image_from_layout(const std::shared_ptr<const Gpu>& gpu, VkExtent2D extent, ImageResourceLayout *pLayout, bool isDepth);
 
     Buffer create_buffer_from_layout(BufferResourceLayout *pLayout) {
         throw std::runtime_error("Not implemented");
     }
 
-    void build_renderpass_dependencies(Gpu *pGpu, RenderGraphBuilderCache *pCache,
+    void build_renderpass_dependencies(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
                                        RenderGraphVkCommandBuffer *pCmdBuf, uint32_t renderpassIdx,
                                        int depth);
 
@@ -122,7 +122,14 @@ public:
         return *this;
     }
 
-    RenderGraph build(Gpu *pGpu, const ImageChain& outputChain, VkExtent2D extent);
+    /**
+     * Builds a new render graph from builder for a specific output chain and given extent.
+     * @param pGpu GPU on which the render graph will be executed
+     * @param outputChain Specifies the target output destination where the render graph's final output will be presented.
+     * @param extent Extent of the images in the render graph.
+     * @return Returns runnable render graph.
+     */
+    RenderGraph build(const std::shared_ptr<const Gpu>& gpu, const ImageChain& outputChain, VkExtent2D extent);
 
     const AdjacencyMatrix
     build_adjacency_matrix() const;

@@ -6,9 +6,12 @@
 #include <queue>
 #include <utility>
 
-RenderGraph::RenderGraph(Gpu *pGpu, std::string name, ImageChain outputChain,
-                         std::vector<RenderGraphVkCommandBuffer> root, uint32_t numFrames) :
-	m_pGpu(pGpu),
+RenderGraph::RenderGraph(const std::shared_ptr<const Gpu>& gpu,
+                         std::string name,
+                         ImageChain outputChain,
+                         std::vector<RenderGraphVkCommandBuffer> root,
+                         uint32_t numFrames) :
+	m_gpu(gpu),
     m_name(std::move(name)),
     m_outputChain(std::move(outputChain)),
     m_root(std::move(root)),
@@ -22,7 +25,7 @@ RenderGraph::RenderGraph(Gpu *pGpu, std::string name, ImageChain outputChain,
                 .flags = VK_FENCE_CREATE_SIGNALED_BIT
         };
 
-        vkCreateFence(pGpu->dev(), &semaphoreInfo, nullptr, &m_frameFinished[i]);
+        vkCreateFence(gpu->dev(), &semaphoreInfo, nullptr, &m_frameFinished[i]);
     }
 }
 
@@ -87,8 +90,8 @@ VkCommandBufferSubmitInfo RenderGraph::run_tree(const RenderGraphVkCommandBuffer
 VkSemaphore RenderGraph::run(uint32_t chainImageIdx) {
 	m_frameIdx = (m_frameIdx++) % m_numFrames;
 
-    vkWaitForFences(m_pGpu->dev(), 1, &m_frameFinished[m_frameIdx], VK_TRUE, UINT64_MAX);
-    vkResetFences(m_pGpu->dev(), 1, &m_frameFinished[m_frameIdx]);
+    vkWaitForFences(m_gpu->dev(), 1, &m_frameFinished[m_frameIdx], VK_TRUE, UINT64_MAX);
+    vkResetFences(m_gpu->dev(), 1, &m_frameFinished[m_frameIdx]);
 
     std::vector<VkCommandBufferSubmitInfo> cmdbufs(m_root.size());
     std::vector<VkSemaphoreSubmitInfoKHR> waits;
@@ -126,7 +129,7 @@ VkSemaphore RenderGraph::run(uint32_t chainImageIdx) {
             .pSignalSemaphoreInfos = &signalInfo,
     };
 
-    m_pGpu->enqueue_graphics(&submitInfo, m_frameFinished[m_frameIdx]);
+    m_gpu->enqueue_graphics(&submitInfo, m_frameFinished[m_frameIdx]);
 
     return m_root[0].perImageSignal[m_frameIdx];
 }

@@ -4,7 +4,7 @@
 
 class ImageBusWriter {
 private:
-	Gpu *m_pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
 	
 	/**
 	 * Image to which we are writing
@@ -39,7 +39,7 @@ private:
 	int create_fence();
 
 public:
-	ImageBusWriter(Gpu *pGpu, Image *pImage,
+	ImageBusWriter(const std::shared_ptr<const Gpu>& gpu, Image *pImage,
 				   VkExtent2D extent, uint32_t formatSize,
 				   size_t maxWrites);
 

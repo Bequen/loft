@@ -13,7 +13,7 @@ struct ImageResourceLayout;
 
 class Swapchain {
 private:
-	Gpu *m_pGpu;
+	std::shared_ptr<const Gpu> m_gpu;
 	VkSurfaceKHR m_surface;
 	VkSwapchainKHR m_swapchain;
 
@@ -57,7 +57,7 @@ public:
 	}
 
     VkResult get_next_image_idx(VkSemaphore signalSemaphore, VkFence signalFence, uint32_t *pOutImageIdx) const {
-        return vkAcquireNextImageKHR(m_pGpu->dev(), m_swapchain, UINT64_MAX, signalSemaphore, signalFence, pOutImageIdx);
+        return vkAcquireNextImageKHR(m_gpu->dev(), m_swapchain, UINT64_MAX, signalSemaphore, signalFence, pOutImageIdx);
     }
 
     void present(std::vector<VkSemaphore> waitSemaphores,
@@ -70,8 +70,8 @@ public:
 		presentInfo.pSwapchains = &m_swapchain;
 		presentInfo.pImageIndices = &imageIdx;
 
-        m_pGpu->enqueue_present(&presentInfo);
+        m_gpu->enqueue_present(&presentInfo);
     }
 
-	Swapchain(Gpu *pGpu, VkSurfaceKHR surface);
+	Swapchain(const std::shared_ptr<const Gpu>& gpu, VkSurfaceKHR surface);
 };
