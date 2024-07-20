@@ -28,6 +28,7 @@
 #include "scene/Light.h"
 #include "runtime/FrameLock.h"
 #include "mesh/runtime/Scene.h"
+#include "GraphVizVisualizer.h"
 
 struct ShadowPassContext {
   Pipeline pipeline;
@@ -747,6 +748,10 @@ int runtime(int argc, char** argv) {
 
     auto shadowSignal = shadowsRenderGraph.run(0);
     renderGraph.set_external_dependency("shadowmap", shadowSignal);
+
+    GraphVizVisualizer()
+            .add_graph(&renderGraphBuilder, &renderGraph)
+            .visualize_into(stdout);
 
     while(isOpen) {
         uint32_t imageIdx = 0;
