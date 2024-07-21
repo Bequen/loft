@@ -10,6 +10,9 @@
 
 typedef uint32_t TextureHandle;
 
+/**
+ * Dynamic texture storage, that can constantly be written to
+ */
 class TextureStorage {
 private:
     std::shared_ptr<const Gpu> m_gpu;
@@ -54,6 +57,8 @@ public:
         return m_views[idx];
     }
 
+    TextureStorage(const TextureStorage&) = delete;
+
     TextureStorage(const std::shared_ptr<const Gpu>& gpu, uint32_t numTextures) :
             m_gpu(gpu),
             m_images(numTextures),
@@ -64,6 +69,8 @@ public:
         assert(gpu != nullptr);
         assert(numTextures > 0);
     }
+
+    ~TextureStorage();
 
     TextureHandle pop_handle() {
         if(m_idx >= m_textures.size()) {

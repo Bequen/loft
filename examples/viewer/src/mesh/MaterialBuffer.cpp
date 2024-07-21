@@ -56,7 +56,7 @@ m_textureStorage(gpu, pSceneData->num_textures()) {
 }
 
 MaterialBuffer::~MaterialBuffer() {
-
+    vkDestroyBuffer(m_gpu->dev(), m_materialBuffer.buf, nullptr);
 }
 
 uint32_t MaterialBuffer::upload_texture(const TextureData& texture, VkFormat format) {
