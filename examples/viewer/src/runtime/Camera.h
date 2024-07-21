@@ -8,7 +8,7 @@
 
 class Camera {
 private:
-    Gpu *m_pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
 
     struct {
         mat4 projection;
@@ -28,7 +28,7 @@ public:
 
     BufferResourceLayout m_resource;
 
-    Camera(Gpu *pGpu, float aspect);
+    Camera(const std::shared_ptr<const Gpu>& gpu, float aspect);
 
     void update();
 

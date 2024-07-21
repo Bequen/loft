@@ -36,23 +36,27 @@ void MaterialBuffer::allocate_for(const SceneData *pSceneData) {
             .isExclusive = true,
     };
 
-    m_pGpu->memory()->create_buffer(&materialsBufferInfo, &memoryAllocationInfo,
+    m_gpu->memory()->create_buffer(&materialsBufferInfo, &memoryAllocationInfo,
                                   &m_materialBuffer);
-    m_materialBuffer.set_debug_name(m_pGpu, "material_buffer");
+    m_materialBuffer.set_debug_name(m_gpu, "material_buffer");
 }
 
-MaterialBuffer::MaterialBuffer(Gpu *pGpu, const SceneData *pSceneData) :
-m_pGpu(pGpu),
+MaterialBuffer::MaterialBuffer(const std::shared_ptr<const Gpu>& gpu, const SceneData *pSceneData) :
+m_gpu(gpu),
 
 m_materials(pSceneData->num_materials()),
 m_materialsValidity(pSceneData->num_materials(), false),
 
 m_textures(pSceneData->num_textures()),
 m_textureValidity(pSceneData->num_textures(), false),
-m_textureStorage(pGpu, pSceneData->num_textures()) {
+m_textureStorage(gpu, pSceneData->num_textures()) {
     allocate_for(pSceneData);
 
     push_materials(pSceneData->materials(), pSceneData->textures());
+}
+
+MaterialBuffer::~MaterialBuffer() {
+    vkDestroyBuffer(m_gpu->dev(), m_materialBuffer.buf, nullptr);
 }
 
 uint32_t MaterialBuffer::upload_texture(const TextureData& texture, VkFormat format) {
@@ -154,9 +158,9 @@ MaterialBuffer::upload_materials_data(const std::vector<MaterialData>& materials
     uint32_t max = *std::max_element(mappings.begin(), mappings.end());
 
     char *pData;
-    m_pGpu->memory()->map(m_materialBuffer.allocation, (void**)&pData);
+    m_gpu->memory()->map(m_materialBuffer.allocation, (void**)&pData);
     memcpy(pData + sizeof(Material) * min, &m_materials[min], sizeof(Material) * (max - min + 1));
-    m_pGpu->memory()->unmap(m_materialBuffer.allocation);
+    m_gpu->memory()->unmap(m_materialBuffer.allocation);
 
     return mappings;
 }

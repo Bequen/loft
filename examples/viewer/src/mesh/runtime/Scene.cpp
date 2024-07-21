@@ -69,25 +69,25 @@ VkCommandBuffer create_staging_command_buffer(Gpu *pGpu) {
     return commandBuffer;
 }
 
-VkDescriptorSetLayout create_layout(Gpu *pGpu) {
+VkDescriptorSetLayout create_layout(const std::shared_ptr<const Gpu>& gpu) {
     return ShaderInputSetLayoutBuilder(2)
             /* material buffer */
             .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
                     /* color texture */
             .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 128, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .build(pGpu);
+            .build(gpu);
 }
 
-Scene::Scene(Gpu *pGpu, const SceneData* pSceneData) :
-m_pGpu(pGpu),
+Scene::Scene(const std::shared_ptr<const Gpu>& gpu, const SceneData* pSceneData) :
+m_gpu(gpu),
 m_numTransforms(256),
-m_materialBuffer(pGpu, pSceneData),
+m_materialBuffer(gpu, pSceneData),
 m_transformBits(m_numTransforms, false),
-m_bufferWriter(pGpu, sizeof(Vertex) * 1024 * 256),
-m_textureWriter(pGpu, nullptr, {1024, 1024}, 8, 8),
-m_descriptorSetLayout(create_layout(pGpu)),
+m_bufferWriter(gpu, sizeof(Vertex) * 1024 * 256),
+m_textureWriter(gpu, nullptr, {1024, 1024}, 8, 8),
+m_descriptorSetLayout(create_layout(gpu)),
 m_textureInputSet(VK_NULL_HANDLE){
-    m_textureInputSet = ShaderInputSet(pGpu, m_descriptorSetLayout);
+    m_textureInputSet = ShaderInputSet(gpu, m_descriptorSetLayout);
 
     MemoryAllocationInfo memoryAllocationInfo = {
             .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,
@@ -101,9 +101,9 @@ m_textureInputSet(VK_NULL_HANDLE){
     };
 
     materialsBufferInfo.size = sizeof(Transform) * 256;
-    pGpu->memory()->create_buffer(&materialsBufferInfo, &memoryAllocationInfo,
+    m_gpu->memory()->create_buffer(&materialsBufferInfo, &memoryAllocationInfo,
                                   &m_transformBuffer);
-    m_transformBuffer.set_debug_name(m_pGpu, "transform_buffer");
+    m_transformBuffer.set_debug_name(m_gpu, "transform_buffer");
 
     VkSamplerCreateInfo samplerInfo = {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -118,11 +118,11 @@ m_textureInputSet(VK_NULL_HANDLE){
             .maxLod = (float)std::floor(std::log2(1024)) + 1,
     };
 
-    if(vkCreateSampler(pGpu->dev(), &samplerInfo, nullptr, &m_textureSampler)) {
+    if(vkCreateSampler(m_gpu->dev(), &samplerInfo, nullptr, &m_textureSampler)) {
         throw std::runtime_error("failed to create sampler");
     }
 
-    m_meshBuffers.emplace_back(MeshBuffer(m_pGpu, &m_bufferWriter, pSceneData->vertices(), pSceneData->indices()),
+    m_meshBuffers.emplace_back(MeshBuffer(m_gpu, &m_bufferWriter, pSceneData->vertices(), pSceneData->indices()),
                                pSceneData->primitives());
 
     std::vector<VkDescriptorImageInfo> imageWriters(pSceneData->num_textures());
@@ -134,7 +134,7 @@ m_textureInputSet(VK_NULL_HANDLE){
         };
     }
 
-    ShaderInputSetWriter writer(m_pGpu);
+    ShaderInputSetWriter writer(m_gpu);
     writer.write_buffer(m_textureInputSet, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {
             {
                     .buffer = m_materialBuffer.material_buffer()->buf,
@@ -146,24 +146,13 @@ m_textureInputSet(VK_NULL_HANDLE){
     .write();
 }
 
-/* std::vector<uint32_t> Scene::load_materials(const SceneData *pData) {
-    std::vector<uint32_t> materials(pData->materials().size());
-    uint32_t i = 0;
-    for(auto& material : pData->materials()) {
-        materials[i++] = push_material(pData, material);
-    }
-
-    return materials;
-} */
-
-
 void Scene::add_scene_data(const SceneData *pData) {
-    m_meshBuffers.emplace_back(MeshBuffer(m_pGpu, &m_bufferWriter, pData->vertices(), pData->indices()),
+    m_meshBuffers.emplace_back(MeshBuffer(m_gpu, &m_bufferWriter, pData->vertices(), pData->indices()),
                                          pData->primitives());
 
     // m_meshBuffers[m_meshBuffers.size() - 1].remap_materials(materialIds);
 
-    ShaderInputSetWriter writer(m_pGpu);
+    ShaderInputSetWriter writer(m_gpu);
     writer.write_buffer(m_textureInputSet, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {
             {
                 .buffer = m_materialBuffer.material_buffer()->buf,

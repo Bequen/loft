@@ -19,7 +19,7 @@ BufferBusWriter::create_staging_buffer(size_t size) {
         .requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	};
 
-	m_pGpu->memory()->create_buffer(&stagingBufferInfo, &memoryAllocationInfo,
+    m_gpu->memory()->create_buffer(&stagingBufferInfo, &memoryAllocationInfo,
 								&m_stagingBuffer);
 
 	return 0;
@@ -31,32 +31,32 @@ int
 BufferBusWriter::create_staging_command_buffer() {
 	VkCommandBufferAllocateInfo allocInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandPool = m_pGpu->transfer_command_pool(),
+		.commandPool = m_gpu->transfer_command_pool(),
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		.commandBufferCount = 1,
 	};
 
-	vkAllocateCommandBuffers(m_pGpu->dev(), &allocInfo, &m_stagingCommandBuffer);
+	vkAllocateCommandBuffers(m_gpu->dev(), &allocInfo, &m_stagingCommandBuffer);
 
 	return 0;
 }
 
 
 
-BufferBusWriter::BufferBusWriter(Gpu *pGpu, size_t size) :
-m_pGpu(pGpu), m_unflushedSize(0), m_busSize(size), m_numWrites(0) {
+BufferBusWriter::BufferBusWriter(const std::shared_ptr<const Gpu>& gpu, size_t size) :
+m_gpu(gpu), m_unflushedSize(0), m_busSize(size), m_numWrites(0) {
 	create_staging_buffer(size);
 
 	create_staging_command_buffer();
 
-    m_pGpu->memory()->map(m_stagingBuffer.allocation, &m_pData);
+    m_gpu->memory()->map(m_stagingBuffer.allocation, &m_pData);
 
     VkFenceCreateInfo fenceInfo = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
             .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    vkCreateFence(m_pGpu->dev(), &fenceInfo, nullptr, &m_fence);
+    vkCreateFence(m_gpu->dev(), &fenceInfo, nullptr, &m_fence);
 }
 
 
@@ -103,10 +103,10 @@ void BufferBusWriter::flush() {
         return;
     }
 
-    m_pGpu->memory()->flush(m_stagingBuffer.allocation, 0, m_unflushedSize);
+    m_gpu->memory()->flush(m_stagingBuffer.allocation, 0, m_unflushedSize);
 
 	wait();
-    vkResetFences(m_pGpu->dev(), 1, &m_fence);
+    vkResetFences(m_gpu->dev(), 1, &m_fence);
 
 	VkCommandBufferBeginInfo beginInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -128,7 +128,7 @@ void BufferBusWriter::flush() {
 		.pCommandBuffers = &m_stagingCommandBuffer,
 	};
 
-	m_pGpu->enqueue_transfer(&submitInfo, m_fence);
+    m_gpu->enqueue_transfer(&submitInfo, m_fence);
 
     m_unflushedSize = 0;
 	m_numWrites = 0;
@@ -140,10 +140,10 @@ BufferBusWriter::~BufferBusWriter() {
     flush();
     wait();
 
-    m_pGpu->memory()->destroy_buffer(&m_stagingBuffer);
+    m_gpu->memory()->destroy_buffer(&m_stagingBuffer);
 }
 
 void BufferBusWriter::wait() {
-    vkWaitForFences(m_pGpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
+    vkWaitForFences(m_gpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
     // vkDeviceWaitIdle(m_pGpu->dev());
 }

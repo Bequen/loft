@@ -21,19 +21,19 @@ public:
 
     }
 
-    const inline Shader& set_name(Gpu *pGpu, const std::string &name) {
+    const inline Shader& set_name(const std::shared_ptr<const Gpu>& gpu, const std::string &name) {
         VkDebugUtilsObjectNameInfoEXT nameInfo = {
                 .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
                 .objectType = VK_OBJECT_TYPE_SHADER_MODULE,
                 .objectHandle = (uint64_t) m_module,
                 .pObjectName = name.c_str(),
         };
-        vkSetDebugUtilsObjectName(pGpu->dev(), &nameInfo);
+        vkSetDebugUtilsObjectName(gpu->dev(), &nameInfo);
 
         return *this;
     }
 
-    [[nodiscard]] const inline VkShaderModule module() const {
+    [[nodiscard]] inline VkShaderModule module() const {
         return m_module;
     }
 };

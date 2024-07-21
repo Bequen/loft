@@ -14,7 +14,7 @@
  */
 class MaterialBuffer {
 public:
-    Gpu *m_pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
 
     std::vector<Material> m_materials;
     std::vector<bool> m_materialsValidity;
@@ -50,13 +50,15 @@ public:
      * @param pGpu
      * @param pSceneData
      */
-    MaterialBuffer(Gpu *pGpu, const SceneData *pSceneData);
+    MaterialBuffer(const std::shared_ptr<const Gpu>& gpu, const SceneData *pSceneData);
 
     /**
      * @brief Copy constructor is disabled
      * @param other
      */
     MaterialBuffer(const MaterialBuffer& other) = delete;
+
+    ~MaterialBuffer();
 
     uint32_t
     upload_texture(const TextureData& texture, VkFormat format);

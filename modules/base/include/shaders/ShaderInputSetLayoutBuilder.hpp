@@ -46,7 +46,7 @@ public:
         return *this;
     }
 
-	VkDescriptorSetLayout build(const Gpu *pGpu) {
+	VkDescriptorSetLayout build(const std::shared_ptr<const Gpu>& gpu) {
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .bindingCount = (uint32_t)m_numBindings,
@@ -54,7 +54,7 @@ public:
         };
 
 		VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-		if(vkCreateDescriptorSetLayout(pGpu->dev(), &layoutInfo, nullptr, &layout)) {
+		if(vkCreateDescriptorSetLayout(gpu->dev(), &layoutInfo, nullptr, &layout)) {
 			throw std::runtime_error("Failed to create descriptor set layout");
 		}
 

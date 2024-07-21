@@ -6,7 +6,7 @@ framebuffer(framebuffer) {
 
 }
 
-Framebuffer::Framebuffer(const Gpu *pGpu, const VkRenderPass renderpass, const VkExtent2D extent,
+Framebuffer::Framebuffer(std::shared_ptr<const Gpu> gpu, const VkRenderPass renderpass, const VkExtent2D extent,
                          const std::vector<VkImageView>& attachments) {
     VkFramebufferCreateInfo framebufferInfo = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -18,7 +18,7 @@ Framebuffer::Framebuffer(const Gpu *pGpu, const VkRenderPass renderpass, const V
             .layers = 1,
     };
 
-    if(vkCreateFramebuffer(pGpu->dev(), &framebufferInfo, nullptr, &framebuffer)) {
+    if(vkCreateFramebuffer(gpu->dev(), &framebufferInfo, nullptr, &framebuffer)) {
         throw std::runtime_error("Failed to create framebuffer");
     }
 }
@@ -38,7 +38,7 @@ FramebufferBuilder::FramebufferBuilder(VkRenderPass renderpass, VkExtent2D exten
 
 }
 
-Framebuffer FramebufferBuilder::build(Gpu *pGpu) {
+Framebuffer FramebufferBuilder::build(const std::shared_ptr<const Gpu>& gpu) {
     VkFramebufferCreateInfo framebufferInfo = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass = m_renderpass,
@@ -50,7 +50,7 @@ Framebuffer FramebufferBuilder::build(Gpu *pGpu) {
     };
 
     VkFramebuffer framebuffer;
-    if(vkCreateFramebuffer(pGpu->dev(), &framebufferInfo, nullptr, &framebuffer)) {
+    if(vkCreateFramebuffer(gpu->dev(), &framebufferInfo, nullptr, &framebuffer)) {
         throw std::runtime_error("Failed to create framebuffer");
     }
 

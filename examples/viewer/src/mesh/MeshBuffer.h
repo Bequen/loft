@@ -25,7 +25,7 @@ public:
 
     }
 
-    MeshBuffer(const Gpu *pGpu,
+    MeshBuffer(const std::shared_ptr<const Gpu>& gpu,
                BufferBusWriter *pWriter,
                const std::vector<Vertex>& vertices,
                const std::vector<Index>& indices) {
@@ -38,7 +38,7 @@ public:
                 .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                 .isExclusive = true,
         };
-        pGpu->memory()->create_buffer(&vertexBufferInfo, &memoryAllocationInfo,
+        gpu->memory()->create_buffer(&vertexBufferInfo, &memoryAllocationInfo,
                                       &m_vertexBuffer);
 
         pWriter->write(&m_vertexBuffer, (void*)vertices.data(), 0, vertexBufferInfo.size);
@@ -48,7 +48,7 @@ public:
                 .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                 .isExclusive = true,
         };
-        pGpu->memory()->create_buffer(&indexBufferInfo, &memoryAllocationInfo,
+        gpu->memory()->create_buffer(&indexBufferInfo, &memoryAllocationInfo,
                                       &m_indexBuffer);
 
         pWriter->write(&m_indexBuffer, (void*)indices.data(), 0, indexBufferInfo.size);

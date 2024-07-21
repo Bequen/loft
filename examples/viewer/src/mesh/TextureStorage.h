@@ -10,9 +10,12 @@
 
 typedef uint32_t TextureHandle;
 
+/**
+ * Dynamic texture storage, that can constantly be written to
+ */
 class TextureStorage {
 private:
-    Gpu *m_pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
     std::vector<uint32_t> m_textures;
     std::vector<Image> m_images;
     std::vector<ImageView> m_views;
@@ -21,7 +24,7 @@ private:
 
     ImageBusWriter m_writer;
 
-    Image create_image(Gpu *pGpu, VkExtent2D extent, VkFormat format, uint32_t arrayLayers, uint32_t mipLevels) {
+    Image create_image(VkExtent2D extent, VkFormat format, uint32_t arrayLayers, uint32_t mipLevels) {
         MemoryAllocationInfo memoryAllocationInfo = {
                 .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE
         };
@@ -39,7 +42,7 @@ private:
 
         Image image;
 
-        pGpu->memory()->create_image(&imageInfo, &memoryAllocationInfo,
+        m_gpu->memory()->create_image(&imageInfo, &memoryAllocationInfo,
                                      &image);
 
         return image;
@@ -54,16 +57,20 @@ public:
         return m_views[idx];
     }
 
-    TextureStorage(Gpu *pGpu, uint32_t numTextures) :
-            m_pGpu(pGpu),
+    TextureStorage(const TextureStorage&) = delete;
+
+    TextureStorage(const std::shared_ptr<const Gpu>& gpu, uint32_t numTextures) :
+            m_gpu(gpu),
             m_images(numTextures),
             m_views(numTextures),
             m_textures(numTextures, false),
-            m_writer(pGpu, nullptr, {2048, 2048}, 8, 1)
+            m_writer(gpu, nullptr, {2048, 2048}, 8, 1)
     {
-        assert(pGpu != nullptr);
+        assert(gpu != nullptr);
         assert(numTextures > 0);
     }
+
+    ~TextureStorage();
 
     TextureHandle pop_handle() {
         if(m_idx >= m_textures.size()) {
@@ -122,8 +129,8 @@ public:
                 .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE
         };
 
-        m_pGpu->memory()->create_image(&imageCreateInfo, &memoryInfo, &m_images[handle]);
-        m_views[handle] = m_images[handle].create_view(m_pGpu, format, {
+        m_gpu->memory()->create_image(&imageCreateInfo, &memoryInfo, &m_images[handle]);
+        m_views[handle] = m_images[handle].create_view(m_gpu, format, {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
             .levelCount = mipmapLevels,
@@ -135,16 +142,18 @@ public:
         m_writer.write(region, pData, size);
         m_writer.flush();
 
-        MipmapGenerator mipmapGenerator(m_pGpu);
-        mipmapGenerator.generate(m_images[handle], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {
-            width, height
-        }, {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = mipmapLevels,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        });
+        MipmapGenerator mipmapGenerator(m_gpu);
+        mipmapGenerator.generate(m_images[handle], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 {
+                                    width,
+                                    height
+                                }, {
+                                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                    .baseMipLevel = 0,
+                                    .levelCount = mipmapLevels,
+                                    .baseArrayLayer = 0,
+                                    .layerCount = 1,
+                                });
 
         return handle;
     }

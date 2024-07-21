@@ -106,7 +106,7 @@ struct RenderGraphVkRenderPass {
 };
 
 struct RenderGraphVkCommandBuffer {
-    const Gpu *pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
 
     std::vector<RenderGraphVkRenderPass> renderpasses;
     std::vector<VkSemaphore> perImageSignal;
@@ -116,7 +116,7 @@ struct RenderGraphVkCommandBuffer {
 
     std::vector<uint32_t> m_externalDependenciesIds;
 
-    std::vector<VkSemaphore> create_signals(Gpu *pGpu, uint32_t numImagesInFlight) {
+    std::vector<VkSemaphore> create_signals(std::shared_ptr<const Gpu> gpu, uint32_t numImagesInFlight) {
         std::vector<VkSemaphore> signals(numImagesInFlight);
 
         VkSemaphoreCreateInfo semaphoreInfo = {
@@ -124,33 +124,33 @@ struct RenderGraphVkCommandBuffer {
         };
 
         for(uint32_t i = 0; i < numImagesInFlight; i++) {
-            vkCreateSemaphore(pGpu->dev(), &semaphoreInfo, nullptr, &signals[i]);
+            vkCreateSemaphore(gpu->dev(), &semaphoreInfo, nullptr, &signals[i]);
         }
 
         return signals;
     }
 
-    std::vector<VkCommandBuffer> create_command_buffers(Gpu *pGpu, uint32_t numImagesInFlight) {
+    std::vector<VkCommandBuffer> create_command_buffers(std::shared_ptr<const Gpu> gpu, uint32_t numImagesInFlight) {
         std::vector<VkCommandBuffer> commandBuffers(numImagesInFlight);
 
         VkCommandBufferAllocateInfo cmdBufInfo = {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = pGpu->graphics_command_pool(),
+                .commandPool = gpu->graphics_command_pool(),
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                 .commandBufferCount = numImagesInFlight
         };
 
-        if(vkAllocateCommandBuffers(pGpu->dev(), &cmdBufInfo, commandBuffers.data())) {
+        if(vkAllocateCommandBuffers(gpu->dev(), &cmdBufInfo, commandBuffers.data())) {
             throw std::runtime_error("Failed to create command buffer");
         }
 
         return commandBuffers;
     }
 
-    RenderGraphVkCommandBuffer(Gpu *pGpu, uint32_t numImagesInFlight) :
-        perImageCommandBuffer(create_command_buffers(pGpu, numImagesInFlight)),
-        perImageSignal(create_signals(pGpu, numImagesInFlight)),
-        pGpu(pGpu) {
+    RenderGraphVkCommandBuffer(const std::shared_ptr<const Gpu>& gpu, uint32_t numImagesInFlight) :
+        perImageCommandBuffer(create_command_buffers(gpu, numImagesInFlight)),
+        perImageSignal(create_signals(gpu, numImagesInFlight)),
+        m_gpu(gpu) {
 
     }
 
@@ -213,7 +213,7 @@ struct RenderGraphExternalDependency {
 class RenderGraph {
 private:
     const std::string m_name;
-	const Gpu *m_pGpu;
+	std::shared_ptr<const Gpu> m_gpu;
     const ImageChain m_outputChain;
 
     const std::vector<RenderGraphVkCommandBuffer> m_root;
@@ -233,7 +233,7 @@ public:
     GET(m_root, dependencies);
     GET(m_name, name);
 
-	RenderGraph(Gpu *pGpu,
+    RenderGraph(const std::shared_ptr<const Gpu>& gpu,
                 std::string name,
                 ImageChain outputChain,
                 std::vector<RenderGraphVkCommandBuffer> root,

@@ -47,19 +47,19 @@ struct GraphVizCommandBuffer {
 };
 
 struct GraphVizRenderGraph {
-    const RenderGraph* m_pGraph;
-    const RenderGraphBuilder *m_pBuilder;
-
+    const std::shared_ptr<const RenderGraphBuilder> m_builder;
+    const std::shared_ptr<const RenderGraph> m_graph;
     std::vector<GraphVizCommandBuffer> m_cmdbufs;
 
-    GET(m_pGraph, graph);
-    GET(m_pBuilder, builder);
-    GET(m_cmdbufs, command_buffers);
+    REF(m_builder, builder);
+    REF(m_cmdbufs, command_buffers);
 
-    GraphVizRenderGraph(const RenderGraph *pGraph, const RenderGraphBuilder *pBuilder) :
-        m_pGraph(pGraph), m_pBuilder(pBuilder) {
+    GraphVizRenderGraph(const std::shared_ptr<const RenderGraphBuilder> builder,
+                        const std::shared_ptr<const RenderGraph> graph) :
+         m_builder(builder),
+         m_graph(graph) {
 
-        for(auto& dep : pGraph->dependencies()) {
+        for(auto& dep : graph->dependencies()) {
             m_cmdbufs.push_back(GraphVizCommandBuffer(dep));
         }
     }
@@ -80,7 +80,8 @@ public:
 
     GraphVizVisualizer& visualize_into(FILE *pFile);
 
-    GraphVizVisualizer& add_graph(const RenderGraphBuilder *pBuilder, const RenderGraph *pGraph);
+    GraphVizVisualizer& add_graph(const std::shared_ptr<const RenderGraphBuilder> builder,
+                                  const std::shared_ptr<const RenderGraph> graph);
 };
 
 #endif //LOFT_GRAPHVIZVISUALIZER_H

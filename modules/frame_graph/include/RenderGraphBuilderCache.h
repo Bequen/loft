@@ -36,6 +36,17 @@ struct RenderGraphFrame {
     }
 };
 
+union VirtualResource {
+public:
+    Buffer m_buffer;
+    Image m_image;
+};
+
+class RenderGraphResourceManager {
+public:
+    RenderGraphResourceManager(const RenderGraphResourceManager&) = delete;
+};
+
 /**
  * Saving intermediate computations for render graph builder
  */
@@ -51,6 +62,7 @@ private:
 
     VkSampler m_sampler;
     const ImageChain& m_outputChain;
+
 
 public:
     GET(m_outputChain, output_chain);
@@ -70,15 +82,15 @@ public:
 
     }
 
-    uint32_t transfer_layout(Gpu *pGpu) {
+    uint32_t transfer_layout(const std::shared_ptr<const Gpu>& gpu) {
         VkCommandBufferAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = pGpu->graphics_command_pool();
+        allocInfo.commandPool = gpu->graphics_command_pool();
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = 1;
 
         VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-        vkAllocateCommandBuffers(pGpu->dev(), &allocInfo, &commandBuffer);
+        vkAllocateCommandBuffers(gpu->dev(), &allocInfo, &commandBuffer);
 
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -128,8 +140,8 @@ public:
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffer;
 
-        pGpu->enqueue_transfer(&submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(pGpu->transfer_queue());
+        gpu->enqueue_transfer(&submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(gpu->transfer_queue());
 
         return 0;
     }

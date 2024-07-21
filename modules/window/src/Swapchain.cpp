@@ -2,13 +2,15 @@
 
 #include <assert.h>
 
+#include <utility>
+
 VkSurfaceFormatKHR Swapchain::choose_format() {
 	uint32_t formatCount = 0;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(m_pGpu->gpu(), m_surface, &formatCount, nullptr);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(m_gpu->gpu(), m_surface, &formatCount, nullptr);
 	assert(formatCount > 0);
 
 	auto formats = std::vector<VkSurfaceFormatKHR>(formatCount);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(m_pGpu->gpu(), m_surface, &formatCount, formats.data());
+	vkGetPhysicalDeviceSurfaceFormatsKHR(m_gpu->gpu(), m_surface, &formatCount, formats.data());
 
 	for(uint32_t i = 0; i < formatCount; i++) {
 		if(formats[i].format == VK_FORMAT_B8G8R8A8_UNORM &&
@@ -24,13 +26,13 @@ VkSurfaceFormatKHR Swapchain::choose_format() {
 
 VkPresentModeKHR Swapchain::choose_present_mode() {
 	uint32_t presentModeCount = 0;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(m_pGpu->gpu(), m_surface,
+	vkGetPhysicalDeviceSurfacePresentModesKHR(m_gpu->gpu(), m_surface,
 											  &presentModeCount, nullptr);
 
     VkPresentModeKHR presentModeResult = VK_PRESENT_MODE_FIFO_KHR;
 
 	auto presentModes = new VkPresentModeKHR[presentModeCount];
-	vkGetPhysicalDeviceSurfacePresentModesKHR(m_pGpu->gpu(), m_surface, 
+	vkGetPhysicalDeviceSurfacePresentModesKHR(m_gpu->gpu(), m_surface,
 											  &presentModeCount, presentModes);
 
 	for(uint32_t i = 0; i < presentModeCount; i++) {
@@ -46,7 +48,7 @@ VkPresentModeKHR Swapchain::choose_present_mode() {
 
 VkExtent2D Swapchain::choose_extent() {
 	VkSurfaceCapabilitiesKHR capabilities = {};
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_pGpu->gpu(), m_surface, &capabilities);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu->gpu(), m_surface, &capabilities);
 
 	if(capabilities.currentExtent.width != UINT32_MAX) {
 		return capabilities.currentExtent;
@@ -69,7 +71,7 @@ VkExtent2D Swapchain::choose_extent() {
 
 Result Swapchain::get_images(uint32_t *pOutNumImages, VkImage *pOutImages) {
 	/* Get images to render to, rendertargets */
-	EXPECT(vkGetSwapchainImagesKHR(m_pGpu->dev(), m_swapchain, pOutNumImages, pOutImages), "Failed to get swapchain images");
+	EXPECT(vkGetSwapchainImagesKHR(m_gpu->dev(), m_swapchain, pOutNumImages, pOutImages), "Failed to get swapchain images");
 	return RESULT_OK;
 }
 
@@ -98,7 +100,7 @@ Result Swapchain::create_views() {
 			}
 		};
 
-		EXPECT(vkCreateImageView(m_pGpu->dev(), &viewInfo, NULL, &m_pImageViews[i]),
+		EXPECT(vkCreateImageView(m_gpu->dev(), &viewInfo, NULL, &m_pImageViews[i]),
 			   "Failed to create image view");
 	}
 	return RESULT_OK;
@@ -106,7 +108,7 @@ Result Swapchain::create_views() {
 
 Result Swapchain::create_swapchain() {
 	VkSurfaceCapabilitiesKHR capabilities = {};
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_pGpu->gpu(), m_surface, &capabilities);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu->gpu(), m_surface, &capabilities);
 
 	VkSwapchainCreateInfoKHR swapchainInfo = {
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -127,7 +129,7 @@ Result Swapchain::create_swapchain() {
 	 * the same. Meaning we can draw with commands submitted to graphics queue
 	 * to swapchain images, that need to be used by command submitted to 
 	 * present queue. */
-    auto presentQueues = m_pGpu->present_queue_ids();
+    auto presentQueues = m_gpu->present_queue_ids();
 	if(presentQueues.size() > 1) {
 		swapchainInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		swapchainInfo.queueFamilyIndexCount = presentQueues.size();
@@ -137,15 +139,15 @@ Result Swapchain::create_swapchain() {
 		swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	}
 
-	EXPECT(vkCreateSwapchainKHR(m_pGpu->dev(), &swapchainInfo, NULL, &m_swapchain), "Failed to create swapchain");
+	EXPECT(vkCreateSwapchainKHR(m_gpu->dev(), &swapchainInfo, NULL, &m_swapchain), "Failed to create swapchain");
 
 	return RESULT_OK;
 }
 
-Swapchain::Swapchain(Gpu *pGpu, VkSurfaceKHR surface) :
-m_pGpu(pGpu), m_surface(surface) {
+Swapchain::Swapchain(const std::shared_ptr<const Gpu>& gpu, VkSurfaceKHR surface) :
+m_gpu(gpu), m_surface(surface) {
 	VkSurfaceCapabilitiesKHR capabilities = {};
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_pGpu->gpu(), m_surface, &capabilities);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu->gpu(), m_surface, &capabilities);
 
 	m_format = choose_format();
 	m_extent = choose_extent();

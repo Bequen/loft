@@ -159,16 +159,16 @@ public:
      * @param layout Descriptor set layout
      * @return Allocated descriptor set with all the writes.
      */
-    VkDescriptorSet build(const Gpu *pGpu, VkDescriptorSetLayout layout) {
+    VkDescriptorSet build(const std::shared_ptr<const Gpu>& gpu, VkDescriptorSetLayout layout) {
         VkDescriptorSetAllocateInfo descriptorInfo = {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                .descriptorPool = pGpu->descriptor_pool(),
+                .descriptorPool = gpu->descriptor_pool(),
                 .descriptorSetCount = 1,
                 .pSetLayouts = &layout
         };
 
         VkDescriptorSet set;
-        if(vkAllocateDescriptorSets(pGpu->dev(), &descriptorInfo, &set)) {
+        if(vkAllocateDescriptorSets(gpu->dev(), &descriptorInfo, &set)) {
             throw std::runtime_error("Failed to allocate descriptor set");
         }
 
@@ -177,7 +177,7 @@ public:
             writes[i] = m_writes[i].to_write(set);
         }
 
-        vkUpdateDescriptorSets(pGpu->dev(), writes.size(), writes.data(),
+        vkUpdateDescriptorSets(gpu->dev(), writes.size(), writes.data(),
                                0, nullptr);
 
         return set;
@@ -198,17 +198,17 @@ public:
 
     }
 
-    ShaderInputSet(Gpu *pGpu, VkDescriptorSetLayout layout) :
+    ShaderInputSet(const std::shared_ptr<const Gpu>& gpu, VkDescriptorSetLayout layout) :
         m_descriptorSet(VK_NULL_HANDLE) {
 
         VkDescriptorSetAllocateInfo descriptorInfo = {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                .descriptorPool = pGpu->descriptor_pool(),
+                .descriptorPool = gpu->descriptor_pool(),
                 .descriptorSetCount = 1,
                 .pSetLayouts = &layout
         };
 
-        if(vkAllocateDescriptorSets(pGpu->dev(), &descriptorInfo, &m_descriptorSet)) {
+        if(vkAllocateDescriptorSets(gpu->dev(), &descriptorInfo, &m_descriptorSet)) {
             throw std::runtime_error("Failed to allocate descriptor set");
         }
     }
@@ -220,15 +220,15 @@ enum ShaderInputWriteType {
 
 class ShaderInputSetWriter {
 private:
-    const Gpu *m_pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
     std::vector<VkWriteDescriptorSet> m_writes;
 
     std::vector<std::vector<VkDescriptorImageInfo>> m_imageWrites;
     std::vector<std::vector<VkDescriptorBufferInfo>> m_bufferWrites;
 
 public:
-    explicit ShaderInputSetWriter(const Gpu *pGpu) :
-        m_pGpu(pGpu) {
+    explicit ShaderInputSetWriter(const std::shared_ptr<const Gpu>& gpu) :
+            m_gpu(gpu) {
 
     }
 
@@ -275,7 +275,7 @@ public:
     }
 
     ShaderInputSetWriter& write() {
-        vkUpdateDescriptorSets(m_pGpu->dev(), m_writes.size(), m_writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(m_gpu->dev(), m_writes.size(), m_writes.data(), 0, nullptr);
         return *this;
     }
 };

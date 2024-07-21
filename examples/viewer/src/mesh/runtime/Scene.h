@@ -53,7 +53,7 @@ public:
 
 class Scene {
 private:
-    Gpu *m_pGpu;
+    std::shared_ptr<const Gpu> m_gpu;
 
     std::vector<MeshScene> m_meshBuffers;
 
@@ -80,7 +80,7 @@ private:
     std::vector<uint32_t> load_materials(const SceneData* pData);
 
 public:
-    Scene(Gpu *pGpu, const SceneData *pData);
+    Scene(const std::shared_ptr<const Gpu>& gpu, const SceneData *pData);
 
     uint32_t push_material(const SceneData *pData, const MaterialData& material);
 

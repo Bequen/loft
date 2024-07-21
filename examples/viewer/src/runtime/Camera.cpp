@@ -3,10 +3,12 @@
 //
 
 #include "Camera.h"
+
+#include <utility>
 #include "resources/GpuAllocator.h"
 
-Camera::Camera(Gpu *pGpu, float aspect):
-        m_pGpu(pGpu), m_resource("camera", VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) {
+Camera::Camera(const std::shared_ptr<const Gpu>& gpu, float aspect):
+        m_gpu(gpu), m_resource("camera", VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) {
 
     glm_mat4_identity(data.view);
     glm_mat4_identity(data.projection);
@@ -27,14 +29,14 @@ Camera::Camera(Gpu *pGpu, float aspect):
             .isExclusive = true
     };
 
-    m_pGpu->memory()->create_buffer(&bufferInfo, &allocInfo, &m_buffer);
+    m_gpu->memory()->create_buffer(&bufferInfo, &allocInfo, &m_buffer);
 
     void *pData = nullptr;
-    m_pGpu->memory()->map(m_buffer.allocation, &pData);
+    m_gpu->memory()->map(m_buffer.allocation, &pData);
 
     memcpy(pData, &data, sizeof(data));
 
-    m_pGpu->memory()->unmap(m_buffer.allocation);
+    m_gpu->memory()->unmap(m_buffer.allocation);
 
     m_resource.set_offset(0)
             .set_size(sizeof(data));
@@ -51,9 +53,9 @@ void Camera::update() {
     glm_translate(data.view, m_position);
 
     void *pData;
-    m_pGpu->memory()->map(m_buffer.allocation, &pData);
+    m_gpu->memory()->map(m_buffer.allocation, &pData);
     memcpy(pData, &data, sizeof(data));
-    m_pGpu->memory()->unmap(m_buffer.allocation);
+    m_gpu->memory()->unmap(m_buffer.allocation);
 }
 
 void Camera::move(vec3 velocity)  {

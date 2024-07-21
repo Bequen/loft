@@ -3,6 +3,7 @@
 #include <string>
 
 #include <volk/volk.h>
+#include <memory>
 
 #include "resources/GpuAllocation.h"
 #include "ImageView.hpp"
@@ -23,8 +24,8 @@ public:
 
     }
 
-	ImageView create_view(Gpu *pGpu, VkFormat format,
+	ImageView create_view(const std::shared_ptr<const Gpu>& gpu, VkFormat format,
 						  VkImageSubresourceRange subresource);
 
-    void set_debug_name(const Gpu *pGpu, const std::string& name) const;
+    void set_debug_name(const std::shared_ptr<const Gpu>& gpu, const std::string& name) const;
 };
