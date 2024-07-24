@@ -10,6 +10,7 @@
 #include <iostream>
 #include "ResourceLayout.hpp"
 #include "RenderPassBuildInfo.hpp"
+#include "RecordingDependency.h"
 
 
 class RenderPass {
@@ -24,6 +25,8 @@ private:
     VkExtent2D m_extent;
 
     std::vector<std::string> m_passDependencies;
+
+    std::shared_ptr<const RecordingDependency> m_recordingDependency;
 
 public:
 	/**
@@ -59,6 +62,11 @@ public:
 	 * Gets called when command buffer has to be re-recorded
 	 */
     virtual void record(RenderPassRecordInfo info) = 0;
+
+    inline RenderPass& set_recording_dependency(std::shared_ptr<const RecordingDependency> dependency) {
+        m_recordingDependency = dependency;
+        return *this;
+    }
     
 	inline RenderPass& add_color_output(std::string name, VkFormat format, VkClearColorValue clearValue = { 0.0f, 0.0f, 0.0f, 1.0f }) {
         std::cout << "Adding color output" << name << std::endl;
