@@ -141,8 +141,8 @@ int runtime(int argc, char** argv) {
     } */
 
     VkExtent2D extent = {
-            .width = 2400,
-            .height = 1200
+            .width = 1024,
+            .height = 1024
     };
 
     /**
@@ -202,12 +202,15 @@ int runtime(int argc, char** argv) {
      * Frame graph manages renderpass dependencies and synchronization.
      */
     RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1);
+    std::cout << "Loading glTF file, please wait" << std::endl;
     auto sceneData = GltfSceneLoader().from_file(argv[1]);
+
 
     Scene scene(gpu, &sceneData);
     for(uint32_t i = 1; i < argc; i++) {
         // scene.add_scene_data(&sceneData);
     }
+    std::cout << "glTF file loaded" << std::endl;
 
 
     ImageCreateInfo imageInfo = {
@@ -329,8 +332,8 @@ int runtime(int argc, char** argv) {
             .add_color_output("norm_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("pos_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
             .add_color_output("pbr_gbuf", VK_FORMAT_R8G8B8A8_UNORM, { 0.0f, 0.0f, 0.0f, 1.0f })
-            .set_depth_output("depth_gbuf", VK_FORMAT_D32_SFLOAT_S8_UINT, {1.0f, 0});
-
+            .set_depth_output("depth_gbuf", VK_FORMAT_D32_SFLOAT_S8_UINT, {1.0f, 0})
+            .set_recording_dependency("mesh_buffer");
 
 
 
@@ -648,8 +651,9 @@ int runtime(int argc, char** argv) {
                                                         ImGui_ImplVulkan_RenderDrawData(draw_data, recordInfo.command_buffer());
                                                     }
     );
-    imguiPass.add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f})
-            .add_pass_dependency("composition");
+    imguiPass.add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 1.0f})
+            .add_pass_dependency("composition")
+            .set_recording_dependency("imgui_drawlist");
 
     auto swapchainImageChain = ImageChain(swapchain.views());
     auto renderGraph = renderGraphBuilder
@@ -659,6 +663,8 @@ int runtime(int argc, char** argv) {
             .add_external_image("shadowmap", {
                     ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
             })
+            .invalidate_dependency_every_frame("mesh_buffer")
+            .invalidate_dependency_every_frame("imgui_drawlist")
             .build(gpu, swapchainImageChain, extent);
 
     ShadowPassContext shadowPassCtx = {};
@@ -716,7 +722,8 @@ int runtime(int argc, char** argv) {
                                                               pContext->pSceneBuffer->draw_depth(info.command_buffer(), pContext->layout, data.view);
                                                           }
     );
-    shadowPass.set_depth_output("shadowmap", VK_FORMAT_D32_SFLOAT_S8_UINT);
+    shadowPass.set_depth_output("shadowmap", VK_FORMAT_D32_SFLOAT_S8_UINT)
+              .set_recording_dependency("mesh_buffer");
 
     ImageChain shadowmapChain = ImageChain({shadowmapView});
 
@@ -789,6 +796,8 @@ int runtime(int argc, char** argv) {
         }
         ImGui::End();
 
+        ImGui::EndFrame();
+
 
         while(window->poll_event(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
@@ -839,7 +848,7 @@ main(int32_t argc, char** argv) {
     try {
         runtime(argc, argv);
     } catch(const std::exception& e) {
-        std::cerr << "[FAIL]: " << e.what() << std::endl;
+        std::cout << "[FAIL]: " << e.what() << std::endl;
         return 1;
     }
 

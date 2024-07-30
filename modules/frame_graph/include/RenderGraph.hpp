@@ -16,10 +16,16 @@
 #include "DebugUtils.h"
 #include "ImageChain.h"
 
-
+/**
+ * Groups together render passes into Vulkan render pass
+ */
 struct RenderGraphVkRenderPass {
+    /* If the render pass outputs to output chain */
     bool isGraphOutput;
 
+    /**
+     * Debug properties
+     */
     std::string name;
     float color[4];
 
@@ -29,6 +35,7 @@ struct RenderGraphVkRenderPass {
     std::vector<VkFramebuffer> framebuffers;
 
     RenderPass *pRenderPass;
+    bool m_isChainOutput;
 
     RenderGraphVkRenderPass(std::string name,
                             RenderPass *pRenderPass,
@@ -105,82 +112,178 @@ struct RenderGraphVkRenderPass {
     }
 };
 
+struct RenderGraphBarrierInfo {
+
+};
+
+struct RenderGraphVkCommandBufferBarrier {
+    uint32_t index;
+    RenderGraphBarrierInfo info;
+};
+
+
+/**
+ * Represents a command buffer in the render graph
+ */
 struct RenderGraphVkCommandBuffer {
+private:
     std::shared_ptr<const Gpu> m_gpu;
 
-    std::vector<RenderGraphVkRenderPass> renderpasses;
+    std::vector<RenderGraphVkRenderPass> m_renderpasses;
+    std::vector<RenderGraphVkCommandBufferBarrier> m_barriers;
+
     std::vector<VkSemaphore> perImageSignal;
     std::vector<VkCommandBuffer> perImageCommandBuffer;
 
-    std::vector<RenderGraphVkCommandBuffer*> dependencies;
+    std::vector<RenderGraphVkCommandBuffer*> m_dependencies;
 
     std::vector<uint32_t> m_externalDependenciesIds;
 
-    std::vector<VkSemaphore> create_signals(std::shared_ptr<const Gpu> gpu, uint32_t numImagesInFlight) {
-        std::vector<VkSemaphore> signals(numImagesInFlight);
+    std::string m_recordingDependency;
+
+    uint32_t m_numImages;
+
+    bool m_isChainOutput;
+
+    std::vector<bool> m_isCommandBufferValid;
+    bool m_invalidateRecordingEveryFrame;
+
+    void create_signals(uint32_t numImagesInFlight) {
+        perImageSignal = std::vector<VkSemaphore>(numImagesInFlight);
 
         VkSemaphoreCreateInfo semaphoreInfo = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
         };
 
         for(uint32_t i = 0; i < numImagesInFlight; i++) {
-            vkCreateSemaphore(gpu->dev(), &semaphoreInfo, nullptr, &signals[i]);
+            vkCreateSemaphore(m_gpu->dev(), &semaphoreInfo, nullptr, &perImageSignal[i]);
         }
-
-        return signals;
     }
 
-    std::vector<VkCommandBuffer> create_command_buffers(std::shared_ptr<const Gpu> gpu, uint32_t numImagesInFlight) {
-        std::vector<VkCommandBuffer> commandBuffers(numImagesInFlight);
+public:
+    REF(m_dependencies, dependencies);
+    REF(m_externalDependenciesIds, external_dependencies_ids)
+    REF(m_recordingDependency, recording_dependency);
+    GET(m_numImages, num_output_images);
+    REF(m_renderpasses, renderpasses);
+    GET(m_isChainOutput, is_chain_output);
+
+    inline const bool is_command_buffer_valid(uint32_t imageIdx) const {
+        return m_isCommandBufferValid[imageIdx];
+    }
+
+    inline const VkCommandBuffer command_buffer(uint32_t imageIdx) const {
+        return perImageCommandBuffer[imageIdx];
+    }
+
+    inline const VkSemaphore signal(uint32_t imageIdx) const {
+        return perImageSignal[imageIdx];
+    }
+
+    RenderGraphVkCommandBuffer(const std::shared_ptr<const Gpu>& gpu, uint32_t numImagesInFlight, bool invalidateRecordingEveryFrame) :
+        m_numImages(numImagesInFlight),
+        m_gpu(gpu),
+        m_isCommandBufferValid(numImagesInFlight, false),
+        m_invalidateRecordingEveryFrame(invalidateRecordingEveryFrame) {
+    }
+
+    /**
+     * Allocates number of buffers for the command buffer
+     * @param numCommandBuffers number of buffers
+     */
+    void allocate_command_buffers(uint32_t numCommandBuffers) {
+        perImageCommandBuffer = std::vector<VkCommandBuffer>(numCommandBuffers);
 
         VkCommandBufferAllocateInfo cmdBufInfo = {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = gpu->graphics_command_pool(),
+                .commandPool = m_gpu->graphics_command_pool(),
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                .commandBufferCount = numImagesInFlight
+                .commandBufferCount = numCommandBuffers
         };
 
-        if(vkAllocateCommandBuffers(gpu->dev(), &cmdBufInfo, commandBuffers.data())) {
+        if(vkAllocateCommandBuffers(m_gpu->dev(), &cmdBufInfo, perImageCommandBuffer.data())) {
             throw std::runtime_error("Failed to create command buffer");
         }
 
-        return commandBuffers;
+        create_signals(numCommandBuffers);
     }
 
-    RenderGraphVkCommandBuffer(const std::shared_ptr<const Gpu>& gpu, uint32_t numImagesInFlight) :
-        perImageCommandBuffer(create_command_buffers(gpu, numImagesInFlight)),
-        perImageSignal(create_signals(gpu, numImagesInFlight)),
-        m_gpu(gpu) {
-
+    inline void set_recording_dependency(const std::string& dependency) {
+        m_recordingDependency = dependency;
     }
 
     inline void set_external_dependencies(const std::vector<uint32_t>& externalDependencies) {
         m_externalDependenciesIds = externalDependencies;
     }
 
-    void add_render_pass(const RenderGraphVkRenderPass& renderpass) {
-        renderpasses.push_back(renderpass);
+    inline RenderGraphVkCommandBuffer& add_render_pass(const RenderGraphVkRenderPass& renderpass,
+                                                       const std::optional<RenderGraphBarrierInfo> barrier) {
+        m_renderpasses.push_back(renderpass);
+
+        if(barrier.has_value()) {
+            m_barriers.push_back({
+                .index = (uint32_t)m_renderpasses.size() - 1,
+                .info = barrier.value()
+            });
+        }
+
+        m_isChainOutput = renderpass.isGraphOutput;
+
+        return *this;
     }
 
     void add_dependency(RenderGraphVkCommandBuffer *pDependency) {
-        dependencies.push_back(pDependency);
+        m_dependencies.push_back(pDependency);
     }
 
-    void begin(uint32_t imageIdx) {
+    /**
+     * Re-records the command buffer
+     * @param imageIdx
+     */
+    void record(uint32_t imageIdx, uint32_t chainImageIdx) {
         VkCommandBufferBeginInfo cmdBeginInfo = {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-                .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+                //.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
         };
 
-        if(vkBeginCommandBuffer(perImageCommandBuffer[imageIdx], &cmdBeginInfo)) {
+        if(m_invalidateRecordingEveryFrame) {
+            cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        }
+
+        uint32_t cmdbufIdx = m_isChainOutput ? chainImageIdx : imageIdx;
+        auto cmdbuf = perImageCommandBuffer[cmdbufIdx];
+
+        if(vkBeginCommandBuffer(cmdbuf, &cmdBeginInfo)) {
             throw std::runtime_error("Failed to begin command buffer");
         }
-    }
 
-    void end(uint32_t imageIdx) {
-        if(vkEndCommandBuffer(perImageCommandBuffer[imageIdx])) {
+        int lastRenderpass = 0;
+        /* for(auto & m_barrier : m_barriers) {
+            for(int o = lastRenderpass; o < m_barrier.index; o++) {
+                m_renderpasses[o].begin(perImageCommandBuffer[imageIdx], imageIdx);
+
+                auto recordInfo = RenderPassRecordInfo(perImageCommandBuffer[imageIdx], imageIdx);
+                m_renderpasses[o].pRenderPass->record(recordInfo);
+
+                m_renderpasses[o].end(perImageCommandBuffer[imageIdx]);
+            }
+        } */
+
+        for(uint32_t o = 0; o < m_renderpasses.size(); o++) {
+            m_renderpasses[o].begin(cmdbuf, m_renderpasses[o].isGraphOutput ? chainImageIdx : imageIdx);
+
+            auto recordInfo = RenderPassRecordInfo(cmdbuf, imageIdx);
+            m_renderpasses[o].pRenderPass->record(recordInfo);
+
+            m_renderpasses[o].end(cmdbuf);
+        }
+
+
+        if(vkEndCommandBuffer(cmdbuf)) {
             throw std::runtime_error("Failed to end command buffer");
         }
+
+        m_isCommandBufferValid[cmdbufIdx] = !m_invalidateRecordingEveryFrame;
     }
 };
 
@@ -210,24 +313,33 @@ struct RenderGraphExternalDependency {
     }
 };
 
+/**
+ * Runnable render graph structure.
+ *
+ */
 class RenderGraph {
 private:
     const std::string m_name;
 	std::shared_ptr<const Gpu> m_gpu;
     const ImageChain m_outputChain;
 
-    const std::vector<RenderGraphVkCommandBuffer> m_root;
+    std::vector<RenderGraphVkCommandBuffer> m_root;
 
 	const uint32_t m_numFrames;
 
     uint32_t m_frameIdx;
 
-    std::vector<VkFence> m_frameFinished;
+    std::vector<std::vector<VkFence>> m_frameFinished;
 
     std::vector<RenderGraphExternalDependency> m_externalDependencies;
+    std::vector<std::string> m_invalidRecordingDependencies;
 
-    VkCommandBufferSubmitInfo run_tree(const RenderGraphVkCommandBuffer *pNode,
-                  uint32_t bufferIdx, uint32_t chainImageIdx) const;
+    std::vector<VkSemaphoreSubmitInfoKHR> get_wait_semaphores_for(RenderGraphVkCommandBuffer& block, uint32_t imageIdx);
+
+    void run_dependencies_of(RenderGraphVkCommandBuffer& block, uint32_t chainImageIdx);
+
+    void run_cmdbuf_block(RenderGraphVkCommandBuffer& node, uint32_t bufferIdx, uint32_t chainImageIdx);
+
 
 public:
     GET(m_root, dependencies);
@@ -252,9 +364,7 @@ public:
 
 	VkSemaphore run(uint32_t chainImageIdx);
 
-    std::vector<VkSemaphoreSubmitInfoKHR>
-    run_dependencies(const RenderGraphVkCommandBuffer *pNode,
-                     uint32_t imageIdx, uint32_t chainImageIdx) const;
+    void invalidate(std::string dependency);
 };
 
 

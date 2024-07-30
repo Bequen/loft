@@ -36,13 +36,13 @@ struct GraphVizCommandBuffer {
     explicit GraphVizCommandBuffer(RenderGraphVkCommandBuffer cmdbuf) :
             m_cmdbuf(std::move(cmdbuf)) {
 
-        for(auto& renderpass : m_cmdbuf.renderpasses) {
+        /* for(auto& renderpass : m_cmdbuf.m_renderpasses) {
             m_renderpasses.push_back(GraphVizRenderPass(renderpass));
         }
 
         for(auto& dependency : m_cmdbuf.dependencies) {
             m_dependencies.push_back(GraphVizCommandBuffer(*dependency));
-        }
+        } */
     }
 };
 

@@ -34,12 +34,7 @@ struct ImageResourceDependency {
 };
 
 /**
- * Organizes entire rendering into a graph
- *
- * Advantages:
- *  - ResourceLayout virtualization
- *  - Automatic scheduling
- *  - Robustness (you can define everything once and it can be looked up in graph)
+ * Builds a runnable render graph from a set of render passes.
  */
 class RenderGraphBuilder {
 private:
@@ -54,7 +49,10 @@ private:
 
     std::vector<ImageResourceDependency> m_externalImageDependencies;
 
-    VkRenderPass create_renderpass_for(const std::shared_ptr<const Gpu>& gpu, RenderGraphNode *pPass);
+    std::vector<std::string> m_oneTimeDependencies;
+
+    VkRenderPass create_renderpass_for(const std::shared_ptr<const Gpu>& gpu, RenderGraphNode *pPass,
+                                       std::optional<VkMemoryBarrier2KHR> exitBarrier);
 
     /**
      * Build each renderpass that output into swapchain. Starting the tree. Then add those renderpasses to the root node.
@@ -71,7 +69,7 @@ private:
      */
     int build_renderpass(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
                          RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass,
-                         int depth, uint32_t renderpassIdx);
+                         int depth, uint32_t renderpassIdx, std::optional<VkMemoryBarrier2KHR> exitBarrier);
 
     std::vector<Framebuffer>
     collect_attachments(const std::shared_ptr<const Gpu>& gpu, VkRenderPass rp, RenderGraphBuilderCache *pCache, RenderGraphNode *pPass);
@@ -83,14 +81,6 @@ private:
                                           bool isDepth, ImageResourceLayout* pLayout);
 
     Image create_image_from_layout(const std::shared_ptr<const Gpu>& gpu, VkExtent2D extent, ImageResourceLayout *pLayout, bool isDepth);
-
-    Buffer create_buffer_from_layout(BufferResourceLayout *pLayout) {
-        throw std::runtime_error("Not implemented");
-    }
-
-    void build_renderpass_dependencies(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
-                                       RenderGraphVkCommandBuffer *pCmdBuf, uint32_t renderpassIdx,
-                                       int depth);
 
     std::vector<uint32_t>
     get_external_dependency_ids_for_renderpass(RenderGraphBuilderCache *pCache,
@@ -110,15 +100,37 @@ public:
      */
     explicit RenderGraphBuilder(std::string name, std::string outputName, uint32_t numImageInFlight);
 
+    /**
+     * Adds graphics pass
+     * @param pRenderPass Render pass to add as graphics pass
+     * @return current instance
+     */
     RenderGraphBuilder& add_graphics_pass(RenderPass *pRenderPass) {
         m_renderpasses.emplace_back(pRenderPass);
         m_numRenderpasses++;
         return *this;
     }
 
+    /**
+     * Adds external image resource to sync render graphs together
+     * @param name Name of the resource
+     * @param dependencies Dependency for each buffer
+     * @return
+     */
     RenderGraphBuilder& add_external_image(const std::string& name,
                                            const std::vector<ExternalImageResource>& dependencies) {
         m_externalImageDependencies.emplace_back(name, dependencies);
+        return *this;
+    }
+
+    bool is_one_time_dependency(const std::optional<std::string>& name) const {
+        if(!name.has_value()) return false;
+
+        return std::find(m_oneTimeDependencies.begin(), m_oneTimeDependencies.end(), name) != m_oneTimeDependencies.end();
+    }
+
+    RenderGraphBuilder& invalidate_dependency_every_frame(const std::string& name) {
+        m_oneTimeDependencies.push_back(name);
         return *this;
     }
 

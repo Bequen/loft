@@ -37,6 +37,11 @@ public:
         return *this;
     }
 
+    /**
+     * Counts and returns number of dependencies of item at 'to' index
+     * @param to Index of the dependant
+     * @return number representing count of dependencies
+     */
     [[nodiscard]] uint32_t num_dependencies(uint32_t to) const {
         ASSERT(to < m_matrix.size());
 
@@ -50,6 +55,11 @@ public:
         return numDependencies;
     }
 
+    /**
+     * Gets all the dependencies of 'to' item as vector
+     * @param to Index of the dependant
+     * @return vector of indices of dependencies
+     */
     [[nodiscard]] std::vector<uint32_t> get_dependencies(uint32_t to) const {
         ASSERT(to < m_matrix.size());
 
@@ -66,6 +76,9 @@ public:
         return dependencies;
     }
 
+    /**
+     * Does a transitive reduction on the matrix.
+     */
     void transitive_reduction();
 
     void print();

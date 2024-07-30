@@ -26,7 +26,8 @@ VkExtent2D RenderGraphBuilder::extent_for(RenderPass *pPass) const {
     };
 }
 
-VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<const Gpu>& gpu, RenderGraphNode *pPass) {
+VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<const Gpu>& gpu, RenderGraphNode *pPass,
+                                                       std::optional<VkMemoryBarrier2KHR> exitBarrier) {
     // Create storage for all the attachments
     auto depthOutput = pPass->renderpass()->depth_output();
     std::vector<VkAttachmentDescription2> attachments(pPass->renderpass()->num_outputs() + depthOutput.has_value());
@@ -97,25 +98,25 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<con
             .dstAccessMask = 0
     };
 
-    VkMemoryBarrier2KHR exitBarrier = {
+    /* VkMemoryBarrier2KHR exitBarrier = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
             .pNext = nullptr,
             .srcStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
             .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
             .dstStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
             .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR
-    };
+    }; */
 
     const VkSubpassDependency2 subpassDependencies[] = {
             {
                     .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-                    .pNext = &entryBarrier,
+                    .pNext = nullptr,// &entryBarrier,
                     .srcSubpass = VK_SUBPASS_EXTERNAL,
                     .dstSubpass = 0,
                     .dependencyFlags = 0,
             }, {
                     .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-                    .pNext = &exitBarrier,
+                    .pNext = exitBarrier.has_value() ? &exitBarrier : nullptr,
                     .srcSubpass = 0,
                     .dstSubpass = VK_SUBPASS_EXTERNAL,
                     .dependencyFlags = 0
@@ -285,27 +286,11 @@ std::vector<Framebuffer> RenderGraphBuilder::collect_attachments(const std::shar
     return framebuffers;
 }
 
-void RenderGraphBuilder::build_renderpass_dependencies(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
-                                                       RenderGraphVkCommandBuffer *pCmdBuf, uint32_t renderpassIdx,
-                                                       int depth) {
-    for(uint32_t i = 0; i < m_numRenderpasses; i++) {
-        if(pCache->adjacency_matrix().get(i, renderpassIdx)) {
-            RenderGraphVkCommandBuffer *pNextCmdBuf = pCmdBuf;
-            if(pCache->adjacency_matrix().num_dependencies(renderpassIdx) > 1) {
-                pNextCmdBuf = new RenderGraphVkCommandBuffer(gpu, m_numImagesInFlight);
-                pCmdBuf->add_dependency(pNextCmdBuf);
-            }
-
-            depth = build_renderpass(gpu, pCache, pNextCmdBuf, &m_renderpasses[i], depth, i);
-        }
-    }
-}
-
 std::vector<uint32_t>
 RenderGraphBuilder::get_external_dependency_ids_for_renderpass(RenderGraphBuilderCache *pCache,
                                                                RenderGraphVkCommandBuffer *pCmdBuf,
                                                                uint32_t renderpassIdx) {
-    std::vector<uint32_t> externalDependencies = pCmdBuf->m_externalDependenciesIds;
+    std::vector<uint32_t> externalDependencies = pCmdBuf->external_dependencies_ids();
     for(uint32_t i = m_numRenderpasses; i < m_numRenderpasses + m_externalImageDependencies.size(); i++) {
         if(pCache->adjacency_matrix().get(i, renderpassIdx)) {
             externalDependencies.push_back(i - m_numRenderpasses);
@@ -316,17 +301,48 @@ RenderGraphBuilder::get_external_dependency_ids_for_renderpass(RenderGraphBuilde
 }
 
 int RenderGraphBuilder::build_renderpass(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache,
-                                          RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass,
-                                          int depth, uint32_t renderpassIdx) {
+                                         RenderGraphVkCommandBuffer *pCmdBuf, RenderGraphNode *pPass,
+                                         int depth, uint32_t renderpassIdx, std::optional<VkMemoryBarrier2KHR> exitBarrier) {
     if(pPass->is_visited()) return 0;
-    std::cout << "Building renderpass " << pPass->renderpass()->name() << std::endl;
 
-    build_renderpass_dependencies(gpu, pCache, pCmdBuf, renderpassIdx, depth - 1);
+    uint32_t numDependencies = pCache->adjacency_matrix().num_dependencies(renderpassIdx);
+    uint32_t remaining = numDependencies;
+
+    for(uint32_t i = 0; i < m_numRenderpasses; i++) {
+        if(pCache->adjacency_matrix().get(i, renderpassIdx)) {
+            auto& renderpass = m_renderpasses[i];
+
+            RenderGraphVkCommandBuffer *pNextCmdBuf = pCmdBuf;
+
+            std::optional<VkMemoryBarrier2KHR> exitBarrier = {};
+
+            if(remaining == 1) {
+                exitBarrier = (VkMemoryBarrier2KHR) {
+                        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
+                        .pNext = nullptr,
+                        .srcStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
+                        .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                        .dstStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+                        .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR
+                };
+            }
+
+            if(renderpass.renderpass()->recording_dependency() != pPass->renderpass()->recording_dependency()) {
+                pNextCmdBuf = new RenderGraphVkCommandBuffer(gpu, m_numImagesInFlight, is_one_time_dependency(renderpass.renderpass()->recording_dependency()));
+                pCmdBuf->add_dependency(pNextCmdBuf);
+                exitBarrier = {};
+            } else {
+                std::cout << "Merging " << renderpass.renderpass()->name() << " and " << pPass->renderpass()->name() << std::endl;
+            }
+
+            build_renderpass(gpu, pCache, pNextCmdBuf, &renderpass, depth, i, exitBarrier);
+
+            remaining--;
+        }
+    }
 
     pCmdBuf->set_external_dependencies(get_external_dependency_ids_for_renderpass(pCache, pCmdBuf, renderpassIdx));
-
-    /* does not matter, how many framebuffers returns */
-    auto rp = create_renderpass_for(gpu, pPass);
+    auto rp = create_renderpass_for(gpu, pPass, exitBarrier);
     auto framebuffers = collect_attachments(gpu, rp, pCache, pPass);
     auto extent = extent_for(pPass->renderpass());
 
@@ -338,7 +354,7 @@ int RenderGraphBuilder::build_renderpass(const std::shared_ptr<const Gpu>& gpu, 
                                  pPass->clear_values(),
                                  framebuffers,
                                  pPass->renderpass()->output(m_outputName).has_value()
-                            });
+                             }, {});
 
     // wrap it into single structure
     auto outputInfo = RenderPassOutputInfo(rp, framebuffers, extent);
@@ -351,6 +367,12 @@ int RenderGraphBuilder::build_renderpass(const std::shared_ptr<const Gpu>& gpu, 
     return 1;
 }
 
+/**
+ * Starts from the root resource and builds the tree
+ * @param gpu
+ * @param pCache
+ * @return
+ */
 std::vector<RenderGraphVkCommandBuffer>
 RenderGraphBuilder::build_renderpasses(const std::shared_ptr<const Gpu>& gpu, RenderGraphBuilderCache *pCache) {
     std::vector<uint32_t> dependencies = pCache->adjacency_matrix().get_dependencies(m_numRenderpasses + m_externalImageDependencies.size());
@@ -358,11 +380,12 @@ RenderGraphBuilder::build_renderpasses(const std::shared_ptr<const Gpu>& gpu, Re
     if(dependencies.empty()) return {};
 
     /* create command buffer for each dependency */
-    std::vector<RenderGraphVkCommandBuffer> cmdbufs(dependencies.size(), RenderGraphVkCommandBuffer(gpu, m_numImagesInFlight));
+    std::vector<RenderGraphVkCommandBuffer> cmdbufs;
 
     uint32_t i = 0;
     for(auto dependency : dependencies) {
-        build_renderpass(gpu, pCache, &cmdbufs[i++], &m_renderpasses[dependency], 0, dependency);
+        cmdbufs.emplace_back(gpu, pCache->output_chain().count(), is_one_time_dependency(m_renderpasses[dependency].renderpass()->recording_dependency()));
+        build_renderpass(gpu, pCache, &cmdbufs[i++], &m_renderpasses[dependency], 0, dependency, {});
     }
 
     return cmdbufs;
@@ -384,6 +407,26 @@ RenderGraph RenderGraphBuilder::build(const std::shared_ptr<const Gpu>& gpu, con
     auto queue = build_renderpasses(gpu, &cache);
 
     cache.transfer_layout(gpu);
+
+    std::queue<RenderGraphVkCommandBuffer*> _queue;
+    for(auto& cmdBuf : queue) {
+        _queue.push(&cmdBuf);
+    }
+
+    while(!_queue.empty()) {
+        auto item = _queue.front();
+        _queue.pop();
+
+        size_t max = item->renderpasses()[0].framebuffers.size();
+        for(auto& rp : item->renderpasses()) {
+            max = std::max(max, rp.framebuffers.size());
+        }
+        item->allocate_command_buffers(max);
+
+        for(auto& dependency : item->dependencies()) {
+            _queue.push(dependency);
+        }
+    }
 
     auto graph = RenderGraph(gpu, m_name, outputChain, queue, m_numImagesInFlight);
 

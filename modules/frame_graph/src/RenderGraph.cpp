@@ -5,6 +5,7 @@
 #include <volk/volk.h>
 #include <queue>
 #include <utility>
+#include <stack>
 
 RenderGraph::RenderGraph(const std::shared_ptr<const Gpu>& gpu,
                          std::string name,
@@ -17,119 +18,136 @@ RenderGraph::RenderGraph(const std::shared_ptr<const Gpu>& gpu,
     m_root(std::move(root)),
     m_frameIdx(0),
 	m_numFrames(numFrames),
-    m_frameFinished(numFrames) {
+    m_frameFinished(numFrames, std::vector<VkFence>(m_root.size())) {
 
     for(uint32_t i = 0; i < numFrames; i++) {
-        VkFenceCreateInfo semaphoreInfo = {
-                .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-                .flags = VK_FENCE_CREATE_SIGNALED_BIT
-        };
+        for(uint32_t o = 0; o < m_root.size(); o++) {
+            VkFenceCreateInfo semaphoreInfo = {
+                    .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                    .flags = VK_FENCE_CREATE_SIGNALED_BIT
+            };
 
-        vkCreateFence(gpu->dev(), &semaphoreInfo, nullptr, &m_frameFinished[i]);
+            vkCreateFence(gpu->dev(), &semaphoreInfo, nullptr, &m_frameFinished[i][o]);
+        }
     }
 }
 
+
 std::vector<VkSemaphoreSubmitInfoKHR>
-RenderGraph::run_dependencies(const RenderGraphVkCommandBuffer *pNode,
-                              uint32_t imageIdx, uint32_t chainImageIdx) const {
-    std::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(pNode->dependencies.size());
-    uint32_t i = 0;
-    for(auto& dependency : pNode->dependencies) {
-        run_tree(dependency, imageIdx, chainImageIdx);
-        waitSemaphores[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-        waitSemaphores[i].semaphore = dependency->perImageSignal[imageIdx];
-        waitSemaphores[i].value = 1;
-        waitSemaphores[i].deviceIndex = 0;
-        waitSemaphores[i].stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
-        i++;
+RenderGraph::get_wait_semaphores_for(RenderGraphVkCommandBuffer& block, uint32_t imageIdx) {
+    std::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(block.external_dependencies_ids().size() + block.dependencies().size());
+
+    for(uint32_t i = 0; i < block.external_dependencies_ids().size(); i++) {
+        waitSemaphores[i] = (VkSemaphoreSubmitInfoKHR){
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .semaphore = m_externalDependencies[block.external_dependencies_ids()[i]].m_semaphore,
+            .value = 1,
+            .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+            .deviceIndex = 0,
+        };
+    }
+
+    for(uint32_t i = 0; i < block.dependencies().size(); i++) {
+        waitSemaphores[i] = (VkSemaphoreSubmitInfoKHR){
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                .semaphore = block.dependencies()[i]->signal(imageIdx),
+                .value = 1,
+                .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+                .deviceIndex = 0,
+        };
     }
 
     return waitSemaphores;
 }
 
-void record_node(RenderGraphVkCommandBuffer *pNode, uint32_t imageIdx, uint32_t framebufferIdx) {
-    pNode->begin(imageIdx);
+void RenderGraph::run_dependencies_of(RenderGraphVkCommandBuffer& block, uint32_t chainImageIdx) {
+    for(uint32_t i = 0; i < block.dependencies().size(); i++) {
+        auto& dependency = (RenderGraphVkCommandBuffer&)*block.dependencies()[i];
+        run_dependencies_of(dependency, chainImageIdx);
 
-    for(auto& renderpass : pNode->renderpasses) {
-        renderpass.begin(pNode->perImageCommandBuffer[imageIdx], renderpass.isGraphOutput ? framebufferIdx : imageIdx);
+        if(!dependency.is_command_buffer_valid(dependency.is_chain_output() ? chainImageIdx : m_frameIdx)) {
+            dependency.record(m_frameIdx, chainImageIdx);
+        }
 
-        auto recordInfo = RenderPassRecordInfo(pNode->perImageCommandBuffer[imageIdx], imageIdx);
+        auto waitSemaphores = get_wait_semaphores_for(dependency, m_frameIdx);
 
-        renderpass.pRenderPass->record(recordInfo);
+        VkCommandBufferSubmitInfoKHR cmdbuf = {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,
+                .commandBuffer = dependency.command_buffer(dependency.is_chain_output() ? chainImageIdx : m_frameIdx),
+                .deviceMask = 0,
+        };
 
-        renderpass.end(pNode->perImageCommandBuffer[imageIdx]);
+        VkSemaphoreSubmitInfo signalInfo = {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                .semaphore = dependency.signal(m_frameIdx),
+                .value = 1,
+                .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+                .deviceIndex = 0
+        };
+
+        VkSubmitInfo2 submitInfo = {
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                .waitSemaphoreInfoCount = (uint32_t)waitSemaphores.size(),
+                .pWaitSemaphoreInfos = waitSemaphores.data(),
+                .commandBufferInfoCount = 1,
+                .pCommandBufferInfos = &cmdbuf,
+                .signalSemaphoreInfoCount = 1,
+                .pSignalSemaphoreInfos = &signalInfo,
+        };
+
+        m_gpu->enqueue_graphics(&submitInfo, VK_NULL_HANDLE);
     }
-
-    pNode->end(imageIdx);
-}
-
-/**
- * Records render graph node.
- * @param pNode
- * @param imageIdx
- * @param fence
- */
-VkCommandBufferSubmitInfo RenderGraph::run_tree(const RenderGraphVkCommandBuffer *pNode, uint32_t imageIdx, uint32_t chainImageIdx) const {
-    auto waitSemaphores = run_dependencies(pNode, imageIdx, chainImageIdx);
-
-    record_node((RenderGraphVkCommandBuffer*)pNode, imageIdx, chainImageIdx);
-
-    auto signal = pNode->perImageSignal[imageIdx];
-
-
-
-    VkCommandBufferSubmitInfo commandBufferInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-            .commandBuffer = pNode->perImageCommandBuffer[imageIdx],
-            .deviceMask = 0
-    };
-
-    return commandBufferInfo;
 }
 
 VkSemaphore RenderGraph::run(uint32_t chainImageIdx) {
 	m_frameIdx = (m_frameIdx++) % m_numFrames;
 
-    vkWaitForFences(m_gpu->dev(), 1, &m_frameFinished[m_frameIdx], VK_TRUE, UINT64_MAX);
-    vkResetFences(m_gpu->dev(), 1, &m_frameFinished[m_frameIdx]);
+    vkWaitForFences(m_gpu->dev(), m_frameFinished[m_frameIdx].size(), m_frameFinished[m_frameIdx].data(),
+                    VK_TRUE, UINT64_MAX);
+    vkResetFences(m_gpu->dev(), m_frameFinished[m_frameIdx].size(), m_frameFinished[m_frameIdx].data());
 
-    std::vector<VkCommandBufferSubmitInfo> cmdbufs(m_root.size());
-    std::vector<VkSemaphoreSubmitInfoKHR> waits;
+    // run each root dependency
+    for(uint32_t i = 0; i < m_root.size(); i++) {
+        run_dependencies_of(m_root[i], chainImageIdx);
 
-    uint32_t i = 0;
-    for(auto& dep : m_root) {
-        cmdbufs[i++] = run_tree(&dep, m_frameIdx, chainImageIdx);
-        for(auto& dep2 : dep.dependencies) {
-            VkSemaphoreSubmitInfoKHR semaphore = {
+        if(!m_root[i].is_command_buffer_valid(chainImageIdx)) {
+            m_root[i].record(m_frameIdx, chainImageIdx);
+        }
+
+        auto waitSemaphores = get_wait_semaphores_for(m_root[i], m_frameIdx);
+
+        VkCommandBufferSubmitInfoKHR cmdbuf = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,
+            .commandBuffer = m_root[i].command_buffer(chainImageIdx),
+            .deviceMask = 0,
+        };
+
+        VkSemaphoreSubmitInfo signalInfo = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                .semaphore = dep2->perImageSignal[m_frameIdx],
+                .semaphore = m_root[i].signal(m_frameIdx),
                 .value = 1,
                 .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-                .deviceIndex = 0,
-            };
-            waits.push_back(semaphore);
-        }
+                .deviceIndex = 0
+        };
+
+        VkSubmitInfo2 submitInfo = {
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                .waitSemaphoreInfoCount = (uint32_t)waitSemaphores.size(),
+                .pWaitSemaphoreInfos = waitSemaphores.data(),
+                .commandBufferInfoCount = 1,
+                .pCommandBufferInfos = &cmdbuf,
+                .signalSemaphoreInfoCount = 1,
+                .pSignalSemaphoreInfos = &signalInfo,
+        };
+
+        m_gpu->enqueue_graphics(&submitInfo, m_frameFinished[m_frameIdx][i]);
     }
 
-    VkSemaphoreSubmitInfo signalInfo = {
-            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-            .semaphore = m_root[0].perImageSignal[m_frameIdx],
-            .value = 1,
-            .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-            .deviceIndex = 0
-    };
+    m_invalidRecordingDependencies.clear();
 
-    VkSubmitInfo2 submitInfo = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-            .waitSemaphoreInfoCount = (uint32_t)waits.size(),
-            .pWaitSemaphoreInfos = waits.data(),
-            .commandBufferInfoCount = (uint32_t)cmdbufs.size(),
-            .pCommandBufferInfos = cmdbufs.data(),
-            .signalSemaphoreInfoCount = 1,
-            .pSignalSemaphoreInfos = &signalInfo,
-    };
+    return m_root[0].signal(m_frameIdx);
+}
 
-    m_gpu->enqueue_graphics(&submitInfo, m_frameFinished[m_frameIdx]);
-
-    return m_root[0].perImageSignal[m_frameIdx];
+void RenderGraph::invalidate(std::string dependency) {
+    m_invalidRecordingDependencies.push_back(dependency);
 }

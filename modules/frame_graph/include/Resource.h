@@ -10,7 +10,7 @@
 struct ImageResource;
 
 /**
- *
+ * Represents a resource in render graph.
  */
 struct Resource {
     virtual const ResourceType type() const = 0;
