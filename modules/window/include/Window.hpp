@@ -22,5 +22,5 @@ public:
 
     virtual int32_t poll_event(SDL_Event *pOutEvent) = 0;
 
-    virtual void get_required_extensions(uint32_t *pOutSize, char** pOut) = 0;
+    virtual void get_required_extensions(uint32_t *pOutSize, const char** pOut) = 0;
 };

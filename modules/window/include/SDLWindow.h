@@ -31,7 +31,7 @@ public:
 
     int32_t poll_event(SDL_Event *pOutEvent) override;
 
-    void get_required_extensions(uint32_t *pOutSize, char** pOut) override;
+    void get_required_extensions(uint32_t *pOutSize, const char** pOut) override;
 };
 
 #endif //LOFT_SDLWINDOW_H

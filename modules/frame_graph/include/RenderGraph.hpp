@@ -13,7 +13,7 @@
 #include "Resource.h"
 #include "RenderGraphBuilderCache.h"
 #include "RenderGraphNode.h"
-#include "DebugUtils.h"
+#include "debug/DebugUtils.h"
 #include "ImageChain.h"
 
 /**
@@ -87,7 +87,7 @@ struct RenderGraphVkRenderPass {
                 .color = { color[0], color[1], color[2], color[3] }
         };
 
-        vkCmdBeginDebugUtilsLabel(cmdbuf, &labelInfo);
+        vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &labelInfo);
 
 
         VkRenderPassBeginInfo renderPassInfo = {
@@ -108,7 +108,7 @@ struct RenderGraphVkRenderPass {
     void end(VkCommandBuffer cmdbuf) {
         vkCmdEndRenderPass(cmdbuf);
 
-        vkCmdEndDebugUtilsLabel(cmdbuf);
+        vkCmdEndDebugUtilsLabelEXT(cmdbuf);
     }
 };
 

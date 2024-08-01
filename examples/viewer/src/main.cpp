@@ -3,7 +3,7 @@
 #include <volk/volk.h>
 #include <iostream>
 
-#include "DebugUtils.h"
+#include "debug/DebugUtils.h"
 
 #include "cglm/mat4.h"
 #include "mesh/Vertex.hpp"
@@ -129,7 +129,91 @@ struct CompositionContext {
     }
 };
 
+void lft_dbg_callback(lft::dbg::LogMessageSeverity severity,
+                      lft::dbg::LogMessageType type,
+                      std::string msg) {
 
+}
+
+class TuiRow {
+    std::vector<std::string> m_cells;
+
+public:
+    TuiRow(const std::vector<std::string>& cells) :
+        m_cells(cells) {
+
+    }
+};
+
+#include <algorithm>
+
+class TuiTable {
+    std::vector<uint32_t> m_columnWidth;
+    std::vector<std::string> m_header;
+    std::vector<TuiRow> m_rows;
+
+    uint32_t m_currentColumnIdx;
+    std::vector<std::string> m_currentRow;
+
+    bool m_isFirstRow;
+
+public:
+    TuiTable(const std::vector<std::string>& columns) :
+        m_currentColumnIdx(0),
+        m_header(columns),
+        m_isFirstRow(true) {
+
+    }
+
+    void cell(const std::string& content) {
+        if(m_currentColumnIdx == m_header.size()) {
+            throw std::runtime_error("Too many cells in row");
+        }
+
+        m_columnWidth[m_currentColumnIdx] = std::max((uint32_t)content.size(), m_columnWidth[m_currentColumnIdx]);
+        m_currentRow[m_currentColumnIdx++] = content;
+    }
+
+    void next_row() {
+        if(!m_isFirstRow) {
+            m_rows.push_back(TuiRow(m_currentRow));
+        }
+
+        m_currentRow = std::vector<std::string>(m_header.size());
+        m_isFirstRow = false;
+    }
+
+    ~TuiTable() {
+
+    }
+};
+
+void print_api_version(uint32_t apiVersion) {
+    std::cout << VK_API_VERSION_MAJOR(apiVersion) << "." << VK_API_VERSION_MINOR(apiVersion) << "." << VK_API_VERSION_PATCH(apiVersion) << "." << VK_API_VERSION_VARIANT(apiVersion);
+}
+
+void print_device_type(VkPhysicalDeviceType type) {
+    switch(type) {
+        case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+            std::cout << "Other";
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+            std::cout << "Integrated";
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+            std::cout << "Discrete";
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+            std::cout << "Virtual";
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_CPU:
+            std::cout << "CPU";
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_MAX_ENUM:
+            std::cout << "Other";
+            break;
+    }
+}
 
 int runtime(int argc, char** argv) {
     /**
@@ -173,11 +257,21 @@ int runtime(int argc, char** argv) {
     /**
      * Instance initializes a connection with Vulkan driver
      */
-    auto instance = std::make_shared<const Instance>("loft", "loft", count, extensions);
+    auto instance = std::make_shared<const Instance>("loft", "loft", count, extensions, lft_dbg_callback);
     delete [] extensions;
     load_debug_utils(instance->instance());
     volkLoadInstance(instance->instance());
 
+
+    auto gpus = instance->list_physical_devices();
+    for(auto gpu : gpus) {
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(gpu, &props);
+        std::cout << "GPU: " << props.deviceName << std::endl;
+
+        std::cout << "\tAPI Version:\t"; print_api_version(props.apiVersion); std::cout << std::endl;
+        std::cout << "\tType:       \t"; print_device_type(props.deviceType); std::cout << std::endl;
+    }
 
     /*
      * Surface is a way to tell window:

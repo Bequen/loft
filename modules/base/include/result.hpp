@@ -1,8 +1,8 @@
 #pragma once
 
-#include <signal.h>
+// #include <signal.h>
 
-#define EXPECT(expression,body) if((expression) != 0) { body; }
+#define EXPECT(expression,msg) if(!(expression)) { throw std::runtime_error(msg); }
 
 enum Result {
 	RESULT_OK,
@@ -41,7 +41,7 @@ public:
 
 	static result err(TError err) { return { .m_error = err }; }
 
-	void expect(const char* msg) { raise(SIGINT); }
+	void expect(const char* msg) { /* raise(SIGINT); */ }
 
 	bool is_ok() const { return m_isOk; }
 };

@@ -71,7 +71,7 @@ VkExtent2D Swapchain::choose_extent() {
 
 Result Swapchain::get_images(uint32_t *pOutNumImages, VkImage *pOutImages) {
 	/* Get images to render to, rendertargets */
-	EXPECT(vkGetSwapchainImagesKHR(m_gpu->dev(), m_swapchain, pOutNumImages, pOutImages), "Failed to get swapchain images");
+	EXPECT(vkGetSwapchainImagesKHR(m_gpu->dev(), m_swapchain, pOutNumImages, pOutImages) == VK_SUCCESS, "Failed to get swapchain images");
 	return RESULT_OK;
 }
 
@@ -100,7 +100,7 @@ Result Swapchain::create_views() {
 			}
 		};
 
-		EXPECT(vkCreateImageView(m_gpu->dev(), &viewInfo, NULL, &m_pImageViews[i]),
+		EXPECT(vkCreateImageView(m_gpu->dev(), &viewInfo, NULL, &m_pImageViews[i]) == VK_SUCCESS,
 			   "Failed to create image view");
 	}
 	return RESULT_OK;
@@ -139,7 +139,7 @@ Result Swapchain::create_swapchain() {
 		swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	}
 
-	EXPECT(vkCreateSwapchainKHR(m_gpu->dev(), &swapchainInfo, NULL, &m_swapchain), "Failed to create swapchain");
+	EXPECT(vkCreateSwapchainKHR(m_gpu->dev(), &swapchainInfo, NULL, &m_swapchain) == VK_SUCCESS, "Failed to create swapchain");
 
 	return RESULT_OK;
 }

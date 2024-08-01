@@ -23,7 +23,7 @@ public:
         return m_data.size() - 1;
     }
 
-    ShaderBinary(std::vector<uint32_t> data) :
+    explicit ShaderBinary(std::vector<uint32_t> data) :
     m_data(std::move(data)) {
 
     }
