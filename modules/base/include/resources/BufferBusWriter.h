@@ -4,6 +4,9 @@
 
 #include <vector>
 
+/**
+ * Writes data to a buffer by using a staging buffer
+ */
 class BufferBusWriter {
 private:
     std::shared_ptr<const Gpu> m_gpu;

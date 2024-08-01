@@ -1,19 +1,13 @@
 #include <volk/volk.h>
-#include <signal.h>
-#include <string>
-#include <vector>
 #include <cstring>
+#include <stdexcept>
 
 #include "Instance.hpp"
 #include "result.hpp"
+#include "debug/Debug.hpp"
 
-static const char* EXTENSIONS[] = {
-        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-};
 
-static const int NUM_EXTENSIONS = sizeof(EXTENSIONS) / sizeof(*EXTENSIONS);
-
-#if VK_LAYERS_ENABLE
+#if LOFT_DEBUG && LOFT_LAYERS
 static const char* LAYERS[] = {
         "VK_LAYER_KHRONOS_validation"
 };
@@ -21,17 +15,21 @@ static const char* LAYERS[] = {
 static const int NUM_LAYERS = sizeof(LAYERS) / sizeof(*LAYERS);
 #else
 #define LAYERS nullptr
-
 static const int NUM_LAYERS = 0;
 #endif
+
+static const char* EXTENSIONS[] = {
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+};
+
+static const int NUM_EXTENSIONS = sizeof(EXTENSIONS) / sizeof(*EXTENSIONS);
+
 
 static const char *DEVICE_EXTENSIONS[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 
 static const int NUM_DEVICE_EXTENSIONS = sizeof(DEVICE_EXTENSIONS) / sizeof(*DEVICE_EXTENSIONS);
-
-#define VULKAN_SIGTRAP_ON_ERROR 1
 
 static bool IS_INITIALIZED = false;
 
@@ -40,27 +38,26 @@ vk_dbg_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                 VkDebugUtilsMessageTypeFlagsEXT type,
                 const VkDebugUtilsMessengerCallbackDataEXT* pData,
                 void *pUserData) {
-    printf("\n[ERROR]: %s", pData->pMessageIdName);
-    printf("%s\n", pData->pMessage);
-    printf("\n");
 
-#if VULKAN_SIGTRAP_ON_ERROR
-    if(IS_INITIALIZED && (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ||
-                          severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)) {
-        /// raise(SIGTRAP);
-    }
-#endif
+    // lft::dbg::g_logCallback(lft::dbg::LogMessageSeverity::error, lft::dbg::LogMessageType::general, pData->pMessage);
 
     return VK_FALSE;
 }
 
-Instance::Instance(std::string applicationName, std::string engineName,
-                   uint32_t numExtensions, char** extensions) {
+Instance::Instance(const std::string& applicationName,
+                   const std::string& engineName,
+                   std::vector<const char*> extensions,
+                   std::vector<const char*> layers,
+                   lft::dbg::lft_log_callback callback) {
+    // check unsupported extensions
+    auto unsupportedExtensions = check_extensions(extensions);
+    EXPECT(!unsupportedExtensions.empty(), "Unsupported extensions");
+
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = "applicationName.c_str()",
+        .pApplicationName = strdup(applicationName.c_str()),
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-        .pEngineName = "engineName.c_str()",
+        .pEngineName = strdup(engineName.c_str()),
         .apiVersion = VK_API_VERSION_1_1
     };
 
@@ -70,6 +67,7 @@ Instance::Instance(std::string applicationName, std::string engineName,
         .flags = 0,
         .messageSeverity =
                 VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
                 VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                 VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
         .messageType =
@@ -80,21 +78,43 @@ Instance::Instance(std::string applicationName, std::string engineName,
         .pUserData = nullptr
     };
 
-    char** pExtensions = new char*[numExtensions + NUM_EXTENSIONS];
-    memcpy(pExtensions, extensions, sizeof(char*) * numExtensions);
-    memcpy(pExtensions + numExtensions, EXTENSIONS, sizeof(char*) * NUM_EXTENSIONS);
+    // collect extensions
+    char** pExtensions = new char*[extensions.size() + NUM_EXTENSIONS];
+    uint32_t i = 0;
+    for(; i < extensions.size(); i++) {
+        pExtensions[i] = strdup(extensions[i]);
+    }
+    memcpy(pExtensions + i, EXTENSIONS, sizeof(char*) * NUM_EXTENSIONS);
+    i += NUM_EXTENSIONS;
 
     VkInstanceCreateInfo instanceInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+#if LOFT_DEBUG
         .pNext = &dbgInfo,
+#endif
         .pApplicationInfo = &appInfo,
+#if LOFT_DEBUG
         .enabledLayerCount = NUM_LAYERS,
         .ppEnabledLayerNames = LAYERS,
-        .enabledExtensionCount = NUM_EXTENSIONS + numExtensions,
+#endif
+        .enabledExtensionCount = i,
         .ppEnabledExtensionNames = pExtensions,
     };
-    EXPECT(vkCreateInstance(&instanceInfo, nullptr, &m_instance),
+
+    if(callback != nullptr) {
+        lft::dbg::g_logCallback = callback;
+    }
+
+    EXPECT(vkCreateInstance(&instanceInfo, nullptr, &m_instance) == VK_SUCCESS,
            "Failed to create vulkan instance");
-    
+
+    lft::log::warn("Instance created successfully");
+
+    // cleanup
+    for(; i > 0; i--) {
+        // free(pExtensions[i]);
+    }
+    delete [] pExtensions;
+
     IS_INITIALIZED = true;
 }
