@@ -38,7 +38,7 @@ RenderGraph::get_wait_semaphores_for(RenderGraphVkCommandBuffer& block, uint32_t
     std::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(block.external_dependencies_ids().size() + block.dependencies().size());
 
     for(uint32_t i = 0; i < block.external_dependencies_ids().size(); i++) {
-        waitSemaphores[i] = (VkSemaphoreSubmitInfoKHR){
+        waitSemaphores[i] = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
             .semaphore = m_externalDependencies[block.external_dependencies_ids()[i]].m_semaphore,
             .value = 1,
@@ -48,7 +48,7 @@ RenderGraph::get_wait_semaphores_for(RenderGraphVkCommandBuffer& block, uint32_t
     }
 
     for(uint32_t i = 0; i < block.dependencies().size(); i++) {
-        waitSemaphores[i] = (VkSemaphoreSubmitInfoKHR){
+        waitSemaphores[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = block.dependencies()[i]->signal(imageIdx),
                 .value = 1,

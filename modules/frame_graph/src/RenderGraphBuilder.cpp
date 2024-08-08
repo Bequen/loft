@@ -317,7 +317,7 @@ int RenderGraphBuilder::build_renderpass(const std::shared_ptr<const Gpu>& gpu, 
             std::optional<VkMemoryBarrier2KHR> exitBarrier = {};
 
             if(remaining == 1) {
-                exitBarrier = (VkMemoryBarrier2KHR) {
+                exitBarrier = {
                         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
                         .pNext = nullptr,
                         .srcStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
