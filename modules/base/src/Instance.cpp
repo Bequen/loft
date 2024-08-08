@@ -101,14 +101,14 @@ Instance::Instance(const std::string& applicationName,
         .ppEnabledExtensionNames = pExtensions,
     };
 
-    if(callback != nullptr) {
+    /* if(callback != nullptr) {
         lft::dbg::g_logCallback = callback;
-    }
+    } */
 
     EXPECT(vkCreateInstance(&instanceInfo, nullptr, &m_instance) == VK_SUCCESS,
            "Failed to create vulkan instance");
 
-    lft::log::warn("Instance created successfully");
+    // lft::log::warn("Instance created successfully");
 
     // cleanup
     for(; i > 0; i--) {

@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <memory>
+#include <cstring>
 
 static const char *DEVICE_EXTENSIONS[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -143,8 +144,10 @@ Result Gpu::create_logical_device(VkSurfaceKHR supportedSurface) {
         .pNext = &syncFeatures, //&coherentMemoryFeatures,
 		.queueCreateInfoCount = (uint32_t)x,
 		.pQueueCreateInfos = queueInfos.data(),
+#if LOFT_DEBUG
 		.enabledLayerCount = NUM_LAYERS,
 		.ppEnabledLayerNames = LAYERS,
+#endif
 		.enabledExtensionCount = NUM_DEVICE_EXTENSIONS,
 		.ppEnabledExtensionNames = DEVICE_EXTENSIONS,
 		.pEnabledFeatures = &gpuFeatures
@@ -203,23 +206,45 @@ Result Gpu::choose_gpu(VkPhysicalDevice *pOut) {
 	uint32_t numDevices = 0;
 	vkEnumeratePhysicalDevices(m_instance->instance(), &numDevices, nullptr);
     if(numDevices == 0) {
-        return RESULT_NO_AVAILABLE_GPU;
+        throw std::runtime_error("No Vulkan available GPU was found");
     }
 
 	auto devices = std::vector<VkPhysicalDevice>(numDevices);
 	vkEnumeratePhysicalDevices(m_instance->instance(), &numDevices, devices.data());
 
+    VkPhysicalDevice chosen = VK_NULL_HANDLE;
+
     for(auto& device : devices) {
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(device, &props);
 
-        if(props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            *pOut = device;
-            return RESULT_OK;
+        uint32_t numExtensions;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &numExtensions, nullptr);
+        std::vector<VkExtensionProperties> extensions(numExtensions);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &numExtensions, extensions.data());
+
+        for(int x = 0; x < NUM_DEVICE_EXTENSIONS; x++) {
+            bool isFound = false;
+            for(int y = 0; y < numExtensions; y++) {
+                if(!strcmp(extensions[y].extensionName, DEVICE_EXTENSIONS[x])) {
+                    isFound = true;
+                    break;
+                }
+            }
+
+            if(!isFound) {
+                std::cout << props.deviceName << " does not support required extension " << DEVICE_EXTENSIONS[x] << std::endl;
+                continue;
+            }
         }
+
+        chosen = device;
     }
 
-	VkPhysicalDevice chosen = devices[0];
+    if(chosen == VK_NULL_HANDLE) {
+        throw std::runtime_error("No GPU supporting all required features was found. Try updating your graphics card driver. This however might not help on older devices.");
+    }
+
 	*pOut = chosen;
 
 	return RESULT_OK;

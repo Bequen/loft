@@ -131,7 +131,8 @@ struct CompositionContext {
 
 void lft_dbg_callback(lft::dbg::LogMessageSeverity severity,
                       lft::dbg::LogMessageType type,
-                      std::string msg) {
+                      const char *__restrict __format,
+                      ...) {
 
 }
 
@@ -251,14 +252,14 @@ int runtime(int argc, char** argv) {
      */
     uint32_t count = 0;
     window->get_required_extensions(&count, nullptr);
-    char** extensions = new char*[count];
-    window->get_required_extensions(&count, extensions);
+    std::vector<const char*> extensions(count);
+    window->get_required_extensions(&count, extensions.data());
 
     /**
      * Instance initializes a connection with Vulkan driver
      */
-    auto instance = std::make_shared<const Instance>("loft", "loft", count, extensions, lft_dbg_callback);
-    delete [] extensions;
+    auto instance = std::make_shared<const Instance>("loft", "loft", extensions, std::vector<const char*>(), lft_dbg_callback);
+
     load_debug_utils(instance->instance());
     volkLoadInstance(instance->instance());
 
