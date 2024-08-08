@@ -209,7 +209,7 @@ Result Gpu::choose_gpu(VkPhysicalDevice *pOut) {
 	auto devices = std::vector<VkPhysicalDevice>(numDevices);
 	vkEnumeratePhysicalDevices(m_instance->instance(), &numDevices, devices.data());
 
-	VkPhysicalDevice chosen = devices[1];
+	VkPhysicalDevice chosen = devices[0];
 	*pOut = chosen;
 
 	return RESULT_OK;
