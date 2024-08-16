@@ -10,6 +10,35 @@
 #include "props.hpp"
 #include "debug/Debug.hpp"
 
+namespace lft::dbg {
+    enum LogMessageSeverity {
+        info = 0,
+        warning,
+        error
+    };
+
+    enum LogMessageType {
+        general = 0,
+        validation,
+        performance
+    };
+
+    typedef void(*lft_log_callback)(LogMessageSeverity, LogMessageType, const char *__restrict __format, ...);
+
+    extern lft::dbg::lft_log_callback g_logCallback;
+}
+
+namespace lft::log {
+    inline static void warn(const char* __format, ...) {
+#if LFT_DEBUG_LEVEL_3
+        va_list list;
+        va_start(list, __format);
+        lft::dbg::g_logCallback(lft::dbg::LogMessageSeverity::info, lft::dbg::LogMessageType::general, __format, list);
+        va_end(list);
+#endif
+    }
+}
+
 /**
  * Maintains a connection to a GPU driver
  */

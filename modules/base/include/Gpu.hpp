@@ -75,6 +75,8 @@ public:
     // Forbid copy
     Gpu(const Gpu&) = delete;
 
+    static result<Gpu, Result> create(std::shared_ptr<const Instance> instance, VkSurfaceKHR surface);
+
     inline std::vector<uint32_t> present_queue_ids() const {
         return {m_presentQueueIdx};
     }

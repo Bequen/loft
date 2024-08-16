@@ -280,6 +280,8 @@ Result Gpu::create_descriptor_pool() {
 Gpu::Gpu(std::shared_ptr<const Instance> instance, VkSurfaceKHR supportedSurface) :
     m_instance(std::move(instance)), m_pAllocator(nullptr) {
 
+    lft::log::warn("Warning");
+
 	if(choose_gpu(&m_gpu)) {
 		throw std::runtime_error("Failed to choose gpu");
 	}

@@ -4,8 +4,8 @@ cmake_minimum_required(VERSION 3.5)
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0
         -DNOMINMAX=1
         -DVK_LAYERS_ENABLE=0
-        -DLOFT_DEBUG=0
-        -DLFT_DEBUG_LEVEL_0
+        -DLOFT_DEBUG=1
+        -DLFT_DEBUG_LEVEL_3=1
         # Extensions
         # -DVK_EXT_debug_utils
         -DVK_KHR_create_renderpass2

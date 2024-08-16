@@ -33,6 +33,8 @@ static const int NUM_DEVICE_EXTENSIONS = sizeof(DEVICE_EXTENSIONS) / sizeof(*DEV
 
 static bool IS_INITIALIZED = false;
 
+static lft::dbg::lft_log_callback g_logCallback = nullptr;
+
 VkBool32
 vk_dbg_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                 VkDebugUtilsMessageTypeFlagsEXT type,
@@ -101,14 +103,14 @@ Instance::Instance(const std::string& applicationName,
         .ppEnabledExtensionNames = pExtensions,
     };
 
-    /* if(callback != nullptr) {
-        lft::dbg::g_logCallback = callback;
-    } */
+    if(callback != nullptr) {
+        // lft::dbg::g_logCallback = callback;
+    }
 
     EXPECT(vkCreateInstance(&instanceInfo, nullptr, &m_instance) == VK_SUCCESS,
            "Failed to create vulkan instance");
 
-    // lft::log::warn("Instance created successfully");
+    lft::log::warn("Instance created successfully");
 
     // cleanup
     for(; i > 0; i--) {
