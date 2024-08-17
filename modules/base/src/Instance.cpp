@@ -33,7 +33,7 @@ static const int NUM_DEVICE_EXTENSIONS = sizeof(DEVICE_EXTENSIONS) / sizeof(*DEV
 
 static bool IS_INITIALIZED = false;
 
-static lft::dbg::lft_log_callback g_logCallback = nullptr;
+lft::dbg::lft_log_callback g_logCallback = nullptr;
 
 VkBool32
 vk_dbg_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -41,7 +41,7 @@ vk_dbg_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                 const VkDebugUtilsMessengerCallbackDataEXT* pData,
                 void *pUserData) {
 
-    // lft::dbg::g_logCallback(lft::dbg::LogMessageSeverity::error, lft::dbg::LogMessageType::general, pData->pMessage);
+    g_logCallback(lft::dbg::LogMessageSeverity::error, lft::dbg::LogMessageType::general, pData->pMessage, {});
 
     return VK_FALSE;
 }
@@ -104,7 +104,7 @@ Instance::Instance(const std::string& applicationName,
     };
 
     if(callback != nullptr) {
-        // lft::dbg::g_logCallback = callback;
+        g_logCallback = callback;
     }
 
     EXPECT(vkCreateInstance(&instanceInfo, nullptr, &m_instance) == VK_SUCCESS,

@@ -6,7 +6,6 @@
 #define LOFT_SHADER_HPP
 
 #include "Gpu.hpp"
-#include "debug/DebugUtils.h"
 
 #include <volk/volk.h>
 

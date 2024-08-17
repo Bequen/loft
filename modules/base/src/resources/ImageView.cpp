@@ -2,7 +2,6 @@
 
 
 #include "Gpu.hpp"
-#include "debug/DebugUtils.h"
 
 void ImageView::set_debug_name(const std::shared_ptr<const Gpu>& gpu, const std::string &name) const {
 #if LOFT_DEBUG

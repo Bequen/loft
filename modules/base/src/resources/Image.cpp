@@ -1,7 +1,6 @@
 #include "resources/Image.hpp"
 
 #include "Gpu.hpp"
-#include "debug/DebugUtils.h"
 
 ImageView 
 Image::create_view(const std::shared_ptr<const Gpu>& gpu, VkFormat format,

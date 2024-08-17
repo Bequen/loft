@@ -202,11 +202,10 @@ Result Gpu::create_logical_device(VkSurfaceKHR supportedSurface) {
 }
 
 Result Gpu::choose_gpu(VkPhysicalDevice *pOut) {
-
 	uint32_t numDevices = 0;
 	vkEnumeratePhysicalDevices(m_instance->instance(), &numDevices, nullptr);
     if(numDevices == 0) {
-        throw std::runtime_error("No Vulkan available GPU was found");
+        throw std::runtime_error("No GPU supporting Vulkan was found. Try installing Vulkan drivers. Remember that some GPUs does not need to support Vulkan.");
     }
 
 	auto devices = std::vector<VkPhysicalDevice>(numDevices);
@@ -233,7 +232,8 @@ Result Gpu::choose_gpu(VkPhysicalDevice *pOut) {
             }
 
             if(!isFound) {
-                std::cout << props.deviceName << " does not support required extension " << DEVICE_EXTENSIONS[x] << std::endl;
+                lft::log::fail("Device %s does not support required device extension: (%s)",
+                               props.deviceName, DEVICE_EXTENSIONS[x]);
                 continue;
             }
         }
@@ -244,6 +244,10 @@ Result Gpu::choose_gpu(VkPhysicalDevice *pOut) {
     if(chosen == VK_NULL_HANDLE) {
         throw std::runtime_error("No GPU supporting all required features was found. Try updating your graphics card driver. This however might not help on older devices.");
     }
+
+    VkPhysicalDeviceProperties props;
+    vkGetPhysicalDeviceProperties(chosen, &props);
+    lft::log::info("Selected GPU: (%s)", props.deviceName);
 
 	*pOut = chosen;
 

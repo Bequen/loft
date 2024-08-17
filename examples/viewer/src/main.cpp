@@ -3,7 +3,6 @@
 #include <volk/volk.h>
 #include <iostream>
 
-#include "debug/DebugUtils.h"
 
 #include "cglm/mat4.h"
 #include "mesh/Vertex.hpp"
@@ -131,9 +130,24 @@ struct CompositionContext {
 
 void lft_dbg_callback(lft::dbg::LogMessageSeverity severity,
                       lft::dbg::LogMessageType type,
-                      const char *__restrict __format,
-                      ...) {
+                      const char *__restrict format,
+                      va_list args) {
+    const char* titles[3] = {
+            "\033[0;34m[info]:",
+            "\033[0;33m[warn]:",
+            "\033[0;31m[fail]:"
+    };
+    fwrite(titles[severity], 14, 1, stdout);
 
+    if(args != nullptr) {
+        vfprintf(stdout, format, args);
+    } else {
+        fprintf(stdout, format);
+    }
+
+    fwrite("\033[0m", 4, 1, stdout);
+
+    printf("\n");
 }
 
 class TuiRow {
@@ -260,7 +274,6 @@ int runtime(int argc, char** argv) {
      */
     auto instance = std::make_shared<const Instance>("loft", "loft", extensions, std::vector<const char*>(), lft_dbg_callback);
 
-    load_debug_utils(instance->instance());
     volkLoadInstance(instance->instance());
 
 
