@@ -11,7 +11,7 @@
 #include <memory>
 
 /**
- * Basic engine unit
+ * Abstract interface for a GPU
  */
 class Gpu {
 private:
@@ -20,14 +20,17 @@ private:
 	VkDevice m_dev = VK_NULL_HANDLE;
     VkDescriptorPool m_descriptorPool{};
 
+    // Queue for a general commands
     VkQueue m_graphicsQueue{};
     uint32_t m_graphicsQueueIdx{};
     VkCommandPool m_graphicsCommandPool{};
 
+    // Queue for a transfer commands
     VkQueue m_transferQueue{};
     uint32_t m_transferQueueIdx{};
     VkCommandPool m_transferCommandPool{};
 
+    // Queue for present commands
     VkQueue m_presentQueue{};
     uint32_t m_presentQueueIdx{};
     VkCommandPool m_presentCommandPool{};
@@ -71,6 +74,8 @@ public:
 
     // Forbid copy
     Gpu(const Gpu&) = delete;
+
+    static result<Gpu, Result> create(std::shared_ptr<const Instance> instance, VkSurfaceKHR surface);
 
     inline std::vector<uint32_t> present_queue_ids() const {
         return {m_presentQueueIdx};

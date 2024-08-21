@@ -2,6 +2,9 @@
 
 #include <vulkan/vulkan.h>
 
+/**
+ * Defines blending operations for a graphics pipeline.
+ */
 struct BlendingInfo {
     VkBlendOp colorBlendOp;
     VkBlendFactor srcColorBlendFactor;

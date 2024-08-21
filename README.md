@@ -1,6 +1,6 @@
 # Loft
 
-Bachelor's project.
+Personal 3D rendering techniques playground.
 
 ![banner](banner.png)
 

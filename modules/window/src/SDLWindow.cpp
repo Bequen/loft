@@ -55,7 +55,7 @@ int32_t SDLWindow::poll_event(SDL_Event *pOutEvent) {
     return SDL_PollEvent(pOutEvent);
 }
 
-void SDLWindow::get_required_extensions(uint32_t *pOutSize, char** pOut)
+void SDLWindow::get_required_extensions(uint32_t *pOutSize, const char** pOut)
 {
     SDL_Vulkan_GetInstanceExtensions(m_pWindow, pOutSize, (const char**)pOut);
 }

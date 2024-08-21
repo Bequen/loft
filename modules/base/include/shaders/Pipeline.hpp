@@ -8,13 +8,22 @@
 #include "Shader.hpp"
 #include "Gpu.hpp"
 
+/**
+ * Abstracts a Vulkan pipeline
+ */
 class Pipeline {
 	VkPipeline m_pipeline;
     VkPipelineLayout m_layout;
 
 public:
+    // disable copy
     Pipeline(const Pipeline&) = delete;
 
+    /**
+     * Wraps new pipeline with layout
+     * @param layout pipeline layout
+     * @param pipeline pipeline
+     */
     Pipeline(VkPipelineLayout layout, VkPipeline pipeline) :
     m_layout(layout), m_pipeline(pipeline) {
 

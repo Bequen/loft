@@ -1,8 +1,6 @@
 #include "RenderGraphBuilder.h"
 #include "RenderGraph.hpp"
 
-#include "DebugUtils.h"
-
 #include <queue>
 #include <stack>
 #include <utility>
@@ -149,6 +147,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<con
         throw std::runtime_error("Failed to create renderpass");
     }
 
+#if LOFT_DEBUG
     VkDebugUtilsObjectNameInfoEXT nameInfo = {
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .objectType                    = VK_OBJECT_TYPE_RENDER_PASS,
@@ -156,7 +155,8 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<con
             .pObjectName                   = pPass->renderpass()->name().c_str(),
     };
 
-    vkSetDebugUtilsObjectName(gpu->dev(), &nameInfo);
+    vkSetDebugUtilsObjectNameEXT(gpu->dev(), &nameInfo);
+#endif
 
     return renderpass;
 }
@@ -317,7 +317,7 @@ int RenderGraphBuilder::build_renderpass(const std::shared_ptr<const Gpu>& gpu, 
             std::optional<VkMemoryBarrier2KHR> exitBarrier = {};
 
             if(remaining == 1) {
-                exitBarrier = {
+                VkMemoryBarrier2KHR bar = {
                         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
                         .pNext = nullptr,
                         .srcStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
@@ -325,6 +325,7 @@ int RenderGraphBuilder::build_renderpass(const std::shared_ptr<const Gpu>& gpu, 
                         .dstStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
                         .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR
                 };
+                exitBarrier = bar;
             }
 
             if(renderpass.renderpass()->recording_dependency() != pPass->renderpass()->recording_dependency()) {

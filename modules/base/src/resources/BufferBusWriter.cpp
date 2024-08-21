@@ -97,7 +97,6 @@ void BufferBusWriter::write(Buffer* pTarget, void *pData, size_t offset, size_t 
 
 
 void BufferBusWriter::flush() {
-    printf("Flushing\n");
     if(m_numWrites == 0) {
         m_unflushedSize = 0;
         return;
