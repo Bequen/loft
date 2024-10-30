@@ -5,6 +5,6 @@
 #include "../../include/shaders/GlslShaderBuilder.hpp"
 
 Shader GlslShaderBuilder::from_file(std::string path) {
-	Shader shader(VK_NULL_HANDLE);
+	Shader shader(VK_NULL_HANDLE, ShaderBinary({}));
 	return shader;
 }

@@ -70,6 +70,7 @@ struct GeometryContext {
 
     VkDescriptorSet sceneInputSet;
     VkPipelineLayout layout;
+	
 
     GeometryContext() :
         pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE),
@@ -537,7 +538,7 @@ int runtime(int argc, char** argv) {
         /* create downscale pass */
         auto downsampleContext = new DownsampleContext();
         downsampleContext->extent.width = extent.width >> i;
-        downsampleContext->extent.height = extent.height >> i;
+		downsampleContext->extent.height = extent.height >> i;
 
         downsampleContext->attachmentName = std::string("downsample_").append(std::to_string(i));
         downsampleContext->source = std::string(previous);

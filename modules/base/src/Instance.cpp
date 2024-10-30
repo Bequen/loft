@@ -7,7 +7,7 @@
 #include "debug/Debug.hpp"
 
 
-#if LOFT_DEBUG && LOFT_LAYERS
+#if LOFT_DEBUG && VK_LAYERS_ENABLE
 static const char* LAYERS[] = {
         "VK_LAYER_KHRONOS_validation"
 };

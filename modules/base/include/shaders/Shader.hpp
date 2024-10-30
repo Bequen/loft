@@ -6,17 +6,21 @@
 #define LOFT_SHADER_HPP
 
 #include "Gpu.hpp"
+#include "io/ShaderBinary.h"
 
 #include <volk/volk.h>
+
+#include <utility>
 
 
 struct Shader {
 private:
     VkShaderModule m_module;
+    ShaderBinary m_code;
 
 public:
-    Shader(VkShaderModule module) :
-        m_module(module) {
+    Shader(VkShaderModule module, ShaderBinary binary) :
+        m_module(module), m_code(std::move(binary)) {
 
     }
 

@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #define M_PI 3.14159265359
 
@@ -12,6 +12,7 @@ layout(set = 1, binding = 2) uniform sampler2D inNormal;
 layout(set = 1, binding = 3) uniform sampler2D inPosition;
 layout(set = 1, binding = 4) uniform sampler2D inPbr;
 layout(set = 1, binding = 5) uniform sampler2D shadowMap;
+
 float ggx_normal_distr(float NoH, float roughness) {
 	float a = NoH * roughness;
 	float k = roughness / (1.0 - NoH * NoH + a * a);
@@ -61,26 +62,24 @@ float linearize_depth(float depth) {
 
 float textureProj(vec4 shadowCoord, vec2 off) {
 	float shadow = 0.0f;
-	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 )
+
+	float dist = texture( shadowMap, shadowCoord.st + off ).r;
+	if ( shadowCoord.w > 0.0 )
 	{
-		float dist = texture( shadowMap, shadowCoord.st + off ).r;
-		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z )
-		{
-			shadow = 1.0f;
-		}
+		shadow = (dist < shadowCoord.z) ? 1.0f : 0.0f;
 	}
 	return shadow;
 }
 
 float filterPCF(vec4 sc) {
 	ivec2 texDim = textureSize(shadowMap, 0);
-	float scale = 2.0f;
+	float scale = 6.0f;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
 
 	float shadowFactor = 0.0;
 	int count = 0;
-	int range = 8;
+	int range = 12;
 
 	for (int x = -range; x <= range; x++)
 	{
@@ -102,7 +101,8 @@ const mat4 biasMat = mat4(
 );
 
 
-float get_shadow(Light light, vec4 position) {
+float get_shadow(int lightIdx, vec4 position) {
+	Light light = lights.lights[0];
 	vec4 relativePosition = light.view * position;
 	vec4 shadowCoords = relativePosition / relativePosition.w;
 
@@ -145,17 +145,17 @@ vec3 bloom_threshold(vec3 base) {
 	float intensity = 0.4f;
 	vec4 curveThreshold = vec4(threshold - knee, knee * 2.0f, 0.25f / max(1e-5f, knee), threshold);
 
-	/* Pixel brightness */
+	// Pixel brightness
 	float br = max((base).x, max((base).y, (base).z));
 
-	/* Under-threshold part: quadratic curve */
+	// Under-threshold part: quadratic curve
 	float rq = clamp(br - curveThreshold.x, 0.0, curveThreshold.y);
 	rq = curveThreshold.z * rq * rq;
 
-	/* Combine and apply the brightness response curve. */
+	// Combine and apply the brightness response curve.
 	base *= max(rq, br - curveThreshold.w) / max(1e-5, br);
 
-	/* Clamp pixel intensity if clamping enabled */
+	// Clamp pixel intensity if clamping enabled
 	if (intensity > 0.0) {
 		br = max(1e-5, max((base).x, max((base).y, (base).z)));
 		base *= 1.0 - max(0.0, br - intensity) / br;
@@ -176,7 +176,7 @@ void main() {
 
 	vec3 lightDir = -normalize(vec3(lights.lights[0].view[0][2], lights.lights[0].view[1][2], lights.lights[0].view[2][2]));
 
-	float occlusion = get_shadow(lights.lights[0], vec4(position, 1.0));
+	float occlusion = get_shadow(0, vec4(position, 1.0));
 
 	float lightIntensity = 1.5f;
 	vec3 Lo = bsdf(normal, viewDir, lightDir, color, metallic, roughness);

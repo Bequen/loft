@@ -7,7 +7,7 @@ add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0
         -DLOFT_DEBUG=1
         -DLFT_DEBUG_LEVEL_3=1
         # Extensions
-        # -DVK_EXT_debug_utils
+        -DVK_EXT_debug_utils
         -DVK_KHR_create_renderpass2
         -DVK_KHR_synchronization2
         -DVK_KHR_shader_non_semantic_info)

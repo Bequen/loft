@@ -15,7 +15,7 @@ SpirvShaderBuilder::SpirvShaderBuilder(const std::shared_ptr<const Gpu>& gpu) :
 }
 
 Shader SpirvShaderBuilder::from_file(std::string path) {
-    // lft::log::info("Loading shader at: ", path.c_str());
+    std::cout << "Loading shader at: " <<  path.c_str() << std::endl;
     auto shaderBinary = io::file::read_binary(path);
 
     VkShaderModuleCreateInfo moduleInfo = {
@@ -29,7 +29,7 @@ Shader SpirvShaderBuilder::from_file(std::string path) {
 		throw std::runtime_error("Failed to create shader module");
 	}
 
-    auto shader = Shader(module);
+    auto shader = Shader(module, shaderBinary);
     shader.set_name(m_gpu, path);
 
     return shader;
