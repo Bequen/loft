@@ -413,6 +413,7 @@ RenderGraph RenderGraphBuilder::build(const std::shared_ptr<const Gpu>& gpu, con
     for(auto& cmdBuf : queue) {
         _queue.push(&cmdBuf);
     }
+    printf("Queue size: %d\n", _queue.size());
 
     while(!_queue.empty()) {
         auto item = _queue.front();

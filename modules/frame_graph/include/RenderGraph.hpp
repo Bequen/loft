@@ -204,6 +204,8 @@ public:
             throw std::runtime_error("Failed to create command buffer");
         }
 
+        printf("Creating signals\n");
+        fflush(stdout);
         create_signals(numCommandBuffers);
     }
 

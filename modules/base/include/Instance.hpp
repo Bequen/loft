@@ -67,7 +67,7 @@ public:
         std::vector<VkPhysicalDevice> devices(numDevices);
         vkEnumeratePhysicalDevices(m_instance, &numDevices, devices.data());
 
-        return std::move(devices);
+        return devices;
     }
 
     /**
@@ -87,6 +87,6 @@ public:
             exts.emplace_back(extension.extensionName);
         }
 
-        return std::move(exts);
+        return exts;
     }
 };

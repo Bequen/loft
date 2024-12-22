@@ -1,20 +1,27 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.5)
 
 project(loft_window)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 file(GLOB FILES src/*.c src/*.cpp)
 
-add_library(${PROJECT_NAME} ${FILES}
-        src/SDLWindow.cpp
-        include/SDLWindow.h)
+add_library(${PROJECT_NAME} ${FILES})
 
 find_package(SDL2 QUIET)
 
-target_include_directories(${PROJECT_NAME} PUBLIC ./include/)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+		INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/"
+)
 
 target_link_libraries(${PROJECT_NAME} loft_base)
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${loft_base_SOURCE_DIR}/include ${Vulkan_INCLUDE_DIR} ${VMA_SOURCE_DIR}/include ${SDL2_INCLUDE_DIR} ../../)
+target_include_directories(${PROJECT_NAME}
+		PUBLIC
+	${PROJECT_SOURCE_DIR}/include/
+		PRIVATE
+	${loft_base_SOURCE_DIR}/include 
+	${Vulkan_INCLUDE_DIR} 
+	${VMA_SOURCE_DIR}/include 
+	${SDL2_INCLUDE_DIR} 
+	../../)

@@ -1,7 +1,7 @@
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 cmake_minimum_required(VERSION 3.5)
-add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0
+add_definitions(#-D_GLIBCXX_USE_CXX11_ABI=0
         -DNOMINMAX=1
         -DVK_LAYERS_ENABLE=1
         -DLOFT_DEBUG=1
@@ -44,7 +44,7 @@ FetchContent_MakeAvailable(VMA)
 project(loft)
 
 add_subdirectory(modules)
-add_subdirectory(examples)
+# add_subdirectory(examples)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
