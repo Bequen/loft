@@ -1,6 +1,9 @@
+_deps/
 cmake-*/
 build/
 .cache/
 .idea/
 .vs/
 compile_commands.json
+CMakeFiles/
+cmake_install.cmake
