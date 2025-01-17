@@ -51,6 +51,10 @@ Instance::Instance(const std::string& applicationName,
                    std::vector<const char*> extensions,
                    std::vector<const char*> layers,
                    lft::dbg::lft_log_callback callback) {
+    if(volkInitialize()) {
+        throw std::runtime_error("Failed to initialize volk");
+    }
+
     // check unsupported extensions
     auto unsupportedExtensions = check_extensions(extensions);
     EXPECT(!unsupportedExtensions.empty(), "Unsupported extensions");
@@ -109,6 +113,8 @@ Instance::Instance(const std::string& applicationName,
 
     EXPECT(vkCreateInstance(&instanceInfo, nullptr, &m_instance) == VK_SUCCESS,
            "Failed to create vulkan instance");
+
+    volkLoadInstance(m_instance);
 
     lft::log::warn("Instance created successfully");
 
