@@ -64,7 +64,6 @@ int DefaultAllocator::create_buffer(BufferCreateInfo *pBufferInfo, MemoryAllocat
 			.requiredFlags = pAllocInfo->requiredFlags,
 	};
 
-    vmaCreateAliasingBuffer()
     vmaCreateBuffer(m_allocator, &bufferInfo, &allocInfo, &pOut->buf, &pOut->allocation.allocation, nullptr);
 
     return 0;
@@ -97,4 +96,3 @@ int DefaultAllocator::create_image(ImageCreateInfo *pImageInfo, MemoryAllocation
 
     return 0;
 }
-
