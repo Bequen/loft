@@ -29,7 +29,7 @@ public:
 
     bool is_open() const override;
 
-    int32_t poll_event(SDL_Event *pOutEvent) override;
+    int32_t poll_event(SDL_Event *pOutEvent) const override;
 
     void get_required_extensions(uint32_t *pOutSize, const char** pOut) override;
 };

@@ -102,9 +102,13 @@ void RenderGraph::run_dependencies_of(RenderGraphVkCommandBuffer& block, uint32_
 VkSemaphore RenderGraph::run(uint32_t chainImageIdx) {
 	m_frameIdx = (m_frameIdx++) % m_numFrames;
 
-    vkWaitForFences(m_gpu->dev(), m_frameFinished[m_frameIdx].size(), m_frameFinished[m_frameIdx].data(),
-                    VK_TRUE, UINT64_MAX);
-    vkResetFences(m_gpu->dev(), m_frameFinished[m_frameIdx].size(), m_frameFinished[m_frameIdx].data());
+    vkWaitForFences(m_gpu->dev(),
+        m_frameFinished[m_frameIdx].size(),
+        m_frameFinished[m_frameIdx].data(),
+        VK_TRUE, UINT64_MAX);
+    vkResetFences(m_gpu->dev(),
+        m_frameFinished[m_frameIdx].size(),
+        m_frameFinished[m_frameIdx].data());
 
     // run each root dependency
     for(uint32_t i = 0; i < m_root.size(); i++) {

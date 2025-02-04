@@ -15,7 +15,7 @@ SpirvShaderBuilder::SpirvShaderBuilder(const std::shared_ptr<const Gpu>& gpu) :
 }
 
 Shader SpirvShaderBuilder::from_file(std::string path) {
-    std::cout << "Loading shader at: " <<  path.c_str() << std::endl;
+    std::cout << "Loading shader at: " << path.c_str() << std::endl;
     auto shaderBinary = io::file::read_binary(path);
 
     VkShaderModuleCreateInfo moduleInfo = {
@@ -34,4 +34,3 @@ Shader SpirvShaderBuilder::from_file(std::string path) {
 
     return shader;
 }
-

@@ -1,3 +1,5 @@
+#include <cinttypes>
+#include <iostream>
 #include <volk/volk.h>
 #include <cstring>
 #include <stdexcept>
@@ -41,7 +43,13 @@ vk_dbg_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                 const VkDebugUtilsMessengerCallbackDataEXT* pData,
                 void *pUserData) {
 
-    g_logCallback(lft::dbg::LogMessageSeverity::error, lft::dbg::LogMessageType::general, pData->pMessage, {});
+    if(g_logCallback != nullptr) {
+        g_logCallback(lft::dbg::LogMessageSeverity::error,
+            lft::dbg::LogMessageType::general,
+            pData->pMessage, {});
+    } else {
+        std::cout << pData->pMessage << std::endl;
+    }
 
     return VK_FALSE;
 }
@@ -55,15 +63,18 @@ Instance::Instance(const std::string& applicationName,
         throw std::runtime_error("Failed to initialize volk");
     }
 
+    std::cout << "Volk initialized" << std::endl;
+
     // check unsupported extensions
     auto unsupportedExtensions = check_extensions(extensions);
     EXPECT(!unsupportedExtensions.empty(), "Unsupported extensions");
+    std::cout << "All extensions supported" << std::endl;
 
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = strdup(applicationName.c_str()),
+        .pApplicationName = "test", // strdup(applicationName.c_str()),
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-        .pEngineName = strdup(engineName.c_str()),
+        .pEngineName = "test",// strdup(engineName.c_str()),
         .apiVersion = VK_API_VERSION_1_1
     };
 
@@ -89,6 +100,7 @@ Instance::Instance(const std::string& applicationName,
     uint32_t i = 0;
     for(; i < extensions.size(); i++) {
         pExtensions[i] = strdup(extensions[i]);
+        std::cout << pExtensions[i] << std::endl;
     }
     memcpy(pExtensions + i, EXTENSIONS, sizeof(char*) * NUM_EXTENSIONS);
     i += NUM_EXTENSIONS;
@@ -96,7 +108,7 @@ Instance::Instance(const std::string& applicationName,
     VkInstanceCreateInfo instanceInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 #if LOFT_DEBUG
-        .pNext = &dbgInfo,
+        //.pNext = &dbgInfo,
 #endif
         .pApplicationInfo = &appInfo,
 #if LOFT_DEBUG

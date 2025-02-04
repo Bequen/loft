@@ -51,7 +51,7 @@ bool SDLWindow::is_open() const {
     return true;
 }
 
-int32_t SDLWindow::poll_event(SDL_Event *pOutEvent) {
+int32_t SDLWindow::poll_event(SDL_Event *pOutEvent) const {
     return SDL_PollEvent(pOutEvent);
 }
 

@@ -35,21 +35,21 @@ namespace lft::log {
     static void info(const char* __format, ...) {
         va_list list;
         va_start(list, __format);
-        g_logCallback(lft::dbg::LogMessageSeverity::info, lft::dbg::LogMessageType::general, __format, list);
+        // g_logCallback(lft::dbg::LogMessageSeverity::info, lft::dbg::LogMessageType::general, __format, list);
         va_end(list);
     }
 
     static void warn(const char* __format, ...) {
         va_list list;
         va_start(list, __format);
-        g_logCallback(lft::dbg::LogMessageSeverity::warning, lft::dbg::LogMessageType::general, __format, list);
+        // g_logCallback(lft::dbg::LogMessageSeverity::warning, lft::dbg::LogMessageType::general, __format, list);
         va_end(list);
     }
 
     static void fail(const char* __format, ...) {
         va_list list;
         va_start(list, __format);
-        g_logCallback(lft::dbg::LogMessageSeverity::error, lft::dbg::LogMessageType::general, __format, list);
+        // g_logCallback(lft::dbg::LogMessageSeverity::error, lft::dbg::LogMessageType::general, __format, list);
         va_end(list);
     }
 }

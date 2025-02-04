@@ -61,7 +61,7 @@ public:
     }
 
     void present(std::vector<VkSemaphore> waitSemaphores,
-                 uint32_t imageIdx) {
+                 uint32_t imageIdx) const {
         VkPresentInfoKHR presentInfo = {};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		presentInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.size();
