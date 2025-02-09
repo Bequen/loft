@@ -6,6 +6,7 @@
 #include <string>
 #include <cassert>
 #include <memory>
+#include <vulkan/vulkan_core.h>
 
 #include "Resource.h"
 #include "Swapchain.hpp"
@@ -101,7 +102,7 @@ public:
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -151,11 +152,11 @@ public:
 				std::vector<Image>& images,
 				std::vector<ImageView>& views,
                 bool isDepth = false) {
-        assert(images.size() == m_frame.size() && 
+        assert(images.size() == m_frame.size() &&
 			   views.size() == m_frame.size());
 
 		m_resourceMap[name] = m_numCachedResources;
-		
+
         for(uint32_t i = 0; i < m_frame.size(); i++) {
             m_frame[i].cache_image(m_numCachedResources, images[i], views[i], isDepth);
         }
@@ -163,6 +164,20 @@ public:
 		m_numCachedResources++;
 
         return *this;
+    }
+
+    bool contains(const std::string& name) {
+        return m_resourceMap.contains(name);
+    }
+
+    std::vector<ImageView> get_views(const std::string& name) {
+        std::vector<ImageView> views(m_frame.size());
+
+        for(uint32_t i = 0; i < m_frame.size(); i++) {
+            views[i] = m_frame[i].get_image_view(m_resourceMap[name])->view;
+        }
+
+        return views;
     }
 
     ImageResource* get_image(const std::string& name, uint32_t frameIdx) {

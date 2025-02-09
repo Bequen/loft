@@ -108,7 +108,7 @@ Instance::Instance(const std::string& applicationName,
     VkInstanceCreateInfo instanceInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 #if LOFT_DEBUG
-        //.pNext = &dbgInfo,
+        .pNext = &dbgInfo,
 #endif
         .pApplicationInfo = &appInfo,
 #if LOFT_DEBUG

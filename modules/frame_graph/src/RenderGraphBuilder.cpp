@@ -4,6 +4,7 @@
 #include <queue>
 #include <stack>
 #include <utility>
+#include <vulkan/vulkan_core.h>
 
 
 RenderGraphBuilder::RenderGraphBuilder(
@@ -48,7 +49,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<con
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .initialLayout = pPass->renderpass()->pass_dependencies().empty() ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 .finalLayout = layout,
         };
 
@@ -74,7 +75,7 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<con
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .initialLayout = layout,
+                .initialLayout = pPass->renderpass()->pass_dependencies().empty() ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 .finalLayout = layout,
         };
 
@@ -96,22 +97,22 @@ VkRenderPass RenderGraphBuilder::create_renderpass_for(const std::shared_ptr<con
             .dstAccessMask = 0
     };
 
-    /* VkMemoryBarrier2KHR exitBarrier = {
+    exitBarrier = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
             .pNext = nullptr,
             .srcStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
             .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
             .dstStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
             .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR
-    }; */
+    };
 
     const VkSubpassDependency2 subpassDependencies[] = {
             {
                     .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-                    .pNext = nullptr,// &entryBarrier,
+                    .pNext = &entryBarrier,
                     .srcSubpass = VK_SUBPASS_EXTERNAL,
                     .dstSubpass = 0,
-                    .dependencyFlags = 0,
+                    .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
             }, {
                     .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
                     .pNext = exitBarrier.has_value() ? &exitBarrier : nullptr,
@@ -194,12 +195,16 @@ RenderGraphBuilder::get_attachment(const std::shared_ptr<const Gpu>& gpu, Render
     std::vector<Image> images(numImagesInFlight);
     std::vector<ImageView> views(numImagesInFlight);
 
+    if(pCache->contains(pLayout->name())) {
+        return pCache->get_views(pLayout->name());
+    }
+
     VkImageAspectFlags aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
     /* create image for each frame */
     for(uint32_t f = 0; f < numImagesInFlight; f++) {
         images[f] = create_image_from_layout(gpu, extent, pLayout, isDepth);
-        images[f].set_debug_name(gpu, pLayout->name());
+        images[f].set_debug_name(gpu, "[" + std::to_string(std::rand() % 9999) + "]" + pLayout->name() + "[" + std::to_string(f) + "]");
 
         views[f] = images[f].create_view(gpu, pLayout->format(),
                                          {

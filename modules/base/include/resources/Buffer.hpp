@@ -30,9 +30,13 @@ struct Buffer {
 
     }
 
+    Buffer(Buffer& a)  noexcept :
+    buf(a.buf), allocation(a.allocation) {
+
+    }
+
+
     void set_debug_name(const std::shared_ptr<const Gpu>& gpu, const std::string& name) const;
 
     /* disable copy */
-    void operator=(Buffer&) = delete;
-    Buffer(Buffer& a) = delete;
 };
