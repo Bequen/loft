@@ -28,7 +28,7 @@ private:
 
 	VkSurfaceFormatKHR choose_format();
 	VkPresentModeKHR choose_present_mode();
-	VkExtent2D choose_extent();
+	VkExtent2D choose_extent(VkExtent2D actualExtent = {0, 0});
 
 	Result create_swapchain();
 
@@ -73,5 +73,5 @@ public:
         m_gpu->enqueue_present(&presentInfo);
     }
 
-	Swapchain(const std::shared_ptr<const Gpu>& gpu, VkSurfaceKHR surface);
+	Swapchain(const std::shared_ptr<const Gpu>& gpu, VkExtent2D extent, VkSurfaceKHR surface);
 };

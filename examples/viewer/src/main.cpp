@@ -303,7 +303,7 @@ int runtime(int argc, char** argv) {
     /**
      * Swapchain is a queue storage of images to render to for the Window we opened.
      */
-    Swapchain swapchain = Swapchain(gpu, surface);
+    Swapchain swapchain = Swapchain(gpu, extent, surface);
 
 
     /**
@@ -730,7 +730,6 @@ int runtime(int argc, char** argv) {
                                                         ImGuiIO& io = ImGui::GetIO(); (void)io;
                                                         std::cout << "Loading font: " << io::path::asset("fonts/ProggyClean.ttf") << std::endl;
                                                         io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 14.0f);
-
 
                                                         std::cout << "Initializing ImGui SDL2 for Vulkan..." << std::endl;
                                                         ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());

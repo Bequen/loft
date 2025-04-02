@@ -46,27 +46,29 @@ VkPresentModeKHR Swapchain::choose_present_mode() {
 	return presentModeResult;
 }
 
-VkExtent2D Swapchain::choose_extent() {
+VkExtent2D Swapchain::choose_extent(VkExtent2D actualExtent) {
 	VkSurfaceCapabilitiesKHR capabilities = {};
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu->gpu(), m_surface, &capabilities);
 
+	VkExtent2D result = {};
+
 	if(capabilities.currentExtent.width != UINT32_MAX) {
-		return capabilities.currentExtent;
+		result = capabilities.currentExtent;
 	} else {
-		VkExtent2D actualExtent = {};
-		/* actualExtent.width = MAX(
+		result.width = std::max(
 			capabilities.minImageExtent.width,
-			MIN(capabilities.maxImageExtent.width, actualExtent.width)
+			std::min(capabilities.maxImageExtent.width, actualExtent.width)
 		);
 
-		actualExtent.height = MAX(
+		result.height = std::max(
 			capabilities.minImageExtent.height,
-			MIN(capabilities.maxImageExtent.height, actualExtent.height)
-		); */
-
-		return actualExtent;	
+			std::min(capabilities.maxImageExtent.height, actualExtent.height)
+		);
 	}
 	
+	assert(result.width > 0 && result.height > 0);
+
+	return result;
 }
 
 Result Swapchain::get_images(uint32_t *pOutNumImages, VkImage *pOutImages) {
@@ -144,13 +146,13 @@ Result Swapchain::create_swapchain() {
 	return RESULT_OK;
 }
 
-Swapchain::Swapchain(const std::shared_ptr<const Gpu>& gpu, VkSurfaceKHR surface) :
+Swapchain::Swapchain(const std::shared_ptr<const Gpu>& gpu, VkExtent2D extent, VkSurfaceKHR surface) :
 m_gpu(gpu), m_surface(surface) {
 	VkSurfaceCapabilitiesKHR capabilities = {};
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu->gpu(), m_surface, &capabilities);
 
 	m_format = choose_format();
-	m_extent = choose_extent();
+	m_extent = choose_extent(extent);
 
 	uint32_t imageCount = capabilities.minImageCount + 1;
 	m_numImages = imageCount;
