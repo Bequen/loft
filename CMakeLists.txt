@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_BUILD_TYPE Debug)
 
 add_definitions(#-D_GLIBCXX_USE_CXX11_ABI=0
         -DNOMINMAX=1
@@ -46,7 +47,7 @@ FetchContent_MakeAvailable(VMA)
 project(loft)
 
 add_subdirectory(modules)
-add_subdirectory(examples)
+# add_subdirectory(examples)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

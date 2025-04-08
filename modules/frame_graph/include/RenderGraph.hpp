@@ -80,13 +80,13 @@ struct RenderGraphVkRenderPass {
     }
 
     void begin(VkCommandBuffer cmdbuf, uint32_t imageIdx) {
-        VkDebugUtilsLabelEXT labelInfo = {
+        /* VkDebugUtilsLabelEXT labelInfo = {
                 .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
                 .pLabelName = pRenderPass->name().c_str(),
                 .color = { color[0], color[1], color[2], color[3] }
         };
 
-        vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &labelInfo);
+        vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &labelInfo); */
 
 
         VkRenderPassBeginInfo renderPassInfo = {
@@ -107,7 +107,7 @@ struct RenderGraphVkRenderPass {
     void end(VkCommandBuffer cmdbuf) {
         vkCmdEndRenderPass(cmdbuf);
 
-        vkCmdEndDebugUtilsLabelEXT(cmdbuf);
+        // vkCmdEndDebugUtilsLabelEXT(cmdbuf);
     }
 };
 
