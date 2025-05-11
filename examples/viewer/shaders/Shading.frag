@@ -5,13 +5,13 @@
 layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
-layout(location = 1) out vec4 outBloomThreshold;
+// layout(location = 1) out vec4 outBloomThreshold;
 
 layout(set = 1, binding = 1) uniform sampler2D inAlbedo;
 layout(set = 1, binding = 2) uniform sampler2D inNormal;
 layout(set = 1, binding = 3) uniform sampler2D inPosition;
 layout(set = 1, binding = 4) uniform sampler2D inPbr;
-layout(set = 1, binding = 5) uniform sampler2D shadowMap;
+// layout(set = 1, binding = 5) uniform sampler2D shadowMap;
 
 float ggx_normal_distr(float NoH, float roughness) {
 	float a = NoH * roughness;
@@ -61,18 +61,20 @@ float linearize_depth(float depth) {
 }
 
 float textureProj(vec4 shadowCoord, vec2 off) {
-	float shadow = 0.0f;
+	return 0.0f;
+	/* float shadow = 0.0f;
 
 	float dist = texture( shadowMap, shadowCoord.st + off ).r;
 	if ( shadowCoord.w > 0.0 )
 	{
 		shadow = (dist < shadowCoord.z) ? 1.0f : 0.0f;
 	}
-	return shadow;
+	return shadow; */
 }
 
 float filterPCF(vec4 sc) {
-	ivec2 texDim = textureSize(shadowMap, 0);
+	return 0.0f;
+	/* ivec2 texDim = textureSize(shadowMap, 0);
 	float scale = 6.0f;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
@@ -90,7 +92,7 @@ float filterPCF(vec4 sc) {
 		}
 
 	}
-	return shadowFactor / count;
+	return shadowFactor / count; */
 }
 
 const mat4 biasMat = mat4(
@@ -186,5 +188,5 @@ void main() {
 
 	outColor = vec4(prd, 1.0);
 
-	outBloomThreshold = vec4(bloom_threshold(prd), dot(bloom_threshold(prd), bloom_threshold(prd)));
+	// outBloomThreshold = vec4(bloom_threshold(prd), dot(bloom_threshold(prd), bloom_threshold(prd)));
 }

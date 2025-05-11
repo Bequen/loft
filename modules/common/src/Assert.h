@@ -5,6 +5,8 @@
 #ifndef LOFT_ASSERT_H
 #define LOFT_ASSERT_H
 
+#include <stdexcept>
+
 #define ASSERT(expr) if(!(expr)) { throw std::runtime_error("Assertion failed: " #expr); }
 
 #endif //LOFT_ASSERT_H

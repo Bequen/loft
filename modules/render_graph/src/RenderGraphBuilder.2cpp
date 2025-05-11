@@ -1,0 +1,352 @@
+#include "RenderGraphBuilder.hpp"
+#include "AdjacencyMatrix.hpp"
+#include "RenderGraph.hpp"
+
+#include <set>
+#include <iostream>
+
+namespace lft::rg {
+
+std::set<std::string> build_set_of_dependencies(
+		const std::vector<GpuTask>& render_passes
+) {
+	std::set<std::string> dependencies;
+	for(auto& render_pass : render_passes) {
+		for(auto& dependency : render_pass.dependencies()) {
+			dependencies.insert(dependency);
+		}
+	}
+
+	return dependencies;
+}
+
+bool is_depending_on(
+		const GpuTask& render_pass,
+		const GpuTask& depends_on
+) {
+	for(auto& dependency : render_pass.dependencies()) {
+		if(dependency == depends_on.name()) {
+			return true;
+		}
+
+		for(auto& output : depends_on.outputs()) {
+			if(output.name() == dependency) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool has_output(
+		const GpuTask& render_pass,
+		const std::string& name
+) {
+	for(auto& output : render_pass.outputs()) {
+		if(output.name() == name) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+AdjacencyMatrix Builder::build_adjacency_matrix() const {
+	std::vector<std::string> node_names(m_render_passes.size() + 1);
+
+	// map to render pass names
+	std::transform(
+		m_render_passes.begin(),
+		m_render_passes.end(),
+		node_names.begin(),
+		[](const RenderPass& render_pass) {
+			return render_pass.name();
+		}
+	);
+
+	node_names[m_render_passes.size()] = m_output_name;
+
+	AdjacencyMatrix matrix(node_names);
+
+	for(uint32_t x = 0; x < m_render_passes.size(); x++) {
+		for(uint32_t y = 0; y < m_render_passes.size(); y++) {
+			if(x == y) continue;
+
+			if(is_depending_on(m_render_passes[y], m_render_passes[x])) {
+				matrix.set(m_render_passes[x].name(), m_render_passes[y].name());
+			}
+		}
+
+		// check if render pass is outputing to main output
+		if(has_output(m_render_passes[x], m_output_name)) {
+			matrix.set(m_render_passes[x].name(), m_output_name);
+		}
+	}
+
+	return matrix;
+}
+
+BuilderContext Builder::build_context() const {
+	auto adjacency_matrix = build_adjacency_matrix();
+	if(adjacency_matrix.has_loop()) {
+		throw std::runtime_error("Render graph has a loop");
+	}
+	adjacency_matrix.transitive_reduction();
+	
+	// build the runtime definition
+	BuilderContext context = {
+		.adjacency_matrix = adjacency_matrix
+	};
+
+	return context;
+}
+
+std::vector<uint32_t> map_dependencies_to_idx(
+		const GpuTask& render_pass,
+		BuilderContext& context
+) {
+	std::vector<uint32_t> resource_indices;
+	for(auto& dependency : render_pass.dependencies()) {
+		auto signal_idx = context.get_signal_idx(dependency);
+		if(!signal_idx.has_value()) {
+			throw std::runtime_error("Dependency [" + dependency + "] not found");
+		}
+
+		resource_indices.push_back(signal_idx.value());
+	}
+
+	return resource_indices;
+}
+
+void Builder::build_tree(
+		std::vector<std::string>& render_passes, 
+		uint32_t dependency_idx,
+		BuilderContext& context
+) {
+	// Do not try to merge render passes with command buffers. 
+	// TODO: Merge render passes.
+	for(auto& render_pass : render_passes) {
+		context.solved[render_pass] = context.solved[render_pass] - 1;
+		// skip if render pass is already solved
+		if (render_pass == m_output_name || 
+			(context.solved.contains(render_pass) && 
+			 context.solved.find(render_pass)->second > 0)) {
+			continue;
+		}
+
+		uint32_t signal_idx = context.create_signal_idx(render_pass);
+		auto wait_signals_idx = 
+
+		// create definition for task
+		TaskDefinition task(
+				signal_idx,
+				wait_signals_idx,
+				map_resources_to_idx(render_pass, context));
+
+		uint32_t signal_idx = context.push_named_dependency(render_pass);
+		next_cmd_buf.set_signal(signal_idx);
+
+		uint32_t next_cmd_buf_id = context.push_command_buffer(next_cmd_buf);
+
+		auto next = context.adjacency_matrix.get_successors(render_pass);
+		if(next.empty()) {
+			continue;
+		}
+
+		build_tree(next, next_cmd_buf_id, context);
+	}
+}
+
+std::string row_to_str(const std::vector<bool>& row) {
+	std::string str;
+
+	for(auto item : row) {
+		str += item ? "1" : "0";
+	}
+
+	return str;
+}
+
+ImageResource allocate_resource(
+		std::shared_ptr<Gpu> gpu,
+		const ImageResourceDefinition& resource,
+		bool is_depth
+) {
+    MemoryAllocationInfo memoryInfo = {
+            .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE
+    };
+
+    /* create image resource */
+    ImageCreateInfo imageInfo = {
+            .extent = resource.extent(),
+            .format = resource.format(),
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT |
+                     (VkImageUsageFlags)(is_depth ?
+                                         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT :
+                                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
+            .aspectMask = (VkImageAspectFlags)(is_depth ?
+                          VK_IMAGE_ASPECT_DEPTH_BIT :
+                          VK_IMAGE_ASPECT_COLOR_BIT),
+            .arrayLayers = 1,
+            .mipLevels = 1,
+    };
+
+    Image image = {};
+    gpu->memory()->create_image(&imageInfo, &memoryInfo, &image);
+
+	ImageView view = {};
+	image.create_view(gpu, resource.format(), {
+			.aspectMask = imageInfo.aspectMask,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+	});
+
+	return ImageResource(image.img, view.view);
+}
+
+void Builder::collect_resources(
+		std::shared_ptr<Gpu> gpu,
+		BuilderContext& context
+) {
+	for(auto& rp : m_render_passes) {
+		for(auto& output : rp.outputs()) {
+			if(context.resource_names.find(output.name()) == context.resource_names.end()) {
+				context.resource_names.insert({output.name(), 1});
+				allocate_resource(gpu, output, false);
+				context.resource_counters.push_back(0);
+			} else {
+				context.resource_counters[context.resource_names[rp.name()]]++;
+			}
+		}
+	}
+}
+
+void
+Builder::topology_sort(
+		BuilderContext& ctx 
+) {
+	std::vector<std::string> m_roots;
+	for(auto& rp : m_render_passes) {
+		if(ctx.adjacency_matrix.num_dependencies_of(rp.name()) == 0) {
+			m_roots.push_back(rp.name());
+		}
+	}
+
+	for(auto& render_pass : m_render_passes) {
+		// skip the output -- TODO: this is really inconvienient
+		if(render_pass.name() == m_output_name) {
+			continue;
+		}
+
+		uint32_t num_dependencies = ctx.adjacency_matrix
+			.num_dependencies_of(render_pass.name());
+		ctx.solved.insert({render_pass.name(), num_dependencies});
+	}
+
+	for(auto& render_pass : m_roots) {
+		ctx.solved[render_pass] = 1;
+	}
+
+	uint32_t dependency_idx = ctx.push_named_dependency("start");
+	build_tree(m_roots, dependency_idx, ctx);
+}
+
+std::vector<RenderGraphCommandBufferDefinition>
+Builder::create_command_buffers(
+		const BuilderContext& context
+) {
+	std::map<std::string, uint32_t> command_buffer_outputs;
+	std::vector<RenderGraphCommandBufferDefinition> command_buffers;
+
+	// ISSUE: It must remove redundant command buffer and move it to the end
+	for(auto& cmdbuf : context.command_buffers) {
+		auto& rp = cmdbuf.render_passes[0];
+
+		auto output = row_to_str(context.adjacency_matrix.row(rp));
+		if(command_buffer_outputs.find(output) == command_buffer_outputs.end()) {
+			command_buffer_outputs.insert({output, command_buffers.size()});
+
+			RenderGraphCommandBufferDefinition command_buffer;
+			command_buffer.add_render_pass(rp);
+			command_buffers.push_back(command_buffer);
+		} else {
+			auto command_buffer = command_buffers[command_buffer_outputs[output]];
+			command_buffers.erase(command_buffers.begin() + command_buffer_outputs[output]);
+			command_buffer
+				.add_render_pass(rp)
+				.add_dependencies(cmdbuf.dependencies);
+			// well fuck, now the order is incorrect... which is required for 
+			command_buffers.push_back(command_buffer);
+		}
+	}
+
+	return command_buffers;
+}
+
+std::vector<RenderGraphRenderPass> Builder::build_render_passes(
+		std::shared_ptr<Gpu> gpu,
+		const BuilderContext& ctx,
+		const RenderGraphCommandBufferDefinition& command_buffer
+) {
+	std::vector<RenderGraphRenderPass> render_passes(command_buffer.render_passes.size());
+	for(uint32_t i = 0; i < render_passes.size(); i++) {
+		auto rp = command_buffer.render_passes[i];
+		
+	}
+}
+
+RenderGraphBuffer Builder::allocate_buffer(
+		std::shared_ptr<Gpu> gpu,
+		const ImageChain& output_chain,
+		const BuilderContext& ctx
+) {
+	std::vector<RenderGraphCommandBuffer> cmdbufs(ctx.command_buffers.size());
+
+	for(uint32_t i = 0; i < ctx.command_buffers.size(); i++) {
+		RenderGraphCommandBuffer cmdbuf;
+
+		cmdbuf.render_passes = build_render_passes();
+
+		VkCommandBufferAllocateInfo cmdBufInfo = {
+				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+				.commandPool = gpu->graphics_command_pool(),
+				.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+				.commandBufferCount = 1
+		};
+
+		if(vkAllocateCommandBuffers(gpu->dev(), &cmdBufInfo, &cmdbuf.command_buffer)) {
+			throw std::runtime_error("Failed to create command buffer");
+		}
+
+		cmdbufs[i] = cmdbuf;
+	}
+
+}
+
+
+RenderGraphDefinition Builder::build(
+		std::shared_ptr<Gpu> gpu,
+		const ImageChain& output_chain,
+		uint32_t num_buffers
+) {
+
+	// collects and allocates resources
+	collect_resources(context);
+
+	// create queue
+	topology_sort(context);
+	
+	// allocate for each buffer
+	std::vector<RenderGraphBuffer> buffers(num_buffers);
+	for(uint32_t i = 0; i < num_buffers; i++) {
+		buffers[i] = allocate_buffer(gpu, output_chain, context);
+	}
+
+	// create new command buffer
+	return RenderGraphDefinition(context.command_buffers, m_render_passes);
+}
+
+}

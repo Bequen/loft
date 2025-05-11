@@ -35,7 +35,7 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION ${CMAKE_CURRENT_BINARY_
 add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
 
 file(GLOB FILES
-		src/*.cpp
+		src/main.cpp
 		src/mesh/*.cpp
 		src/mesh/runtime/*.cpp
 		src/mesh/data/*.cpp
@@ -92,6 +92,8 @@ target_include_directories(
 		${PROJECT_NAME}
 		PUBLIC
 		${PROJECT_SOURCE_DIR}/src/
+		${loft_base_SOURCE_DIR}/include/
+		${loft_render_graph_SOURCE_DIR}/include/
 		${cglm_SOURCE_DIR}/include/
 		${cgltf_SOURCE_DIR}
 		${PROJECT_SOURCE_DIR}/external
@@ -107,7 +109,7 @@ target_link_libraries(
 		# modules
 		loft_base
 		loft_window
-		loft_framegraph
+		loft_render_graph
 
 		# external libraries
 		imgui

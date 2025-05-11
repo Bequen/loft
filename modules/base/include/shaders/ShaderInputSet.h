@@ -117,6 +117,7 @@ public:
 };
 
 
+#include <iostream>
 /**
  * ShaderInputSetBuilder
  *
@@ -160,6 +161,7 @@ public:
      * @return Allocated descriptor set with all the writes.
      */
     VkDescriptorSet build(const std::shared_ptr<const Gpu>& gpu, VkDescriptorSetLayout layout) {
+		std::cout << "Building" << std::endl;
         VkDescriptorSetAllocateInfo descriptorInfo = {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                 .descriptorPool = gpu->descriptor_pool(),

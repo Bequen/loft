@@ -4,7 +4,6 @@
 #include "Gpu.hpp"
 #include "cglm/mat4.h"
 #include "cglm/cglm.h"
-#include "ResourceLayout.hpp"
 
 class Camera {
 private:
@@ -26,7 +25,7 @@ public:
         return m_buffer;
     }
 
-    BufferResourceLayout m_resource;
+    // BufferResourceLayout m_resource;
 
     Camera(const std::shared_ptr<const Gpu>& gpu, float aspect);
 

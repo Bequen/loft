@@ -3,7 +3,7 @@
 #include "RenderGraphNode.h"
 #include "RenderPass.hpp"
 #include "RenderGraph.hpp"
-#include "AdjacencyMatrix.h"
+#include "AdjacencyMatrix.hpp"
 
 #include <map>
 #include <utility>

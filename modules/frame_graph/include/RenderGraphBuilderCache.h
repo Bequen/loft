@@ -10,7 +10,7 @@
 
 #include "Resource.h"
 #include "Swapchain.hpp"
-#include "AdjacencyMatrix.h"
+#include "AdjacencyMatrix.hpp"
 #include "ImageChain.h"
 
 struct RenderGraphFrame {

@@ -1,10 +1,7 @@
 #include <iostream>
-#include "AdjacencyMatrix.h"
+#include "AdjacencyMatrix.hpp"
 
-AdjacencyMatrix::AdjacencyMatrix(uint32_t width) :
-m_matrix(width, std::vector<bool>(width)) {
 
-}
 
 void AdjacencyMatrix::find_dft(uint32_t node, uint32_t target, uint32_t maxDepth) {
     if(maxDepth == 0) {
