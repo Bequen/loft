@@ -38,8 +38,6 @@ private:
 	std::shared_ptr<Gpu> m_gpu;
 
 	std::vector<std::map<std::string, ImageResource>> m_resources;
-	std::map<std::string, uint32_t> m_resource_count_down;
-	std::set<std::string> m_cleared_resources;
 
 	const ImageChain& m_output_chain;
 	std::string m_output_name;
@@ -57,10 +55,16 @@ private:
 
 	VkAttachmentDescription2 create_attachment_description(
 			const ImageResourceDefinition& definition, 
-			bool is_color
+			bool is_color,
+			std::map<std::string, uint32_t>& resource_count_down,
+			std::set<std::string>& cleared_resources
 	);
 
-	VkRenderPass allocate_renderpass(const std::shared_ptr<GpuTask> task);
+	VkRenderPass allocate_renderpass(
+			const std::shared_ptr<GpuTask> task,
+			std::map<std::string, uint32_t>& resource_count_down,
+			std::set<std::string>& cleared_resources
+	);
 
 	void prepare_renderpasses(const std::vector<std::shared_ptr<GpuTask>>& tasks);
 

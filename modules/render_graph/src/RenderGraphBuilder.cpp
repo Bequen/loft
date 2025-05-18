@@ -185,8 +185,6 @@ RenderGraph Builder::build(
 
 	auto context = build_context();
 
-	std::vector<RenderGraphBuffer> buffers(num_buffers);
-
 	auto sorted_tasks = topology_sort(m_tasks, context);
 	for(auto& task : sorted_tasks) {
 		task->set_extent(output_chain.extent());

@@ -4,15 +4,43 @@
 
 namespace lft::rg {
 
+void RenderGraph::create_fences() {
+	VkFenceCreateInfo fence_info = {
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.flags = VK_FENCE_CREATE_SIGNALED_BIT
+	};
 
-void RenderGraph::wait_for_previous_frame(const RenderGraphBuffer& buffer) {
+	m_fences.resize(m_buffers.size());
+	for(uint32_t fence_idx = 0;
+		fence_idx < m_buffers.size(); 
+		fence_idx++)
+	{
+		if(vkCreateFence(m_gpu->dev(), 
+			&fence_info, nullptr, &m_fences[fence_idx])) {
+			throw std::runtime_error("Failed to create fence");
+		}
+	}
+}
+
+RenderGraph::RenderGraph(
+		const std::shared_ptr<Gpu>& gpu,
+		const std::vector<RenderGraphBuffer>& buffers
+) :
+	m_gpu(gpu),
+	m_buffers(std::move(buffers)), 
+	m_buffer_idx(0) 
+{
+	create_fences();
+}
+
+void RenderGraph::wait_for_previous_frame(uint32_t buffer_idx) {
     vkWaitForFences(m_gpu->dev(),
         1,
-        &buffer.m_fence,
+        &m_fences[buffer_idx],
         VK_TRUE, UINT64_MAX);
     vkResetFences(m_gpu->dev(),
         1,
-        &buffer.m_fence);
+        &m_fences[buffer_idx]);
 }
 
 void RenderGraph::record_command_buffer(
@@ -25,6 +53,7 @@ void RenderGraph::record_command_buffer(
 	VkCommandBufferBeginInfo cmdbuf_begin_info = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 	};
+
 
 	if(vkBeginCommandBuffer(cmdbuf,
 				&cmdbuf_begin_info)) {
@@ -79,7 +108,6 @@ std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::get_wait_semaphores_for(
 	std::vector<VkSemaphoreSubmitInfoKHR> semaphores;
 	std::ranges::transform(block.dependencies, std::back_inserter(semaphores),
 			[&buffer](uint32_t idx) {
-			std::cout << "Wait: " << idx << std::endl;
 				return VkSemaphoreSubmitInfoKHR{
 					.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,
 					.semaphore = buffer.m_command_buffers[idx].signal,
@@ -112,15 +140,7 @@ void RenderGraph::submit_command_buffer(
 			.deviceIndex = 0
 	};
 
-	std::cout << "Submitting command buffer: " << command_buffer.render_passes[0].definition->name() << std::endl;
-
 	auto wait_on_semaphores = get_wait_semaphores_for(buffer, command_buffer);
-
-	for(auto& wait : wait_on_semaphores) {
-		std::cout << "Waiting on semaphore: " << wait.semaphore << std::endl;
-	}
-
-	std::cout << "Signaling semaphore: " << command_buffer.signal << std::endl;
 
 	VkSubmitInfo2 submit_info = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
@@ -135,23 +155,31 @@ void RenderGraph::submit_command_buffer(
 	m_gpu->enqueue_graphics(&submit_info, fence);
 }
 
+bool RenderGraph::is_recording_invalid(const RenderGraphCommandBuffer& command_buffer) {
+	for(auto& dependency : command_buffer.recording_dependencies) {
+		if(m_invalidated_dependencies.find(dependency) != m_invalidated_dependencies.end()) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void RenderGraph::run(uint32_t chainImageIdx) {
 	uint32_t buffer_idx = (m_buffer_idx + 1) % m_buffers.size();
 	auto& buffer = m_buffers[buffer_idx];
 	
-	wait_for_previous_frame(buffer);
+	wait_for_previous_frame(buffer_idx);
 
 	uint32_t idx = 0;
 	for(auto& cmdbuf : buffer.m_command_buffers) {
 		idx++;
-		record_command_buffer(cmdbuf, buffer_idx, chainImageIdx);
-
-		if(idx == buffer.m_command_buffers.size()) {
-			std::cout << std::format("Running last command buffer: ") << cmdbuf.signal << std::endl;
-			submit_command_buffer(buffer, cmdbuf, buffer.m_fence, chainImageIdx);
-		} else {
-			submit_command_buffer(buffer, cmdbuf, VK_NULL_HANDLE, chainImageIdx);
+		if(is_recording_invalid(cmdbuf)) {
+			record_command_buffer(cmdbuf, buffer_idx, chainImageIdx);
 		}
+
+		VkFence fence = idx == buffer.m_command_buffers.size() ? m_fences[buffer_idx] : VK_NULL_HANDLE;
+		submit_command_buffer(buffer, cmdbuf, fence, chainImageIdx);
 	}
 }
 

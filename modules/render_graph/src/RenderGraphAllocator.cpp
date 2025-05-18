@@ -3,8 +3,6 @@
 
 #include <stdexcept>
 #include <vector>
-#include <iostream>
-#include <vulkan/vulkan_core.h>
 
 #define VOLK_IMPLEMENTATION
 #include <volk/volk.h>
@@ -54,7 +52,9 @@ ImageResource Allocator::allocate_resource(
 
 VkAttachmentDescription2 Allocator::create_attachment_description(
 		const ImageResourceDefinition& definition, 
-		bool is_color
+		bool is_color,
+		std::map<std::string, uint32_t>& resource_count_down,
+		std::set<std::string>& cleared_resources
 ) {
 	VkAttachmentLoadOp load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -68,28 +68,26 @@ VkAttachmentDescription2 Allocator::create_attachment_description(
 		(definition.name() == m_output_name ? m_output_chain.layout() :
 		 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	final_layout = m_resource_count_down[definition.name()] > 1 ?
+	final_layout = resource_count_down[definition.name()] > 1 ?
 		middle_layout :
 		last_layout;
 
-	if(m_cleared_resources.find(definition.name()) != m_cleared_resources.end()/* context.is_clear(definition.name()) */) {
+	if(cleared_resources.find(definition.name()) != cleared_resources.end()/* context.is_clear(definition.name()) */) {
 		load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
 		initial_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	} else {
-		m_cleared_resources.insert(definition.name());
+		cleared_resources.insert(definition.name());
 		load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
 	}
 
 	// store op is dont care for the last one and store for every other
-	std::cout << std::format("Countdown for {} is {}", definition.name(), m_resource_count_down[definition.name()]) << std::endl;
-	VkAttachmentStoreOp store_op = m_resource_count_down[definition.name()] == 1 ?
+	VkAttachmentStoreOp store_op = resource_count_down[definition.name()] == 1 ?
 		VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
 
 
 	// remember to count down the resource
-	// context.decrement_resource_count(definition.name());
-	m_resource_count_down[definition.name()]--;
+	resource_count_down[definition.name()]--;
 
 	return {
 			.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
@@ -105,18 +103,20 @@ VkAttachmentDescription2 Allocator::create_attachment_description(
 }
 
 VkRenderPass Allocator::allocate_renderpass(
-		const std::shared_ptr<GpuTask> task
+		const std::shared_ptr<GpuTask> task,
+		std::map<std::string, uint32_t>& resource_count_down,
+		std::set<std::string>& cleared_resources
 ) {
 	size_t num_attachments = task->outputs().size() + task->depth_output().has_value();
 	std::vector<VkAttachmentDescription2> descriptions(num_attachments);
     std::vector<VkAttachmentReference2> references(num_attachments);
 
 	uint32_t i = 0;
-	std::cout << "Preparing attachments for task " << task->name() << std::endl;
 	for(auto& output : task->outputs()) {
-		std::cout << "Creating attachment for: " << output.name()  << " in task " << task->name() << std::endl;
 		descriptions[i] = create_attachment_description(
-				output, true);
+				output, true,
+				resource_count_down,
+				cleared_resources);
 		
 		// ignore sub passes, so one reference per attachment
         references[i] = {
@@ -130,7 +130,9 @@ VkRenderPass Allocator::allocate_renderpass(
 	if (task->depth_output().has_value()) {
 		descriptions[i] = create_attachment_description(
 				task->depth_output().value(),
-				false);
+				false,
+				resource_count_down,
+				cleared_resources);
 
         references[i] = {
                 .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
@@ -217,7 +219,7 @@ std::vector<VkCommandBuffer> allocate_command_buffers(std::shared_ptr<Gpu> gpu, 
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 			.commandPool = gpu->graphics_command_pool(),
 			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			.commandBufferCount = count
+			.commandBufferCount = count,
 	};
 
 	std::vector<VkCommandBuffer> cmd_bufs(count);
@@ -241,55 +243,61 @@ VkSemaphore create_semaphore(std::shared_ptr<Gpu> gpu) {
 	return semaphore;
 }
 
-VkFence create_fence(std::shared_ptr<Gpu> gpu) {
-	VkFenceCreateInfo fence_info = {
-		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-		.flags = VK_FENCE_CREATE_SIGNALED_BIT
-	};
-
-	VkFence fence;
-	if(vkCreateFence(gpu->dev(), &fence_info, nullptr, &fence)) {
-		throw std::runtime_error("Failed to create fence");
-	}
-
-	return fence;
-}
-
-
 void Allocator::collect_resources(const std::vector<std::shared_ptr<GpuTask>>& tasks) {
 	m_resources.resize(num_buffers());
 	for(auto& task : tasks) {
 		for(auto& output : task->outputs()) {
-			if(m_resource_count_down.find(output.name()) == m_resource_count_down.end()) {
+			if(m_resources[0].find(output.name()) == m_resources[0].end()) {
 				for(uint32_t i = 0; i < num_buffers(); i++) {
 					auto resource = allocate_resource(output, true);
 					m_resources[i].insert({output.name(), resource});
 				}
-				m_resource_count_down[output.name()] = 1;
-			} else {
-				m_resource_count_down[output.name()]++;
 			}
 		}
 
 		if(task->depth_output().has_value()) {
 			auto& depth_output = task->depth_output().value();
-			if(m_resource_count_down.find(depth_output.name()) == m_resource_count_down.end()) {
+			if(m_resources[0].find(depth_output.name()) == m_resources[0].end()) {
 				for(uint32_t i = 0; i < num_buffers(); i++) {
 					auto resource = allocate_resource(depth_output, false);
 					m_resources[i].insert({depth_output.name(), resource});
 				}
-				m_resource_count_down[depth_output.name()] = 1;
-			} else {
-				m_resource_count_down[depth_output.name()]++;
 			}
 		}
 	}
 }
 
+std::map<std::string, uint32_t> count_resource_writes(const std::vector<std::shared_ptr<GpuTask>>& tasks) {
+	std::map<std::string, uint32_t> resource_count_down;
+	for(auto& task : tasks) {
+		for(auto& output : task->outputs()) {
+			if(resource_count_down.find(output.name()) == resource_count_down.end()) {
+				resource_count_down[output.name()] = 1;
+			} else {
+				resource_count_down[output.name()]++;
+			}
+		}
+
+		if(task->depth_output().has_value()) {
+			auto& depth_output = task->depth_output().value();
+			if(resource_count_down.find(depth_output.name()) == resource_count_down.end()) {
+				resource_count_down[depth_output.name()] = 1;
+			} else {
+				resource_count_down[depth_output.name()]++;
+			}
+		}
+	}
+
+	return resource_count_down;
+}
+
 void Allocator::prepare_renderpasses(const std::vector<std::shared_ptr<GpuTask>>& tasks) {
+	std::map<std::string, uint32_t> resource_count_down = count_resource_writes(tasks);
+	std::set<std::string> cleared_resources;
+
 	// prepare render passes
 	for(auto& task : tasks) {
-		auto rp = allocate_renderpass(task);
+		auto rp = allocate_renderpass(task, resource_count_down, cleared_resources);
 		m_renderpasses.insert({task->name(), rp});
 	}
 }
@@ -300,11 +308,6 @@ RenderGraphBuffer Allocator::allocate_buffer(const GraphAllocationInfo& info, ui
 	std::vector<RenderGraphCommandBuffer> command_buffers;
 
 	for(auto& cmdbuf : info.command_buffers) {
-		std::cout << "Allocating command buffer" << std::endl;
-		for(auto& wait : cmdbuf.wait_signals_idx) {
-			std::cout << "Dependency: " << wait << std::endl;
-		}
-
 		std::vector<VkCommandBuffer> cmdbufs(info.output_chain.count());
 		std::vector<RenderTask> render_tasks;
 		
@@ -312,7 +315,6 @@ RenderGraphBuffer Allocator::allocate_buffer(const GraphAllocationInfo& info, ui
 			rp_idx < cmdbuf.first_renderpass_idx + cmdbuf.num_renderpasses; 
 			rp_idx++
 		) {
-			std::cout << "Allocating render pass " << info.render_passes[rp_idx]->name() << std::endl;
 			std::vector<VkFramebuffer> framebuffers(info.output_chain.count());
 			auto rp = info.render_passes[rp_idx];
 
@@ -339,11 +341,7 @@ RenderGraphBuffer Allocator::allocate_buffer(const GraphAllocationInfo& info, ui
 		});
 	}
 
-	RenderGraphBuffer buffer = {
-		.m_command_buffers = command_buffers,
-		.m_resources = m_resources[buffer_idx],
-		.m_fence = create_fence(info.gpu),
-	};
+	RenderGraphBuffer buffer(command_buffers, m_resources[buffer_idx]);
 
 	return buffer;
 }

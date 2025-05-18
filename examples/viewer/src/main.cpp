@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <memory>
+#include <chrono>
 
 #include <volk/volk.h>
 
@@ -11,6 +12,9 @@
 #include "SDLWindow.h"
 #include "RenderGraphBuilder.hpp"
 
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_vulkan.h"
+#include "imgui/backends/imgui_impl_sdl2.h"
 #include "cglm/types.h"
 #include "io/gltfSceneLoader.hpp"
 #include "io/path.hpp"
@@ -72,6 +76,10 @@ struct ShadingContext {
 		layout(VK_NULL_HANDLE),
 		pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE) {
 	}
+};
+
+struct ImGuiContext {
+    VkRenderPass rp;
 };
 
 int main(int argc, char** argv) {
@@ -257,7 +265,8 @@ int main(int argc, char** argv) {
 	auto shading_context = new ShadingContext();
 	shading_context->global_input_set = &global_input_set;
 	shading_context->sampler = sampler;
-	auto shading_task = std::make_shared<lft::rg::LambdaGpuTask<ShadingContext>>("shading", shading_context,
+	auto shading_task = std::make_shared<lft::rg::LambdaGpuTask<ShadingContext>>(
+			"shading", shading_context,
 			[&](const lft::rg::RenderPassBuildInfo& info,
 				ShadingContext* context) {
 			context->shading_set_layout = ShaderInputSetLayoutBuilder(5)
@@ -311,7 +320,60 @@ int main(int argc, char** argv) {
 
 	builder.add_render_pass(shading_task);
 
+    auto ins = instance->instance();
+    ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
+        return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
+    }, &ins);
+
+	auto imgui_context = new ImGuiContext();
+	auto imgui_task = std::make_shared<lft::rg::LambdaGpuTask<ImGuiContext>>(
+			"imgui", imgui_context,
+			[&](const lft::rg::RenderPassBuildInfo& info,
+				ImGuiContext* context) {
+			ImGui::CreateContext();
+			// ImGui_ImplVulkan_LoadFunctions();
+			ImGuiIO& io = ImGui::GetIO(); (void)io;
+			std::cout << "Loading font: " << io::path::asset("fonts/ProggyClean.ttf") << std::endl;
+			io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 14.0f);
+
+			std::cout << "Initializing ImGui SDL2 for Vulkan..." << std::endl;
+			ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
+			std::cout << "Initialized ImGui SDL2 for Vulkan" << std::endl;
+			ImGui_ImplVulkan_InitInfo init_info = {
+				.Instance = instance->instance(),
+				.PhysicalDevice = gpu->gpu(),
+				.Device = gpu->dev(),
+				.QueueFamily = 0,
+				.Queue = gpu->graphics_queue(),
+				.PipelineCache = nullptr,
+				.DescriptorPool = gpu->descriptor_pool(),
+				.Subpass = 0,
+				.MinImageCount = 2,
+				.ImageCount = 2,
+				.MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+				.Allocator = nullptr,
+				.CheckVkResultFn = nullptr,
+			};
+			std::cout << "Initializing ImGui for Vulkan..." << std::endl;
+			ImGui_ImplVulkan_Init(&init_info, info.renderpass());
+			std::cout << "Initialized ImGui for Vulkan" << std::endl;
+		}, [&](const lft::rg::RenderPassRecordInfo& info, ImGuiContext* context) {
+			ImGui::Render();
+			ImDrawData* draw_data = ImGui::GetDrawData();
+			ImGui_ImplVulkan_RenderDrawData(draw_data, info.command_buffer());
+	});
+
+	imgui_task->add_color_output("swapchain", swapchain.format().format, swapchain.extent(), {0.0f, 0.0f, 0.0f, 1.0f});
+	imgui_task->add_dependency("shading");
+	builder.add_render_pass(imgui_task);
+
+	std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+	/**
+	 * Builds the render graph.
+	 */
 	auto render_graph = builder.build(gpu, ImageChain::from_swapchain(swapchain), 1);
+	std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+	std::cout << "Time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() << "ns" << std::endl;
 
     VkFenceCreateInfo fenceInfo = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -342,39 +404,45 @@ int main(int argc, char** argv) {
         vkWaitForFences(gpu->dev(), 1, &get_image_fence, VK_TRUE, UINT64_MAX);
         vkResetFences(gpu->dev(), 1, &get_image_fence);
 
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+
+		ImGui::ShowDemoWindow();
+
 		SDL_Event event;
 		while(window->poll_event(&event)) {
-		switch(event.type) {
-			case SDL_QUIT:
-				is_open = false;
-				break;
-			case SDL_FINGERMOTION:
-				camera.rotate(event.tfinger.dx * 10.0f, event.tfinger.dy * 10.0f);
-				break;
-			case SDL_MOUSEMOTION:
-				camera.rotate(event.motion.xrel * 0.2f, event.motion.yrel * 0.2f);
-				break;
-			case SDL_KEYDOWN:
-			case SDL_KEYUP:
-				switch(event.key.keysym.sym) {
-					case SDLK_w:
-						velocity[1] = (float)event.key.state;
-						break;
-					case SDLK_s:
-						velocity[1] = -(float)event.key.state;
-						break;
-					case SDLK_a:
-						velocity[0] = (float)event.key.state;
-						break;
-					case SDLK_d:
-						velocity[0] = -(float)event.key.state;
-						break;
-				}
-		}
+            ImGui_ImplSDL2_ProcessEvent(&event);
+			switch(event.type) {
+				case SDL_QUIT:
+					is_open = false;
+					break;
+				case SDL_FINGERMOTION:
+					camera.rotate(event.tfinger.dx * 10.0f, event.tfinger.dy * 10.0f);
+					break;
+				case SDL_MOUSEMOTION:
+					camera.rotate(event.motion.xrel * 0.2f, event.motion.yrel * 0.2f);
+					break;
+				case SDL_KEYDOWN:
+				case SDL_KEYUP:
+					switch(event.key.keysym.sym) {
+						case SDLK_w:
+							velocity[1] = (float)event.key.state;
+							break;
+						case SDLK_s:
+							velocity[1] = -(float)event.key.state;
+							break;
+						case SDLK_a:
+							velocity[0] = (float)event.key.state;
+							break;
+						case SDLK_d:
+							velocity[0] = -(float)event.key.state;
+							break;
+					}
+			}
 		}
 		
 		render_graph.run(imageIdx);
-		std::cout << "Waiting for " << render_graph.final_semaphore(0, imageIdx) << std::endl;
 		swapchain.present({ render_graph.final_semaphore(0, imageIdx) }, imageIdx);
 
 		camera.move(velocity);
