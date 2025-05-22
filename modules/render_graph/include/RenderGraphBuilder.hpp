@@ -100,6 +100,8 @@ public:
 		m_name_to_task_idx[task->name()] = m_tasks.size() - 1;
 	}
 
+	void remove_render_pass(const std::string& name);
+
 	RenderGraph build(std::shared_ptr<Gpu> gpu,
 					  const ImageChain& output_chain,
 					  uint32_t num_buffers);

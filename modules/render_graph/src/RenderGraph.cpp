@@ -1,6 +1,5 @@
 #include "RenderGraph.hpp"
 #include <algorithm>
-#include <iostream>
 
 namespace lft::rg {
 
@@ -20,6 +19,16 @@ void RenderGraph::create_fences() {
 			throw std::runtime_error("Failed to create fence");
 		}
 	}
+}
+
+RenderGraph& RenderGraph::invalidate(const std::string& name) {
+	for(auto& buffer : m_buffers) {
+		for(uint32_t i = 0; i < buffer.m_command_buffers.size(); i++) {
+			buffer.m_recording_validity[i] = false;
+		}
+	}
+
+	return *this;
 }
 
 RenderGraph::RenderGraph(
@@ -67,13 +76,15 @@ void RenderGraph::record_command_buffer(
 		chain_image_idx);
 
 	for(auto& rp : command_buffer.render_passes) {
-		std::vector<VkClearValue> clear_values(rp.definition->outputs().size() + rp.definition->depth_output().has_value());
+		std::vector<VkClearValue> clear_values(rp.definition->outputs().size() +
+				rp.definition->depth_output().has_value());
 		for(uint32_t i = 0; i < rp.definition->outputs().size(); i++) {
 			clear_values[i] = rp.definition->outputs()[i].clear_value();
 		}
 
 		if(rp.definition->depth_output().has_value()) {
-			clear_values[rp.definition->outputs().size()] = rp.definition->depth_output()->clear_value();
+			clear_values[rp.definition->outputs().size()] = 
+				rp.definition->depth_output()->clear_value();
 		}
 
 		VkRenderPassBeginInfo render_pass_begin_info = {
@@ -155,14 +166,9 @@ void RenderGraph::submit_command_buffer(
 	m_gpu->enqueue_graphics(&submit_info, fence);
 }
 
-bool RenderGraph::is_recording_invalid(const RenderGraphCommandBuffer& command_buffer) {
-	for(auto& dependency : command_buffer.recording_dependencies) {
-		if(m_invalidated_dependencies.find(dependency) != m_invalidated_dependencies.end()) {
-			return true;
-		}
-	}
-
-	return false;
+bool RenderGraph::is_recording_invalid(const RenderGraphBuffer& buffer, 
+		uint32_t cmdbuf_idx) {
+	return !buffer.m_recording_validity[cmdbuf_idx];
 }
 
 void RenderGraph::run(uint32_t chainImageIdx) {
@@ -174,11 +180,12 @@ void RenderGraph::run(uint32_t chainImageIdx) {
 	uint32_t idx = 0;
 	for(auto& cmdbuf : buffer.m_command_buffers) {
 		idx++;
-		if(is_recording_invalid(cmdbuf)) {
+		if(is_recording_invalid(buffer, idx - 1)) {
 			record_command_buffer(cmdbuf, buffer_idx, chainImageIdx);
 		}
 
-		VkFence fence = idx == buffer.m_command_buffers.size() ? m_fences[buffer_idx] : VK_NULL_HANDLE;
+		VkFence fence = idx == buffer.m_command_buffers.size() ? 
+			m_fences[buffer_idx] : VK_NULL_HANDLE;
 		submit_command_buffer(buffer, cmdbuf, fence, chainImageIdx);
 	}
 }

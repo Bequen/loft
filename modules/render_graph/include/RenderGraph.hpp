@@ -32,15 +32,27 @@ struct RenderGraphCommandBuffer {
 
 struct RenderGraphBuffer {
 	std::vector<RenderGraphCommandBuffer> m_command_buffers;
-	std::map<std::string, ImageResource> m_resources;
+	std::vector<bool> m_recording_validity;
+
+	void invalidate_dependency(const std::string& dependency) {
+		for(uint32_t i = 0; i < m_command_buffers.size(); i++) {
+			auto& deps = m_command_buffers[i].recording_dependencies;
+			if(std::find(deps.begin(), deps.end(), dependency) != deps.end()) {
+				m_recording_validity[i] = false;
+			}
+		}
+	}
 
 	RenderGraphBuffer(std::vector<RenderGraphCommandBuffer> command_buffers,
 			std::map<std::string, ImageResource> resources) :
 		m_command_buffers(std::move(command_buffers)),
-		m_resources(std::move(resources)) {
+		m_recording_validity(m_command_buffers.size(), false) {
 	}
 };
 
+/**
+ * Lightweight definition of the render graph to be run.
+ */
 class RenderGraph {
 private:
 	std::shared_ptr<Gpu> m_gpu;
@@ -48,8 +60,6 @@ private:
 	std::vector<RenderGraphBuffer> m_buffers;
 	std::vector<VkFence> m_fences;
 	uint32_t m_buffer_idx;
-
-	std::set<std::string> m_invalidated_dependencies;
 
 	void create_fences();
 
@@ -59,7 +69,7 @@ private:
 
 	void wait_for_previous_frame(uint32_t buffer_idx);
 
-	bool is_recording_invalid(const RenderGraphCommandBuffer& command_buffer);
+	bool is_recording_invalid(const RenderGraphBuffer& buffer, uint32_t cmdbuf_idx);
 
 	void record_command_buffer(
 			const RenderGraphCommandBuffer& command_buffer,

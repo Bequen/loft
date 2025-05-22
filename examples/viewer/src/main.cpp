@@ -426,6 +426,13 @@ int main(int argc, char** argv) {
 				case SDL_KEYDOWN:
 				case SDL_KEYUP:
 					switch(event.key.keysym.sym) {
+						case SDLK_p:
+							if(event.key.state) {
+								builder.add_render_pass(green_filter_rp);
+							} else {
+								builder.remove_render_pass(green_filter_rp->name());
+							}
+							break;
 						case SDLK_w:
 							velocity[1] = (float)event.key.state;
 							break;
