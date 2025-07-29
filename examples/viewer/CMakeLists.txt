@@ -19,7 +19,8 @@ find_package(SDL2 REQUIRED)
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
 # Find all the shaders
 file(GLOB SHADERS   ${SHADER_DIR}/*.vert
-                    ${SHADER_DIR}/*.frag)
+                    ${SHADER_DIR}/*.frag
+					${SHADER_DIR}/*.comp)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 foreach(SHADER IN LISTS SHADERS)
     get_filename_component(FILENAME ${SHADER} NAME)
@@ -32,7 +33,7 @@ endForeach()
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
-add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
+add_custom_target(viewer_shaders ALL DEPENDS ${SPV_SHADERS})
 
 file(GLOB FILES
 		src/main.cpp
@@ -86,7 +87,7 @@ if ( MSVC )
 	# etc for the other available configuration types (MinSizeRel, RelWithDebInfo)
 endif ( MSVC )
 
-add_dependencies(${PROJECT_NAME} shaders imgui)
+add_dependencies(${PROJECT_NAME} viewer_shaders imgui)
 
 target_include_directories(
 		${PROJECT_NAME}

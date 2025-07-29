@@ -12,6 +12,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 23)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
         loft_base
+        loft_common
         loft_window
         volk
 )

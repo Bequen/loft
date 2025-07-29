@@ -9,6 +9,7 @@
 #include <exception>
 #include <assert.h>
 #include <stdexcept>
+#include <vulkan/vulkan_core.h>
 
 #include "resources/Buffer.hpp"
 #include "resources/Image.hpp"
@@ -29,7 +30,7 @@ public:
     /**
      * Creates new shader input set write for Buffer
      */
-    ShaderInputSetBufferWrite(uint32_t binding, const Buffer& buffer,
+    ShaderInputSetBufferWrite(VkDescriptorType type, uint32_t binding, const Buffer& buffer,
                               uint32_t offset, uint32_t size) :
         m_bufferInfo(
                 {
@@ -39,7 +40,7 @@ public:
                 }
             ),
         m_binding(binding),
-        m_type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+        m_type(type) {
 
     }
 
@@ -144,11 +145,11 @@ public:
         return *this;
     }
 
-    ShaderInputSetBuilder& buffer(const uint32_t binding, const Buffer& buffer, const uint32_t offset, const uint32_t size) {
+    ShaderInputSetBuilder& buffer(const VkDescriptorType type, const uint32_t binding, const Buffer& buffer, const uint32_t offset, const uint32_t size) {
         assert(binding < m_writes.size());
         assert(buffer.buf != VK_NULL_HANDLE);
 
-        m_writes[m_numWrites++] = ShaderInputSetWrite(ShaderInputSetBufferWrite(binding, buffer, offset, size));
+        m_writes[m_numWrites++] = ShaderInputSetWrite(ShaderInputSetBufferWrite(type, binding, buffer, offset, size));
 
         return *this;
     }
@@ -161,7 +162,6 @@ public:
      * @return Allocated descriptor set with all the writes.
      */
     VkDescriptorSet build(const std::shared_ptr<const Gpu>& gpu, VkDescriptorSetLayout layout) {
-		std::cout << "Building" << std::endl;
         VkDescriptorSetAllocateInfo descriptorInfo = {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                 .descriptorPool = gpu->descriptor_pool(),

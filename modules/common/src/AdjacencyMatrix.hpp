@@ -1,13 +1,35 @@
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
 
-#include <random>
 #include <vector>
 #include <map>
 
 #include "Assert.h"
+
+struct AdjacencyMatrix;
+
+struct AdjacencyMatrixNodeHandle {
+private:
+    AdjacencyMatrix* m_graph;
+    uint32_t m_idx;
+
+public:
+    AdjacencyMatrixNodeHandle(
+        AdjacencyMatrix* graph,
+        uint32_t idx
+    ) :
+    m_graph(graph),
+    m_idx(idx) {
+
+    }
+
+    AdjacencyMatrixNodeHandle& add_dependency(uint32_t on);
+
+    std::vector<uint32_t> dependencies();
+
+    bool depends_on(uint32_t what);
+};
 
 /**
  * Represents a graph as an adjacency matrix.
@@ -23,17 +45,17 @@ private:
 public:
 	explicit AdjacencyMatrix(std::vector<std::string> node_names) :
 		m_matrix(node_names.size(), std::vector<bool>(node_names.size())),
-		m_node_names(node_names) 
+		m_node_names(node_names)
 	{
 		for(uint32_t x = 0; x < node_names.size(); x++) {
 			m_node_idx.insert({node_names[x], x});
+		}
 	}
-}
 
 	bool has_loop() {
 		return false;
 	}
-	
+
 	const std::vector<std::vector<bool>>& rows () const {
 		return m_matrix;
 	}
@@ -94,6 +116,8 @@ public:
 
 		uint32_t numDependencies = 0;
 		for(uint32_t x = 0; x < m_matrix.size(); x++) {
+		    if(x == to) continue;
+
 			if(get(x, to)) {
 				numDependencies++;
 			}
@@ -119,6 +143,8 @@ public:
 		uint32_t i = 0;
 
 		for(uint32_t x = 0; x < m_matrix.size() && i < numDependencies; x++) {
+		    if(x == to) continue;
+
 			if(get(x, to)) {
 				dependencies[i++] = x;
 			}

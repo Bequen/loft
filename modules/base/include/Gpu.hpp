@@ -3,12 +3,11 @@
 #include "result.hpp"
 #include "props.hpp"
 #include "Instance.hpp"
-#include "GpuScheduler.h"
 #include "resources/GpuAllocator.h"
 
-#include <string>
 #include <vector>
 #include <memory>
+#include <optional>
 
 /**
  * Abstract interface for a GPU
@@ -37,9 +36,9 @@ private:
 
     VkCommandBuffer m_tracyCommandBuffer;
 
-    std::vector<int32_t> get_queues(VkSurfaceKHR surface);
+    std::vector<int32_t> get_queues(std::optional<VkSurfaceKHR> surface);
 
-    Result create_logical_device(VkSurfaceKHR surface);
+    Result create_logical_device(std::optional<VkSurfaceKHR> surface);
 
 	Result choose_gpu(VkPhysicalDevice *pOut);
 
@@ -54,9 +53,9 @@ public:
     [[nodiscard]] std::shared_ptr<const Instance> instance() const {
         return m_instance;
     }
-    
+
 	GET(m_descriptorPool, descriptor_pool);
-    
+
 	GET(m_graphicsCommandPool, graphics_command_pool);
     GET(m_graphicsQueue, graphics_queue);
 
@@ -67,8 +66,8 @@ public:
 
     GET(m_pAllocator.get(), memory);
 
-	explicit 
-	Gpu(std::shared_ptr<const Instance> instance, VkSurfaceKHR surface);
+	explicit
+	Gpu(std::shared_ptr<const Instance> instance, std::optional<VkSurfaceKHR> surface);
 
     ~Gpu();
 

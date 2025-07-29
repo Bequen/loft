@@ -6,7 +6,9 @@
 #define LOFT_ASSERT_H
 
 #include <stdexcept>
+#include <format>
+#include <source_location>
 
-#define ASSERT(expr) if(!(expr)) { throw std::runtime_error("Assertion failed: " #expr); }
+#define ASSERT(expr) if(!(expr)) { throw std::runtime_error(std::format("Assertion failed in {}: {}", std::source_location::current().function_name(), #expr)); }
 
 #endif //LOFT_ASSERT_H

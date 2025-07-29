@@ -47,7 +47,11 @@ FetchContent_MakeAvailable(VMA)
 project(loft)
 
 add_subdirectory(modules)
-add_subdirectory(examples)
+
+option(ENABLE_EXAMPLES "Enable building examples" ON)
+# if(ENABLE_EXAMPLES)
+	add_subdirectory(examples)
+	# endif()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
