@@ -1,9 +1,17 @@
 #include <iostream>
-#include "AdjacencyMatrix.h"
+#include "AdjacencyMatrix.hpp"
 
-AdjacencyMatrix::AdjacencyMatrix(uint32_t width) :
-m_matrix(width, std::vector<bool>(width)) {
+AdjacencyMatrixNodeHandle& AdjacencyMatrixNodeHandle::add_dependency(uint32_t on) {
+    m_graph->set(m_idx, on);
+    return *this;
+}
 
+std::vector<uint32_t> AdjacencyMatrixNodeHandle::dependencies() {
+    return m_graph->get_dependencies(m_idx);
+}
+
+bool AdjacencyMatrixNodeHandle::depends_on(uint32_t what) {
+    return m_graph->get(what, m_idx);
 }
 
 void AdjacencyMatrix::find_dft(uint32_t node, uint32_t target, uint32_t maxDepth) {

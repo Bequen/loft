@@ -29,6 +29,7 @@ static const int NUM_EXTENSIONS = sizeof(EXTENSIONS) / sizeof(*EXTENSIONS);
 
 static const char *DEVICE_EXTENSIONS[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
 };
 
 static const int NUM_DEVICE_EXTENSIONS = sizeof(DEVICE_EXTENSIONS) / sizeof(*DEVICE_EXTENSIONS);
@@ -67,7 +68,7 @@ Instance::Instance(const std::string& applicationName,
 
     // check unsupported extensions
     auto unsupportedExtensions = check_extensions(extensions);
-    EXPECT(!unsupportedExtensions.empty(), "Unsupported extensions");
+    // EXPECT(!unsupportedExtensions.empty(), "Unsupported extensions");
     std::cout << "All extensions supported" << std::endl;
 
     VkApplicationInfo appInfo = {

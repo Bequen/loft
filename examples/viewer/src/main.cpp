@@ -1,133 +1,34 @@
-#include <stdio.h>
-#define VOLK_IMPLEMENTATION
-#include <volk/volk.h>
+
+#include <random>
+#include <stdexcept>
 #include <iostream>
+#include <memory>
+#include <chrono>
 
+#include <volk/volk.h>
 
-#include "cglm/mat4.h"
-#include "mesh/Vertex.hpp"
-#include "SDLWindow.h"
+#include "Instance.hpp"
+#include "RenderPass.hpp"
 #include "Swapchain.hpp"
-#include "resources/DefaultAllocator.h"
-#include "shaders/SpirvShaderBuilder.hpp"
-#include "shaders/ShaderInputSetLayoutBuilder.hpp"
+#include "SDLWindow.h"
+#include "RenderGraphBuilder.hpp"
 
-#include "io/gltfSceneLoader.hpp"
-#include "io/path.hpp"
-#include "shaders/Pipeline.hpp"
-#include "shaders/PipelineBuilder.h"
-#include "runtime/Camera.h"
-
+#include "cglm/vec3.h"
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
 #include "imgui/backends/imgui_impl_sdl2.h"
-#include "RenderPass.hpp"
-#include "RenderGraphBuilder.h"
-#include "FramebufferBuilder.hpp"
-#include "scene/Light.h"
-#include "runtime/FrameLock.h"
+#include "cglm/types.h"
+#include "io/gltfSceneLoader.hpp"
+#include "io/path.hpp"
 #include "mesh/runtime/Scene.h"
-
-struct ShadowPassContext {
-  Pipeline pipeline;
-  Scene *pSceneBuffer;
-
-  std::vector<VkDescriptorSet> inputSets;
-  std::vector<VkDescriptorSet> sceneInputSets;
-  VkDescriptorSetLayout perSceneInputSetLayout;
-
-  VkPipelineLayout layout;
-
-  ShadowPassContext() :
-          pipeline(nullptr, nullptr) {
-
-  }
-};
-
-
-struct ShadingPassContext {
-  Pipeline pipeline;
-  VkDescriptorSet sceneSet;
-
-  VkDescriptorSetLayout perPassInputSetLayout;
-  std::vector<VkDescriptorSet> descriptorSets;
-
-  VkImageView shadowmap;
-
-  ShadingPassContext() :
-          pipeline(nullptr, nullptr) {
-
-  }
-};
-
-
-
-struct GeometryContext {
-    std::vector<VkDescriptorSet> inputSets;
-
-    Pipeline pipeline;
-    Scene *pSceneBuffer;
-
-    VkDescriptorSet sceneInputSet;
-    VkPipelineLayout layout;
-	
-
-    GeometryContext() :
-        pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE),
-        pSceneBuffer(nullptr) {
-
-    }
-};
-
-struct ImGuiContext {
-    VkRenderPass rp;
-};
-
-struct DownsampleContext {
-    std::vector<VkDescriptorSet> inputSets;
-    std::string attachmentName;
-
-    Pipeline pipeline;
-
-    VkExtent2D extent;
-
-    std::string source;
-
-    DownsampleContext() :
-    pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE) {
-
-    }
-};
-
-struct UpsampleContext {
-    std::vector<VkDescriptorSet> inputSets;
-    std::string attachmentName;
-
-    Pipeline pipeline;
-
-    VkExtent2D extent;
-
-    std::string source;
-    std::string blur;
-
-    UpsampleContext() :
-            pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE) {
-
-    }
-};
-
-struct CompositionContext {
-    std::vector<VkDescriptorSet> inputSets;
-    Pipeline pipeline;
-
-    float *pExposure;
-    float *pGamma;
-
-    CompositionContext() :
-    pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE) {
-
-    }
-};
+#include "resources/GpuAllocation.h"
+#include "resources/GpuAllocator.h"
+#include "runtime/Camera.h"
+#include "scene/Light.h"
+#include "shaders/Pipeline.hpp"
+#include "shaders/PipelineBuilder.h"
+#include "shaders/ShaderInputSetLayoutBuilder.hpp"
+#include "shaders/SpirvShaderBuilder.hpp"
 
 void lft_dbg_callback(lft::dbg::LogMessageSeverity severity,
                       lft::dbg::LogMessageType type,
@@ -151,96 +52,63 @@ void lft_dbg_callback(lft::dbg::LogMessageSeverity severity,
     printf("\n");
 }
 
-class TuiRow {
-    std::vector<std::string> m_cells;
+struct GBufferContext {
+	VkPipelineLayout layout;
+	Pipeline pipeline;
 
-public:
-    TuiRow(const std::vector<std::string>& cells) :
-        m_cells(cells) {
+	VkDescriptorSetLayout input_layout;
+	VkDescriptorSetLayout scene_input_layout;
+	VkDescriptorSet* global_input_set;
 
-    }
+	Scene *scene;
+
+	GBufferContext() :
+		layout(VK_NULL_HANDLE),
+		pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE) {
+	}
 };
 
-#include <algorithm>
+struct ShadingContext {
+	VkDescriptorSetLayout shading_set_layout;
+	VkPipelineLayout layout;
+	Pipeline pipeline;
 
-class TuiTable {
-    std::vector<uint32_t> m_columnWidth;
-    std::vector<std::string> m_header;
-    std::vector<TuiRow> m_rows;
+	VkSampler sampler;
 
-    uint32_t m_currentColumnIdx;
-    std::vector<std::string> m_currentRow;
+	VkDescriptorSet* global_input_set;
+	std::vector<VkDescriptorSet> input_sets;
 
-    bool m_isFirstRow;
-
-public:
-    TuiTable(const std::vector<std::string>& columns) :
-        m_currentColumnIdx(0),
-        m_header(columns),
-        m_isFirstRow(true) {
-
-    }
-
-    void cell(const std::string& content) {
-        if(m_currentColumnIdx == m_header.size()) {
-            throw std::runtime_error("Too many cells in row");
-        }
-
-        m_columnWidth[m_currentColumnIdx] = std::max((uint32_t)content.size(), m_columnWidth[m_currentColumnIdx]);
-        m_currentRow[m_currentColumnIdx++] = content;
-    }
-
-    void next_row() {
-        if(!m_isFirstRow) {
-            m_rows.push_back(TuiRow(m_currentRow));
-        }
-
-        m_currentRow = std::vector<std::string>(m_header.size());
-        m_isFirstRow = false;
-    }
-
-    ~TuiTable() {
-
-    }
+	ShadingContext() :
+		layout(VK_NULL_HANDLE),
+		pipeline(VK_NULL_HANDLE, VK_NULL_HANDLE) {
+	}
 };
 
-void print_api_version(uint32_t apiVersion) {
-    std::cout << VK_API_VERSION_MAJOR(apiVersion) << "." << VK_API_VERSION_MINOR(apiVersion) << "." << VK_API_VERSION_PATCH(apiVersion) << "." << VK_API_VERSION_VARIANT(apiVersion);
-}
+struct ParticleContext {
+	VkDescriptorSetLayout compute_input_set_layout;
+	VkPipelineLayout compute_pipeline_layout;
+	VkPipeline compute_pipeline;
 
-void print_device_type(VkPhysicalDeviceType type) {
-    switch(type) {
-        case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-            std::cout << "Other";
-            break;
-        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-            std::cout << "Integrated";
-            break;
-        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-            std::cout << "Discrete";
-            break;
-        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-            std::cout << "Virtual";
-            break;
-        case VK_PHYSICAL_DEVICE_TYPE_CPU:
-            std::cout << "CPU";
-            break;
-        case VK_PHYSICAL_DEVICE_TYPE_MAX_ENUM:
-            std::cout << "Other";
-            break;
-    }
-}
+	VkDescriptorSetLayout draw_input_set_layout;
+	VkPipelineLayout draw_pipeline_layout;
+	VkPipeline draw_pipeline;
 
-int runtime(int argc, char** argv) {
-    /**
-     * The program needs some glTF file to render
-     */
-    /* if(argc <= 1) {
-        fprintf(stderr, "Specify path to glTF file\n");
-        return 0;
-    } */
+	VkDescriptorSet* global_input_set;
+	std::vector<VkDescriptorSet> compute_input_sets;
+	std::vector<VkDescriptorSet> draw_input_sets;
 
-    VkExtent2D extent = {
+	ParticleContext() :
+        draw_pipeline(VK_NULL_HANDLE) {
+	}
+};
+
+struct ImGuiContext {
+    VkRenderPass rp = VK_NULL_HANDLE;
+    bool is_initialized = false;
+};
+
+int main(int argc, char** argv) {
+	VkExtent2D extent = {
             .width = 1024,
             .height = 1024
     };
@@ -249,10 +117,6 @@ int runtime(int argc, char** argv) {
      * Sets the executable path to find shaders and assets
      */
     io::path::setup_exe_path(argv[0]);
-
-    if(volkInitialize()) {
-        throw std::runtime_error("Failed to initialize volk");
-    }
 
     /**
      * Opens up a window
@@ -273,7 +137,11 @@ int runtime(int argc, char** argv) {
     /**
      * Instance initializes a connection with Vulkan driver
      */
-    auto instance = std::make_shared<const Instance>("loft", "loft", extensions, std::vector<const char*>(), lft_dbg_callback);
+    auto instance = std::make_shared<const Instance>(
+			"loft", "loft",
+			extensions,
+			std::vector<const char*>(),
+			lft_dbg_callback);
 
     volkLoadInstance(instance->instance());
 
@@ -283,10 +151,7 @@ int runtime(int argc, char** argv) {
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(gpu, &props);
         std::cout << "GPU: " << props.deviceName << std::endl;
-
-        std::cout << "\tAPI Version:\t"; print_api_version(props.apiVersion); std::cout << std::endl;
-        std::cout << "\tType:       \t"; print_device_type(props.deviceType); std::cout << std::endl;
-    }
+	}
 
     /*
      * Surface is a way to tell window:
@@ -297,7 +162,7 @@ int runtime(int argc, char** argv) {
     /**
      * Gpu manages stuff around rendering. Needed for most graphics operations.
      */
-    auto gpu = std::make_shared<const Gpu>(instance, surface);
+    auto gpu = std::make_shared<Gpu>(instance, surface);
     Camera camera(gpu, extent.width / extent.height);
 
     /**
@@ -306,54 +171,28 @@ int runtime(int argc, char** argv) {
     Swapchain swapchain = Swapchain(gpu, extent, surface);
 
 
-    /**
-     * Creates new frame graph.
-     * Frame graph manages renderpass dependencies and synchronization.
-     */
-    RenderGraphBuilder renderGraphBuilder("shading", "swapchain", 1);
-    std::cout << "Loading glTF file, please wait" << std::endl;
+    auto global_input_set_layout = ShaderInputSetLayoutBuilder(1)
+            .uniform_buffer(0)
+            .build(gpu);
+
+    auto global_input_set = ShaderInputSetBuilder(1)
+            .buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, camera.buffer(), 0, sizeof(mat4) * 2 + sizeof(vec4))
+            .build(gpu, global_input_set_layout);
+
+	std::vector<VkDescriptorSet> input_sets(1);
+
     auto sceneData = GltfSceneLoader().from_file(argv[1]);
+	Scene scene(gpu, &sceneData);
 
-
-    Scene scene(gpu, &sceneData);
-    for(uint32_t i = 1; i < argc; i++) {
-        // scene.add_scene_data(&sceneData);
-    }
-    std::cout << "glTF file loaded" << std::endl;
-
-
-    ImageCreateInfo imageInfo = {
-            .extent = { 1024*4, 1024*4 },
-            .format = VK_FORMAT_D32_SFLOAT_S8_UINT,
-            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-            .arrayLayers = 1,
-            .mipLevels = 1,
-    };
-
-    MemoryAllocationInfo memoryInfo = {
-            .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,
-    };
-
-    Image shadowmap;
-    gpu->memory()->create_image(&imageInfo, &memoryInfo, &shadowmap);
-    shadowmap.set_debug_name(gpu, "Shadowmap");
-
-    ImageView shadowmapView = shadowmap.create_view(gpu, imageInfo.format, {
-            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-    });
-    shadowmapView.set_debug_name(gpu, "Shadowmap_view");
-
-    /* Create lights for the scene */
     vec3 position = {20.0f, 250.0f, 50.0f};
     vec3 direction = {0.0f, 0.0f, 0.0f};
     vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
     std::vector<Light> lights = {
             Light::directional(1.0f, 1000.0f, position, direction, color)
+    };
+
+    MemoryAllocationInfo memoryInfo = {
+            .usage = MEMORY_USAGE_AUTO_PREFER_DEVICE,
     };
 
     BufferCreateInfo lightInfoBuffer = {
@@ -362,603 +201,459 @@ int runtime(int argc, char** argv) {
             .isExclusive = true,
     };
 
-    Buffer lightBuffer;
-    gpu->memory()->create_buffer(&lightInfoBuffer, &memoryInfo, &lightBuffer);
+    Buffer light_buffer;
+    gpu->memory()->create_buffer(&lightInfoBuffer, &memoryInfo, &light_buffer);
 
 
     void *pPtr;
-    gpu->memory()->map(lightBuffer.allocation, &pPtr);
+    gpu->memory()->map(light_buffer.allocation, &pPtr);
     memcpy(pPtr, lights.data(), lightInfoBuffer.size);
-    gpu->memory()->unmap(lightBuffer.allocation);
+    gpu->memory()->unmap(light_buffer.allocation);
 
-    /*
-     * Create pipelines
-     * Load and compile shaders
-     */
     SpirvShaderBuilder shaderBuilder(gpu);
     auto vert = shaderBuilder.from_file(io::path::shader("Opaque.vert.spirv"));
     auto frag = shaderBuilder.from_file(io::path::shader("Opaque.frag.spirv"));
-    auto blendFrag = shaderBuilder.from_file(io::path::shader("Transparent.frag.spirv"));
 
     auto offscr = shaderBuilder.from_file(io::path::shader("Offscreen.vert.spirv"));
     auto shade = shaderBuilder.from_file(io::path::shader("Shading.frag.spirv"));
 
-    auto shadowVert = shaderBuilder.from_file(io::path::shader("Shadow.vert.spirv"));
-    auto shadowFrag = shaderBuilder.from_file(io::path::shader("Shadow.frag.spirv"));
+	auto particle_shader = shaderBuilder.from_file(io::path::shader("Particles.comp.spirv"));
+	auto particle_vert = shaderBuilder.from_file(io::path::shader("ParticleDraw.vert.spirv"));
+	auto particle_frag = shaderBuilder.from_file(io::path::shader("ParticleDraw.frag.spirv"));
 
+	VkSamplerCreateInfo samplerInfo = {
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+            .magFilter = VK_FILTER_LINEAR,
+            .minFilter = VK_FILTER_LINEAR,
+            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+            .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE
+    };
 
-    auto globalInputSetLayout = ShaderInputSetLayoutBuilder(1)
-            .uniform_buffer(0)
-            .build(gpu);
-
-    auto globalInputSet = ShaderInputSetBuilder(1)
-            .buffer(0, camera.buffer(), 0, sizeof(mat4) * 2 + sizeof(vec4))
-            .build(gpu, globalInputSetLayout);
-
-    auto geometryContext = new GeometryContext();
-    geometryContext->pSceneBuffer = &scene;
-    /*
-     * Geometry Pass
-     * Draws information about screen space geometry into GBuffer for post processing.
-     */
-    auto geometry = LambdaRenderPass<GeometryContext>("geometry", geometryContext,
-                                                      [&](GeometryContext* pContext, RenderPassBuildInfo info) {
-                                                          /* create layout */
-                                                          auto perPassInputLayout = ShaderInputSetLayoutBuilder(0)
-                                                                  .build(info.gpu());
-
-                                                          pContext->inputSets.resize(info.num_images_in_flights());
-                                                          /* create input set */
-                                                          for(uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                                                              pContext->inputSets[i] = ShaderInputSetBuilder(0)
-                                                                      .build(info.gpu(), perPassInputLayout);
-                                                          }
-
-                                                          auto sceneInputSetLayout = Scene::input_layout()
-                                                                  .build(info.gpu());
-
-                                                          pContext->layout = PipelineLayoutBuilder()
-                                                                  .push_constant_range(0, sizeof(uint32_t) * 2, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                  .input_set(0, globalInputSetLayout)
-                                                                  .input_set(1, perPassInputLayout)
-                                                                  .input_set(2, sceneInputSetLayout)
-                                                                  .build(info.gpu());
-
-                                                          pContext->pipeline = PipelineBuilder(info.gpu(), info.output().viewport(),
-                                                                                               pContext->layout, info.output().renderpass(),
-                                                                                               4, vert, frag)
-                                                                  .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
-                                                                  .build();
-                                                      },
-                                                      [&](GeometryContext* pContext, RenderPassRecordInfo info) {
-                                                          vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
-                                                          vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                                                                  0, 1, &globalInputSet, 0, nullptr);
-
-                                                          pContext->pSceneBuffer->draw(info.command_buffer(), pContext->pipeline.pipeline_layout());
-                                                      });
-    geometry.add_color_output("col_gbuf", VK_FORMAT_R8G8B8A8_SRGB, { 0.0f, 0.0f, 0.0f, 1.0f })
-            .add_color_output("norm_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
-            .add_color_output("pos_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, { 0.0f, 0.0f, 0.0f, 1.0f })
-            .add_color_output("pbr_gbuf", VK_FORMAT_R8G8B8A8_UNORM, { 0.0f, 0.0f, 0.0f, 1.0f })
-            .set_depth_output("depth_gbuf", VK_FORMAT_D32_SFLOAT_S8_UINT, {1.0f, 0})
-            .set_recording_dependency("mesh_buffer");
-
-
-
-    /**
-     * Shading.
-     * Takes gbuffer and lights as inputs and calculates how it interacts with the scene.
-     * Deferred approach.
-     */
-    auto shadingContext = ShadingPassContext();
-    shadingContext.shadowmap = shadowmapView.view;
-    auto shading = LambdaRenderPass<ShadingPassContext>("shading", &shadingContext,
-                                                        [&](ShadingPassContext* pContext, RenderPassBuildInfo info) {
-                                                            pContext->perPassInputSetLayout = ShaderInputSetLayoutBuilder(6)
-                                                                    .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                    .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                    .binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                    .binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                    .binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                    .binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                    .build(info.gpu());
-
-                                                            pContext->descriptorSets.resize(info.num_images_in_flights());
-                                                            /* create input set */
-                                                            for(uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                                                                pContext->descriptorSets[i] = ShaderInputSetBuilder(6)
-                                                                        .buffer(0, lightBuffer, 0, sizeof(Light))
-                                                                        .image(1, info.get_image("col_gbuf", i)->view, info.sampler())
-                                                                        .image(2, info.get_image("norm_gbuf", i)->view, info.sampler())
-                                                                        .image(3, info.get_image("pos_gbuf", i)->view, info.sampler())
-                                                                        .image(4, info.get_image("pbr_gbuf", i)->view, info.sampler())
-                                                                        .image(5, pContext->shadowmap, info.sampler())
-                                                                        .build(info.gpu(), pContext->perPassInputSetLayout);
-                                                            }
-
-                                                            auto layout = PipelineLayoutBuilder()
-                                                                    .input_set(0, globalInputSetLayout)
-                                                                    .input_set(1, pContext->perPassInputSetLayout)
-                                                                    .build(info.gpu());
-
-                                                            pContext->pipeline = PipelineBuilder(info.gpu(), info.output().viewport(),
-                                                                                                 layout, info.output().renderpass(),
-                                                                                                 2, offscr, shade)
-                                                                    .set_vertex_input_info({}, {})
-                                                                    .build();
-                                                        },
-                                                        [&](ShadingPassContext* pContext, RenderPassRecordInfo recordInfo) {
-                                                            vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
-                                                            vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                                                                    0, 1, &globalInputSet, 0, nullptr);
-
-                                                            vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                                                                    1, 1, &pContext->descriptorSets[recordInfo.image_idx()], 0, nullptr);
-
-                                                            vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
-                                                        });
-    shading.add_color_output("hdr", VK_FORMAT_R32G32B32A32_SFLOAT)
-            .add_color_output("bloom_threshold", VK_FORMAT_R32G32B32A32_SFLOAT)
-            .add_input("col_gbuf")
-            .add_input("norm_gbuf")
-            .add_input("pos_gbuf")
-            .add_input("pbr_gbuf")
-            .add_input("depth_gbuf");
-
-
-
-
-
-    uint32_t numIters = 6;
-    assert(numIters > 0);
-
-    std::vector<LambdaRenderPass<DownsampleContext>*> downsamples(numIters);
-    auto downsamplePerPassInputSetLayout = ShaderInputSetLayoutBuilder(4)
-            .binding(0,
-                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                     1, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .build(gpu);
-
-    std::vector<LambdaRenderPass<UpsampleContext>*> upsamples(numIters);
-    auto upsamplePerPassInputSetLayout = ShaderInputSetLayoutBuilder(4)
-            .binding(0,
-                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                     1, VK_SHADER_STAGE_FRAGMENT_BIT) /* blur */
-            .binding(1,
-                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                     1, VK_SHADER_STAGE_FRAGMENT_BIT) /* upsampling */
-            .build(gpu);
-
-    auto bloomShader = shaderBuilder.from_file(io::path::shader("Bloom.frag.spirv"));
-    auto upscaleShader = shaderBuilder.from_file(io::path::shader("Upsample.frag.spirv"));
-    std::string previous = "bloom_threshold";
-
-    for(uint32_t i = 0; i < numIters; i++) {
-        /* create downscale pass */
-        auto downsampleContext = new DownsampleContext();
-        downsampleContext->extent.width = extent.width >> i;
-		downsampleContext->extent.height = extent.height >> i;
-
-        downsampleContext->attachmentName = std::string("downsample_").append(std::to_string(i));
-        downsampleContext->source = std::string(previous);
-
-        downsamples[i] = new LambdaRenderPass<DownsampleContext>(std::string("downscale_").append(std::to_string(i)), downsampleContext,
-                                                                 [&](DownsampleContext *pContext, RenderPassBuildInfo info) {
-                                                                     pContext->inputSets.resize(info.num_images_in_flights());
-
-                                                                     /* create input set */
-                                                                     for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                                                                         pContext->inputSets[i] = ShaderInputSetBuilder(1)
-                                                                                 .image(0, info.get_image(pContext->source, i)->view, info.sampler())
-                                                                                 .build(info.gpu(), downsamplePerPassInputSetLayout);
-                                                                     }
-
-                                                                     auto layout = PipelineLayoutBuilder()
-                                                                             .input_set(0, globalInputSetLayout)
-                                                                             .input_set(1, downsamplePerPassInputSetLayout)
-                                                                             .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                             .build(info.gpu());
-
-                                                                     pContext->pipeline = PipelineBuilder(info.gpu(),
-                                                                                                          info.output().viewport(),
-                                                                                                          layout,
-                                                                                                          info.output().renderpass(),
-                                                                                                          1, offscr, bloomShader)
-                                                                             .set_vertex_input_info({}, {})
-                                                                             .build();
-                                                                 },
-                                                                 [&](DownsampleContext *pContext, RenderPassRecordInfo recordInfo) {
-                                                                     vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                       pContext->pipeline.pipeline());
-                                                                     vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                             pContext->pipeline.pipeline_layout(),
-                                                                                             0, 1, &globalInputSet, 0, nullptr);
-
-                                                                     vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                             pContext->pipeline.pipeline_layout(),
-                                                                                             1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
-
-                                                                     vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                        0, sizeof(VkExtent2D), &pContext->extent);
-
-                                                                     vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
-                                                                 });
-
-        downsamples[i]->add_color_output(downsampleContext->attachmentName, VK_FORMAT_R32G32B32A32_SFLOAT)
-                .add_input(previous)
-                .set_extent(downsampleContext->extent);
-
-        previous = downsampleContext->attachmentName;
-
-        renderGraphBuilder.add_graphics_pass(downsamples[i]);
-    }
-
-    for(uint32_t i = 0; i < numIters - 1; i++) {
-        auto upsampleContext = new UpsampleContext();
-        upsampleContext->extent.width = extent.width >> (numIters - i - 1);
-        upsampleContext->extent.height = extent.height >> (numIters - i - 1);
-        upsampleContext->attachmentName = std::string("upsample_").append(std::to_string(i));
-        upsampleContext->source = std::string("downsample_").append(std::to_string(numIters - i - 2));
-        upsampleContext->blur = std::string(previous);
-
-        upsamples[i] = new LambdaRenderPass<UpsampleContext>(std::string("upscale_").append(std::to_string(i)), upsampleContext,
-                                                             [&](UpsampleContext *pContext, RenderPassBuildInfo info) {
-                                                                 pContext->inputSets.resize(info.num_images_in_flights());
-
-                                                                 /* create input set */
-                                                                 for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                                                                     pContext->inputSets[i] = ShaderInputSetBuilder(2)
-                                                                             .image(0, info.get_image(pContext->source, i)->view, info.sampler())
-                                                                             .image(1, info.get_image(pContext->blur, i)->view, info.sampler())
-                                                                             .build(info.gpu(), upsamplePerPassInputSetLayout);
-                                                                 }
-
-                                                                 auto layout = PipelineLayoutBuilder()
-                                                                         .input_set(0, globalInputSetLayout)
-                                                                         .input_set(1, upsamplePerPassInputSetLayout)
-                                                                         .push_constant_range(0, sizeof(vec2), VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                         .build(info.gpu());
-
-                                                                 pContext->pipeline = PipelineBuilder(info.gpu(),
-                                                                                                      info.output().viewport(),
-                                                                                                      layout,
-                                                                                                      info.output().renderpass(),
-                                                                                                      1, offscr, upscaleShader)
-                                                                         .set_vertex_input_info({}, {})
-                                                                         .build();
-                                                             },
-                                                             [&](UpsampleContext *pContext, RenderPassRecordInfo recordInfo) {
-                                                                 vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                   pContext->pipeline.pipeline());
-                                                                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                         pContext->pipeline.pipeline_layout(),
-                                                                                         0, 1, &globalInputSet, 0, nullptr);
-
-                                                                 vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                         pContext->pipeline.pipeline_layout(),
-                                                                                         1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
-
-                                                                 vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                    0, sizeof(VkExtent2D), &pContext->extent);
-
-                                                                 vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
-                                                             });
-
-        upsamples[i]->add_color_output(upsampleContext->attachmentName, VK_FORMAT_R32G32B32A32_SFLOAT)
-                .add_input(upsampleContext->blur)
-                .add_input(upsampleContext->source)
-                .set_extent(upsampleContext->extent);
-
-        previous = upsampleContext->attachmentName;
-
-        renderGraphBuilder.add_graphics_pass(upsamples[i]);
+    VkSampler sampler = VK_NULL_HANDLE;
+    if(vkCreateSampler(gpu->dev(), &samplerInfo, nullptr, &sampler)) {
+        throw std::runtime_error("failed to create sampler");
     }
 
 
-    /*
-     * Composition
-     */
-    auto compositeShader = shaderBuilder.from_file(io::path::shader("Composite.frag.spirv"));
+	lft::rg::Builder builder(gpu, ImageChain::from_swapchain(swapchain), "swapchain");
 
-    float gamma = 2.2;
-    float exposure = 0.5;
+	// keeps all the drawn images -> to be available for debuggers like RenderDoc
+	builder.store_all_images();
 
-    auto compositionContext = CompositionContext();
-    compositionContext.pExposure = &exposure;
-    compositionContext.pGamma = &gamma;
+	GBufferContext* context = new GBufferContext();
+	context->global_input_set = &global_input_set;
+	context->scene = &scene;
+	context->input_layout = ShaderInputSetLayoutBuilder(0).build(gpu);
+	context->scene_input_layout = scene.input_layout()
+		.build(gpu);
 
-    auto compositionPass = LambdaRenderPass<CompositionContext>("composition", &compositionContext,
-                                                                [&](CompositionContext* pContext, RenderPassBuildInfo info) {
-                                                                    pContext->inputSets.resize(info.num_images_in_flights());
+	auto task1 = lft::rg::render_task<GBufferContext>(
+			"task1", context,
+			[&](const lft::rg::TaskBuildInfo& info,
+				GBufferContext* context) {
 
-                                                                    /* create input set */
-                                                                    for (uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                                                                        pContext->inputSets[i] = ShaderInputSetBuilder(2)
-                                                                                .image(0, info.get_image("hdr", i)->view, info.sampler())
-                                                                                .image(1, info.get_image(previous, i)->view, info.sampler())
-                                                                                .build(info.gpu(), upsamplePerPassInputSetLayout);
-                                                                    }
+		input_sets.resize(info.num_buffers());
+		std::cout << "Updating buffer idx:" << info.buffer_idx();
+		input_sets[info.buffer_idx()] = ShaderInputSetBuilder(0)
+			.build(info.gpu(), context->input_layout);
 
-                                                                    auto layout = PipelineLayoutBuilder()
-                                                                            .input_set(0, globalInputSetLayout)
-                                                                            .input_set(1, upsamplePerPassInputSetLayout)
-                                                                            .push_constant_range(0, sizeof(float) * 2, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                                            .build(info.gpu());
+		if(context->pipeline.pipeline() == VK_NULL_HANDLE) {
+    		context->layout = PipelineLayoutBuilder()
+                .push_constant_range(0, sizeof(uint32_t) * 2,
+    					VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+    			.input_set(0, global_input_set_layout)
+    			.input_set(1, context->input_layout)
+    			.input_set(2, context->scene_input_layout)
+    			.build(info.gpu());
 
-                                                                    pContext->pipeline = PipelineBuilder(info.gpu(),
-                                                                                                         info.output().viewport(),
-                                                                                                         layout,
-                                                                                                         info.output().renderpass(),
-                                                                                                         1, offscr, compositeShader)
-                                                                            .set_vertex_input_info({}, {})
-                                                                            .build();
-                                                                },
-                                                                [&](CompositionContext* pContext, RenderPassRecordInfo recordInfo) {
-                                                                    vkCmdBindPipeline(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                      pContext->pipeline.pipeline());
-                                                                    vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                            pContext->pipeline.pipeline_layout(),
-                                                                                            0, 1, &globalInputSet, 0, nullptr);
+    		context->pipeline = PipelineBuilder(info.gpu(), info.viewport(),
+    				context->layout, info.renderpass(),
+    				4, vert, frag)
+                .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
+    			.build();
+		}
 
-                                                                    vkCmdBindDescriptorSets(recordInfo.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                                            pContext->pipeline.pipeline_layout(),
-                                                                                            1, 1, &pContext->inputSets[recordInfo.image_idx()], 0, nullptr);
+	}, [](const lft::rg::TaskRecordInfo& info, GBufferContext* context) {
+		// Record the render pass here
+		vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, context->pipeline.pipeline());
+		vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, context->layout,
+				0, 1, context->global_input_set, 0, nullptr);
 
-                                                                    float constants[] = {*pContext->pExposure, *pContext->pGamma};
-                                                                    vkCmdPushConstants(recordInfo.command_buffer(), pContext->pipeline.pipeline_layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 2, constants);
+		context->scene->draw(info.command_buffer(), context->layout);
+	});
 
-                                                                    vkCmdDraw(recordInfo.command_buffer(), 3, 1, 0, 0);
-                                                                }
-    );
-    compositionPass
-            .add_input("hdr")
-            .add_input(previous)
-            .add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 0.0f});
+    task1.add_color_output("col_gbuf", VK_FORMAT_R8G8B8A8_SRGB, swapchain.extent(), { 0.0f, 0.0f, 0.0f, 1.0f });
+    task1.add_color_output("norm_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, swapchain.extent(), { 0.0f, 0.0f, 0.0f, 1.0f });
+    task1.add_color_output("pos_gbuf", VK_FORMAT_R16G16B16A16_SFLOAT, swapchain.extent(), { 0.0f, 0.0f, 0.0f, 1.0f });
+    task1.add_color_output("pbr_gbuf", VK_FORMAT_R8G8B8A8_UNORM, swapchain.extent(), { 0.0f, 0.0f, 0.0f, 1.0f });
+    task1.set_depth_output("depth_gbuf", VK_FORMAT_D32_SFLOAT_S8_UINT, swapchain.extent(), {1.0f, 0});
+	builder.add_task(task1.build());
 
-    renderGraphBuilder.add_graphics_pass(&compositionPass);
 
-    auto imguiPassContext = ImGuiContext();
+	auto shading_context = new ShadingContext();
+	shading_context->global_input_set = &global_input_set;
+	shading_context->sampler = sampler;
+	shading_context->shading_set_layout = ShaderInputSetLayoutBuilder(5)
+		.binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.build(gpu);
+
+	auto shading_task = lft::rg::render_task<ShadingContext>(
+			"shading", shading_context,
+			[&](const lft::rg::TaskBuildInfo& info,
+				ShadingContext* context) {
+				context->input_sets.resize(info.num_buffers());
+				context->input_sets[info.buffer_idx()] = ShaderInputSetBuilder(5)
+					.buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, light_buffer, 0, sizeof(Light))
+					.image(1, info.get_resource("col_gbuf").image_view, context->sampler)
+					.image(2, info.get_resource("norm_gbuf").image_view, context->sampler)
+					.image(3, info.get_resource("pos_gbuf").image_view, context->sampler)
+					.image(4, info.get_resource("pbr_gbuf").image_view, context->sampler)
+					.build(info.gpu(), context->shading_set_layout);
+
+				if(context->pipeline.pipeline() == VK_NULL_HANDLE) {
+    				auto layout = PipelineLayoutBuilder()
+    					.input_set(0, global_input_set_layout)
+    					.input_set(1, context->shading_set_layout)
+    					.build(info.gpu());
+
+    				context->pipeline = PipelineBuilder(info.gpu(), info.viewport(),
+    						layout, info.renderpass(),
+    						1, offscr, shade)
+    					.set_vertex_input_info({}, {})
+    					.build();
+				}
+			},
+			[&](const lft::rg::TaskRecordInfo& info, ShadingContext* context) {
+				vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, context->pipeline.pipeline());
+				vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, context->pipeline.pipeline_layout(),
+						0, 1, &global_input_set, 0, nullptr);
+
+				vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, context->pipeline.pipeline_layout(),
+						1, 1, &context->input_sets[info.buffer_idx()], 0, nullptr);
+
+				vkCmdDraw(info.command_buffer(), 3, 1, 0, 0);
+			});
+
+	shading_task.add_color_output("swapchain", swapchain.format().format, swapchain.extent(),
+			{ 0.0f, 0.0f, 0.0f, 1.0f });
+	shading_task.add_dependency("col_gbuf");
+	shading_task.add_dependency("norm_gbuf");
+	shading_task.add_dependency("pos_gbuf");
+	shading_task.add_dependency("pbr_gbuf");
+
+	builder.add_task(shading_task.build());
+
+	auto particle_context = new ParticleContext();
+	struct Particle {
+	    vec4 position;
+		vec4 velocity;
+		vec4 color;
+	};
+
+	BufferCreateInfo particle_buffer_info = {
+	    .size = 1000 * sizeof(Particle),
+		.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		.isExclusive = true,
+	};
+
+	MemoryAllocationInfo memory_info2 = {
+		.usage = MEMORY_USAGE_AUTO_PREFER_HOST
+	};
+
+	Buffer particle_buffer;
+	gpu->memory()->create_buffer(&particle_buffer_info, &memory_info2, &particle_buffer);
+
+	std::default_random_engine rndEngine((unsigned)time(nullptr));
+    std::uniform_real_distribution<float> rndDist(0.0f, 1.0f);
+
+    // Initial particle positions on a circle
+    std::vector<Particle> particles(1000);
+    for (auto& particle : particles) {
+        float r = 0.25f * sqrt(rndDist(rndEngine));
+        float theta = rndDist(rndEngine) * 2 * 3.14159265358979323846;
+        float x = r * cos(theta) * 100 / 100;
+        float y = r * sin(theta);
+        particle.position[0] = x;
+        particle.position[1] = y;
+        particle.position[2] = 0.0f;
+        particle.position[3] = 1.0f;
+
+        glm_normalize_to(particle.position, particle.velocity);
+        glm_vec3_scale(particle.velocity, 0.00025f, particle.velocity);
+        particle.color[0] = rndDist(rndEngine);
+        particle.color[1] = rndDist(rndEngine);
+        particle.color[2] = rndDist(rndEngine);
+        particle.color[3] = 1.0f;
+        // particle.velocity = glm::normalize(glm::vec2(x,y)) * 0.00025f;
+        // particle.color = glm::vec4(rndDist(rndEngine), rndDist(rndEngine), rndDist(rndEngine), 1.0f);
+    }
+
+	auto particle_task = lft::rg::compute_task<ParticleContext>(
+			"particle", particle_context,
+			[&](const lft::rg::TaskBuildInfo& info, ParticleContext* context) {
+				context->compute_input_set_layout = ShaderInputSetLayoutBuilder(1)
+					.binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT)
+					.build(info.gpu());
+
+				for(uint32_t i = 0; i < info.num_buffers(); i++) {
+					context->compute_input_sets.push_back(ShaderInputSetBuilder(1)
+						.buffer(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, particle_buffer, 0, 1000 * sizeof(Particle))
+						.build(info.gpu(), context->compute_input_set_layout));
+				}
+
+				VkPipelineLayoutCreateInfo pipeline_layout_info = {
+				    .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+					.setLayoutCount = 1,
+					.pSetLayouts = &context->compute_input_set_layout
+				};
+
+				if (vkCreatePipelineLayout(info.gpu()->dev(), &pipeline_layout_info, nullptr, &context->compute_pipeline_layout) != VK_SUCCESS) {
+                    throw std::runtime_error("failed to create compute pipeline layout!");
+                }
+
+                VkPipelineShaderStageCreateInfo computeShaderStageInfo{};
+                computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+                computeShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+                computeShaderStageInfo.module = particle_shader.module();
+                computeShaderStageInfo.pName = "main";
+
+				VkComputePipelineCreateInfo pipeline_info = {
+				    .sType =VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+					.stage = computeShaderStageInfo,
+					.layout = context->compute_pipeline_layout,
+				};
+
+				if (vkCreateComputePipelines(info.gpu()->dev(),
+			        VK_NULL_HANDLE, 1, &pipeline_info, nullptr,
+					&context->compute_pipeline) != VK_SUCCESS) {
+                    throw std::runtime_error("failed to create compute pipeline!");
+                }
+
+                std::cout << "Created compute pipeline " << context->compute_pipeline << std::endl;
+
+			}, [&](const lft::rg::TaskRecordInfo& info, ParticleContext* context) {
+                vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_COMPUTE, context->compute_pipeline);
+                vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_COMPUTE, context->compute_pipeline_layout, 0, 1, &context->compute_input_sets[0], 0, 0);
+                vkCmdDispatch(info.command_buffer(), 1000 / 256, 1, 1);
+			}).add_buffer_output("particle_buffer", 0)
+           	.build();
+
+	std::vector<Buffer> buffers;
+	buffers.push_back(particle_buffer);
+	builder.add_buffer_resource("particle_buffer", buffers, 1000 * sizeof(Particle));
+	builder.add_task(particle_task);
+
+	auto particle_draw_task = lft::rg::render_task<ParticleContext>(
+	    "particle_draw", particle_context,
+		[&](const lft::rg::TaskBuildInfo& info, ParticleContext* context) {
+				if(context->draw_pipeline == VK_NULL_HANDLE) {
+    				context->draw_pipeline_layout = PipelineLayoutBuilder()
+    					.input_set(0, global_input_set_layout)
+    					// .input_set(1, context->draw_input_set_layout)
+    					.build(info.gpu());
+
+    				context->draw_pipeline = PipelineBuilder(info.gpu(), info.viewport(),
+    						context->draw_pipeline_layout, info.renderpass(),
+    						1, particle_vert, particle_frag)
+    					.set_vertex_input_info({
+                            {
+                                .binding = 0,
+                                .stride = sizeof(Particle),
+                                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+                            }
+                        }, {
+                            { 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Particle, position) },
+                            { 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Particle, color) }
+                        })
+                        .topology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+    					.build().pipeline();
+				}
+
+				context->draw_input_sets.resize(info.num_buffers());
+				/* context->draw_input_sets[info.buffer_idx()] = ShaderInputSetBuilder(1)
+    				.buffer(0, particle_buffer, 0, 1000 * sizeof(Particle))
+    				.build(info.gpu(), context->draw_input_set_layout); */
+		}, [&](const lft::rg::TaskRecordInfo& info, ParticleContext* context) {
+		    vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, context->draw_pipeline);
+			vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+			        context->draw_pipeline_layout,
+					0, 1, &global_input_set, 0, nullptr);
+			VkDeviceSize offsets[] = {0};
+			vkCmdBindVertexBuffers(info.command_buffer(), 0, 1, &particle_buffer.buf, offsets);
+
+			/* vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+			        context->draw_pipeline_layout,
+					1, 1, &context->draw_input_sets[info.buffer_idx()], 0, nullptr); */
+
+			vkCmdDraw(info.command_buffer(), 10, 1, 0, 0);
+		}).add_dependency("particle_buffer")
+	    .add_dependency("shading")
+    	.add_color_output("swapchain", swapchain.format().format, extent, {0.0f, 0.0f, 0.0f, 0.0f})
+    	.build();
+
+	builder.add_task(particle_draw_task);
+
+
     auto ins = instance->instance();
     ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
         return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
     }, &ins);
-    auto imguiPass = LambdaRenderPass<ImGuiContext>("imgui", &imguiPassContext,
-                                                    [&](ImGuiContext* pContext, RenderPassBuildInfo info) {
-                                                        ImGui::CreateContext();
-                                                        // ImGui_ImplVulkan_LoadFunctions();
-                                                        ImGuiIO& io = ImGui::GetIO(); (void)io;
-                                                        std::cout << "Loading font: " << io::path::asset("fonts/ProggyClean.ttf") << std::endl;
-                                                        io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 14.0f);
 
-                                                        std::cout << "Initializing ImGui SDL2 for Vulkan..." << std::endl;
-                                                        ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
-                                                        std::cout << "Initialized ImGui SDL2 for Vulkan" << std::endl;
-                                                        ImGui_ImplVulkan_InitInfo init_info = {
-                                                                .Instance = instance->instance(),
-                                                                .PhysicalDevice = gpu->gpu(),
-                                                                .Device = gpu->dev(),
-                                                                .QueueFamily = 0,
-                                                                .Queue = gpu->graphics_queue(),
-                                                                .PipelineCache = nullptr,
-                                                                .DescriptorPool = gpu->descriptor_pool(),
-                                                                .Subpass = 0,
-                                                                .MinImageCount = 2,
-                                                                .ImageCount = 2,
-                                                                .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
-                                                                .Allocator = nullptr,
-                                                                .CheckVkResultFn = nullptr,
-                                                        };
-                                                        std::cout << "Initializing ImGui for Vulkan..." << std::endl;
-                                                        ImGui_ImplVulkan_Init(&init_info, info.output().renderpass());
-                                                        std::cout << "Initialized ImGui for Vulkan" << std::endl;
-                                                    },
-                                                    [&](ImGuiContext* pContext, RenderPassRecordInfo recordInfo) {
-                                                        ImGui::Render();
-                                                        ImDrawData* draw_data = ImGui::GetDrawData();
-                                                        ImGui_ImplVulkan_RenderDrawData(draw_data, recordInfo.command_buffer());
-                                                    }
-    );
-    imguiPass.add_color_output("swapchain", swapchain.format().format, {0.0f, 0.0f, 0.0f, 1.0f})
-            .add_pass_dependency("composition")
-            .set_recording_dependency("imgui_drawlist");
+	auto imgui_context = new ImGuiContext();
+	auto imgui_task = lft::rg::render_task<ImGuiContext>(
+			"imgui", imgui_context,
+			[&](const lft::rg::TaskBuildInfo& info,
+				ImGuiContext* context) {
+			if(!context->is_initialized) {
+    			ImGui::CreateContext();
+    			// ImGui_ImplVulkan_LoadFunctions();
+    			ImGuiIO& io = ImGui::GetIO(); (void)io;
+    			std::cout << "Loading font: " << io::path::asset("fonts/ProggyClean.ttf") << std::endl;
+    			io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 20.0f);
 
-    auto swapchainImageChain = ImageChain(swapchain.views());
-    auto renderGraph = renderGraphBuilder
-            .add_graphics_pass(&geometry)
-            .add_graphics_pass(&shading)
-            .add_graphics_pass(&imguiPass)
-            .add_external_image("shadowmap", {
-                    ExternalImageResource(shadowmapView, VK_NULL_HANDLE)
-            })
-            .invalidate_dependency_every_frame("mesh_buffer")
-            .invalidate_dependency_every_frame("imgui_drawlist")
-            .build(gpu, swapchainImageChain, extent);
+    			std::cout << "Initializing ImGui SDL2 for Vulkan..." << std::endl;
+    			ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
+    			std::cout << "Initialized ImGui SDL2 for Vulkan" << std::endl;
+    			ImGui_ImplVulkan_InitInfo init_info = {
+    				.Instance = instance->instance(),
+    				.PhysicalDevice = gpu->gpu(),
+    				.Device = gpu->dev(),
+    				.QueueFamily = 0,
+    				.Queue = gpu->graphics_queue(),
+    				.PipelineCache = nullptr,
+    				.DescriptorPool = gpu->descriptor_pool(),
+    				.Subpass = 0,
+    				.MinImageCount = 2,
+    				.ImageCount = 2,
+    				.MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+    				.Allocator = nullptr,
+    				.CheckVkResultFn = nullptr,
+    			};
+    			std::cout << "Initializing ImGui for Vulkan..." << std::endl;
+    			ImGui_ImplVulkan_Init(&init_info, info.renderpass());
+    			std::cout << "Initialized ImGui for Vulkan" << std::endl;
+                context->is_initialized = true;
+			}
+		}, [&](const lft::rg::TaskRecordInfo& info, ImGuiContext* context) {
+			ImGui::Render();
+			ImDrawData* draw_data = ImGui::GetDrawData();
+			ImGui_ImplVulkan_RenderDrawData(draw_data, info.command_buffer());
+	});
 
-    ShadowPassContext shadowPassCtx = {};
-    shadowPassCtx.pSceneBuffer = &scene;
-    auto shadowPass = LambdaRenderPass<ShadowPassContext>("shadow_pass", &shadowPassCtx,
-                                                          [&](ShadowPassContext* pContext, RenderPassBuildInfo info) {
-                                                              /* create layout */
-                                                              auto perPassInputLayout = ShaderInputSetLayoutBuilder(0)
-                                                                      .build(info.gpu());
+	imgui_task.add_color_output("swapchain", swapchain.format().format, swapchain.extent(), {0.0f, 0.0f, 0.0f, 1.0f});
+	imgui_task.add_dependency("shading");
+	imgui_task.add_dependency("particle_draw");
+	auto imgui = imgui_task.build();
+	builder.add_task(imgui_task.build());
 
-                                                              pContext->inputSets.resize(info.num_images_in_flights());
-                                                              /* create input set */
-                                                              for(uint32_t i = 0; i < info.num_images_in_flights(); i++) {
-                                                                  pContext->inputSets[i] = ShaderInputSetBuilder(0)
-                                                                          .build(info.gpu(), perPassInputLayout);
-                                                              }
-
-                                                              auto sceneInputSetLayout = ShaderInputSetLayoutBuilder(0)
-                                                                      .build(info.gpu());
-
-                                                              pContext->sceneInputSets.resize(1);
-                                                              pContext->sceneInputSets[0] = ShaderInputSetBuilder(0)
-                                                                      .build(info.gpu(), sceneInputSetLayout);
-
-                                                              pContext->layout = PipelineLayoutBuilder()
-                                                                      .push_constant_range(0, sizeof(mat4) * 2, VK_SHADER_STAGE_VERTEX_BIT)
-                                                                      .input_set(0, globalInputSetLayout)
-                                                                      .input_set(1, perPassInputLayout)
-                                                                      .input_set(2, sceneInputSetLayout)
-                                                                      .build(info.gpu());
-
-                                                              pContext->pipeline = PipelineBuilder(info.gpu(), info.output().viewport(),
-                                                                                                   pContext->layout, info.output().renderpass(),
-                                                                                                   1, shadowVert, shadowFrag)
-                                                                      .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
-                                                                      .build();
-                                                          },
-                                                          [&](ShadowPassContext* pContext, RenderPassRecordInfo info) {
-                                                              vkCmdBindPipeline(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline());
-                                                              vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                                                                      0, 1, &globalInputSet, 0, nullptr);
-
-                                                              vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                                                                      1, 1, &pContext->inputSets[0], 0, nullptr);
-
-                                                              vkCmdBindDescriptorSets(info.command_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pContext->pipeline.pipeline_layout(),
-                                                                                      2, 1, &pContext->sceneInputSets[0], 0, nullptr);
-
-                                                              struct {
-                                                                  mat4 view;
-                                                                  mat4 proj;
-                                                              } data;
-                                                              glm_mat4_copy(lights[0].view, data.view);
-
-                                                              pContext->pSceneBuffer->draw_depth(info.command_buffer(), pContext->layout, data.view);
-                                                          }
-    );
-    shadowPass.set_depth_output("shadowmap", VK_FORMAT_D32_SFLOAT_S8_UINT)
-              .set_recording_dependency("mesh_buffer");
-
-    ImageChain shadowmapChain = ImageChain({shadowmapView});
-
-
-    auto shadowsRenderGraphBuilder = RenderGraphBuilder("shadowmap", "shadowmap", 1)
-            .add_graphics_pass(&shadowPass);
-    auto shadowsRenderGraph = shadowsRenderGraphBuilder.build(gpu, shadowmapChain, {1024*4, 1024*4});
-
-    uint32_t i = 0;
-    for(auto& image : swapchain.images()) {
-        image.set_debug_name(gpu, std::string("swapchain_") + std::to_string(i));
-    }
-
-    bool isOpen = true;
-    vec3 velocity = {0.0f, 0.0f, 0.0f};
-
-    FrameLock frameLock(0);
-    VkFence imageIndexFence = VK_NULL_HANDLE;
+	std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+	/**
+	 * Builds the render graph.
+	 */
+	auto render_graph = builder.build();
+	std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+	std::cout << "Time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() << "ns" << std::endl;
 
     VkFenceCreateInfo fenceInfo = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     };
 
-    vkCreateFence(gpu->dev(), &fenceInfo, nullptr, &imageIndexFence);
+	VkFence get_image_fence = VK_NULL_HANDLE;
+    vkCreateFence(gpu->dev(), &fenceInfo, nullptr, &get_image_fence);
 
-    uint64_t elapsed = 0;
-    uint64_t fps = 0;
 
-    auto shadowSignal = shadowsRenderGraph.run(0);
-    renderGraph.set_external_dependency("shadowmap", shadowSignal);
+	bool is_open = true;
+	bool is_imgui = true;
 
-    while(isOpen) {
+	vec3 velocity = {0.0f, 0.0f, 0.0f};
+	/**
+	 * Main loop
+	 */
+	// for(uint32_t i = 0; i < 3; i++) {
+	while(is_open) {
         uint32_t imageIdx = 0;
-        auto result = swapchain.get_next_image_idx(nullptr, imageIndexFence, &imageIdx);
+		auto result = swapchain.get_next_image_idx(nullptr, get_image_fence, &imageIdx);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             throw std::runtime_error("failed to acquire swap chain image!");
         } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
-        vkWaitForFences(gpu->dev(), 1, &imageIndexFence, VK_TRUE, UINT64_MAX);
-        vkResetFences(gpu->dev(), 1, &imageIndexFence);
+        vkWaitForFences(gpu->dev(), 1, &get_image_fence, VK_TRUE, UINT64_MAX);
+        vkResetFences(gpu->dev(), 1, &get_image_fence);
 
-        frameLock.update();
+        if(is_imgui) {
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplSDL2_NewFrame();
+            ImGui::NewFrame();
 
-        SDL_Event event;
-
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
-
-        elapsed += frameLock.delta_time();
-
-        if(elapsed > 100000000) {
-            fps = frameLock.fps();
-            elapsed = 0;
+    		ImGui::ShowDemoWindow();
         }
 
-        ImGui::Begin("Main");
-        if (ImGui::CollapsingHeader("Frame stats"))
-        {
-            ImGui::Text("FPS: %ld", fps);
-        }
+		SDL_Event event;
+		bool change_imgui = false;
+		while(window->poll_event(&event)) {
+		    if(is_imgui) {
+                ImGui_ImplSDL2_ProcessEvent(&event);
+			}
+			switch(event.type) {
+				case SDL_QUIT:
+					is_open = false;
+					break;
+				case SDL_FINGERMOTION:
+					camera.rotate(event.tfinger.dx * 10.0f, event.tfinger.dy * 10.0f);
+					break;
+				case SDL_MOUSEMOTION:
+					camera.rotate(event.motion.xrel * 0.2f, event.motion.yrel * 0.2f);
+					break;
+				case SDL_KEYDOWN:
+				case SDL_KEYUP:
+					switch(event.key.keysym.sym) {
+					    case SDLK_p:
+							change_imgui = !event.key.state;
+    						break;
+						case SDLK_w:
+							velocity[1] = (float)event.key.state;
+							break;
+						case SDLK_s:
+							velocity[1] = -(float)event.key.state;
+							break;
+						case SDLK_a:
+							velocity[0] = (float)event.key.state;
+							break;
+						case SDLK_d:
+							velocity[0] = -(float)event.key.state;
+							break;
+					}
+			}
+		}
 
-        if (ImGui::CollapsingHeader("Settings"))
-        {
-            ImGui::InputFloat("Exposure", &exposure);
-            ImGui::InputFloat("Gamma", &gamma);
-        }
-        ImGui::End();
+		render_graph.run(imageIdx);
+		swapchain.present({ render_graph.buffer(0).final_signal(imageIdx) }, imageIdx);
 
-        ImGui::EndFrame();
+		camera.move(velocity);
+		camera.update();
 
+		if(change_imgui) {
+		    if(!is_imgui) {
+				builder.add_task(imgui);
+			} else {
+			    builder.remove_task(imgui.name());
+			}
 
-        while(window->poll_event(&event)) {
-            ImGui_ImplSDL2_ProcessEvent(&event);
-            switch(event.type) {
-                case SDL_QUIT:
-                    isOpen = false;
-                    break;
-                case SDL_FINGERMOTION:
-                    camera.rotate(event.tfinger.dx * 10.0f, event.tfinger.dy * 10.0f);
-                    break;
-                case SDL_MOUSEMOTION:
-                    camera.rotate(event.motion.xrel * 0.2f, event.motion.yrel * 0.2f);
-                    break;
-                case SDL_KEYDOWN:
-                case SDL_KEYUP:
-                    switch(event.key.keysym.sym) {
-                        case SDLK_w:
-                            velocity[1] = (float)event.key.state;
-                            break;
-                        case SDLK_s:
-                            velocity[1] = -(float)event.key.state;
-                            break;
-                        case SDLK_a:
-                            velocity[0] = (float)event.key.state;
-                            break;
-                        case SDLK_d:
-                            velocity[0] = -(float)event.key.state;
-                            break;
-                    }
-            }
-        }
+			render_graph = builder.build();
+			is_imgui = !is_imgui;
+		}
+	}
 
-        auto signal = renderGraph.run(imageIdx);
-
-        camera.move(velocity);
-        camera.update();
-
-        swapchain.present({signal}, imageIdx);
-
-        renderGraph.set_external_dependency("shadowmap", VK_NULL_HANDLE);
-    }
-
-    return 0;
-}
-
-int
-main(int32_t argc, char** argv) {
-    try {
-        runtime(argc, argv);
-    } catch(const std::exception& e) {
-        std::cout << "[FAIL]: " << e.what() << std::endl;
-        return 1;
-    }
-
-    return 0;
+	return 0;
 }

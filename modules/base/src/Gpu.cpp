@@ -7,6 +7,7 @@
 #include <iostream>
 #include <memory>
 #include <cstring>
+#include <vulkan/vulkan_core.h>
 
 static const char *DEVICE_EXTENSIONS[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -47,7 +48,7 @@ int32_t get_present_score(VkQueueFamilyProperties props, bool isPresentSupported
     return isPresentSupported;
 }
 
-std::vector<int32_t> Gpu::get_queues(VkSurfaceKHR surface) {
+std::vector<int32_t> Gpu::get_queues(std::optional<VkSurfaceKHR> surface) {
     uint32_t numQueues = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, &numQueues, 0x0);
     auto properties = std::vector<VkQueueFamilyProperties>(numQueues);
@@ -69,7 +70,11 @@ std::vector<int32_t> Gpu::get_queues(VkSurfaceKHR surface) {
     uint32_t i = 0;
     for(auto& prop : properties) {
         VkBool32 isPresentSupported = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(m_gpu, i, surface, &isPresentSupported);
+        if(surface.has_value()) {
+            vkGetPhysicalDeviceSurfaceSupportKHR(m_gpu, i, surface.value(), &isPresentSupported);
+        } else {
+            isPresentSupported = true;
+        }
 
         bool isTaken = false;
         int32_t iterGraphicsScore = get_graphics_score(prop) * (graphicsQueue == -1);
@@ -97,7 +102,7 @@ std::vector<int32_t> Gpu::get_queues(VkSurfaceKHR surface) {
     return { graphicsQueue, transferQueue, presentQueue };
 }
 
-Result Gpu::create_logical_device(VkSurfaceKHR supportedSurface) {
+Result Gpu::create_logical_device(std::optional<VkSurfaceKHR> supportedSurface) {
     auto queueFamilies = get_queues(supportedSurface);
 
     std::vector<VkDeviceQueueCreateInfo> queueInfos(queueFamilies.size());
@@ -263,6 +268,9 @@ Result Gpu::create_descriptor_pool() {
         }, {
                 .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 .descriptorCount = 1000
+        }, {
+                .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .descriptorCount = 1000
         }
     };
 
@@ -281,7 +289,7 @@ Result Gpu::create_descriptor_pool() {
 }
 
 
-Gpu::Gpu(std::shared_ptr<const Instance> instance, VkSurfaceKHR supportedSurface) :
+Gpu::Gpu(std::shared_ptr<const Instance> instance, std::optional<VkSurfaceKHR> supportedSurface) :
     m_instance(std::move(instance)), m_pAllocator(nullptr) {
 
     lft::log::warn("Warning");

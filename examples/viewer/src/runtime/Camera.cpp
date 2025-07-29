@@ -8,7 +8,7 @@
 #include "resources/GpuAllocator.h"
 
 Camera::Camera(const std::shared_ptr<const Gpu>& gpu, float aspect):
-        m_gpu(gpu), m_resource("camera", VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) {
+        m_gpu(gpu)/* , m_resource("camera", VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) */ {
 
     glm_mat4_identity(data.view);
     glm_mat4_identity(data.projection);
@@ -38,8 +38,8 @@ Camera::Camera(const std::shared_ptr<const Gpu>& gpu, float aspect):
 
     m_gpu->memory()->unmap(m_buffer.allocation);
 
-    m_resource.set_offset(0)
-            .set_size(sizeof(data));
+    /* m_resource.set_offset(0)
+            .set_size(sizeof(data)); */
 
     glm_quat(m_rotation, 0, 0.0f, 0.0f, 1.0f);
     glm_vec3_copy(center, m_position);

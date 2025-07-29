@@ -1,0 +1,72 @@
+#version 450
+
+struct Particle {
+	vec4 position;
+	vec4 velocity;
+	vec4 gradient_pos;
+};
+
+layout(std140, binding = 0) buffer ParticleBuffer {
+	Particle particles[];
+};
+
+layout (local_size_x = 256) in;
+
+
+
+vec2 attraction(vec2 pos, vec2 attractPos)
+{
+    vec2 delta = attractPos - pos;
+	const float damp = 0.5;
+    float dDampedDot = dot(delta, delta) + damp;
+    float invDist = 1.0f / sqrt(dDampedDot);
+    float invDistCubed = invDist*invDist*invDist;
+    return delta * invDistCubed * 0.0035;
+}
+
+vec2 repulsion(vec2 pos, vec2 attractPos)
+{
+	vec2 delta = attractPos - pos;
+	float targetDistance = sqrt(dot(delta, delta));
+	return delta * (1.0 / (targetDistance * targetDistance * targetDistance)) * -0.000035;
+}
+
+void main()
+{
+    uint particle_count = 1000;
+    float dest_x = 0.0f;
+    float dest_y = 0.0f;
+    float delta_time = 0.001;
+    // Current SSBO index
+    uint index = gl_GlobalInvocationID.x;
+	// Don't try to write beyond particle count
+    if (index >= particle_count)
+		return;
+
+    // Read position and velocity
+    vec2 vVel = particles[index].velocity.xy;
+    vec2 vPos = particles[index].position.xy;
+
+    vec2 destPos = vec2(dest_x, dest_y);
+
+    vec2 delta = destPos - vPos;
+    float targetDistance = sqrt(dot(delta, delta));
+    vVel += repulsion(vPos, destPos.xy) * 0.05;
+
+    // Move by velocity
+    vPos += vVel * delta_time;
+
+    // collide with boundary
+    if ((vPos.x < -1.0) || (vPos.x > 1.0) || (vPos.y < -1.0) || (vPos.y > 1.0))
+    	vVel = (-vVel * 0.1) + attraction(vPos, destPos) * 12;
+    else
+    	particles[index].position.xy = vPos;
+
+    // Write back
+    particles[index].velocity.xy = vVel;
+	particles[index].gradient_pos.x += 0.02 * delta_time;
+	if (particles[index].gradient_pos.x > 1.0)
+		particles[index].gradient_pos.x -= 1.0;
+	particles[index].position = vec4(0.0, index, index, 1.0f);
+
+}

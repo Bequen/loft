@@ -15,20 +15,20 @@ struct SceneNode {
 	uint meshIdx;
 };
 
-/* layout(set = 2, binding = 1) uniform ObjectInfo {
+layout(set = 2, binding = 1) uniform ObjectInfo {
 	SceneNode nodes[];
-} objectInfo; */
+} objectInfo;
 
 layout(location = 0) out vec3 outPos;
 layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec2 outUV;
 layout(location = 3) out mat3 outTBN;
 
-/* layout( push_constant ) uniform constants
+layout( push_constant ) uniform constants
 {
 	uint transformIdx;
 	uint materialIdx;
-} PushConstants; */
+} PushConstants;
 
 
 void main() {

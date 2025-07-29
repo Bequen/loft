@@ -19,7 +19,8 @@ find_package(SDL2 REQUIRED)
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
 # Find all the shaders
 file(GLOB SHADERS   ${SHADER_DIR}/*.vert
-                    ${SHADER_DIR}/*.frag)
+                    ${SHADER_DIR}/*.frag
+					${SHADER_DIR}/*.comp)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 foreach(SHADER IN LISTS SHADERS)
     get_filename_component(FILENAME ${SHADER} NAME)
@@ -32,10 +33,10 @@ endForeach()
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
-add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
+add_custom_target(viewer_shaders ALL DEPENDS ${SPV_SHADERS})
 
 file(GLOB FILES
-		src/*.cpp
+		src/main.cpp
 		src/mesh/*.cpp
 		src/mesh/runtime/*.cpp
 		src/mesh/data/*.cpp
@@ -86,12 +87,14 @@ if ( MSVC )
 	# etc for the other available configuration types (MinSizeRel, RelWithDebInfo)
 endif ( MSVC )
 
-add_dependencies(${PROJECT_NAME} shaders imgui)
+add_dependencies(${PROJECT_NAME} viewer_shaders imgui)
 
 target_include_directories(
 		${PROJECT_NAME}
 		PUBLIC
 		${PROJECT_SOURCE_DIR}/src/
+		${loft_base_SOURCE_DIR}/include/
+		${loft_render_graph_SOURCE_DIR}/include/
 		${cglm_SOURCE_DIR}/include/
 		${cgltf_SOURCE_DIR}
 		${PROJECT_SOURCE_DIR}/external
@@ -107,7 +110,7 @@ target_link_libraries(
 		# modules
 		loft_base
 		loft_window
-		loft_framegraph
+		loft_render_graph
 
 		# external libraries
 		imgui

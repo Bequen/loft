@@ -3,6 +3,7 @@
 #include "SDLWindow.h"
 #include <SDL2/SDL_vulkan.h>
 #include <vector>
+#include <iostream>
 
 //
 // Created by martin on 11/12/23.
@@ -20,15 +21,15 @@ SDLWindow::SDLWindow(std::string name, VkRect2D rect) {
         throw std::runtime_error("Failed to initialize sdl");
     }
 
-    m_pWindow = SDL_CreateWindow(name.c_str(),
-                                 rect.offset.x,
-                                 rect.offset.y,
+    m_pWindow = SDL_CreateWindow("Test",
+                                 SDL_WINDOWPOS_CENTERED,
+                                 SDL_WINDOWPOS_CENTERED,
                                  rect.extent.width,
                                  rect.extent.height,
-                                 SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
+                                 SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 
     if(m_pWindow == nullptr) {
-        throw std::runtime_error("Failed to create SDL window");
+		throw std::runtime_error("Failed to create window: " + std::string(SDL_GetError()));
     }
 
     uint32_t count = 0;

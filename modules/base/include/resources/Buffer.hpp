@@ -25,12 +25,12 @@ struct Buffer {
 
     }
 
-    Buffer(Buffer&& a)  noexcept :
+    Buffer(const Buffer&& a)  noexcept :
     buf(a.buf), allocation(a.allocation) {
 
     }
 
-    Buffer(Buffer& a)  noexcept :
+    Buffer(const Buffer& a)  noexcept :
     buf(a.buf), allocation(a.allocation) {
 
     }
