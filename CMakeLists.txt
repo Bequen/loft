@@ -1,22 +1,6 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.26)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_BUILD_TYPE Debug)
-
-add_definitions(#-D_GLIBCXX_USE_CXX11_ABI=0
-        -DNOMINMAX=1
-        -DVK_LAYERS_ENABLE=1
-        -DLOFT_DEBUG=1
-        -DLFT_DEBUG_LEVEL_3=1
-        # Extensions
-        -DVK_EXT_debug_utils
-        -DVK_KHR_create_renderpass2
-        -DVK_KHR_synchronization2
-        -DVK_KHR_shader_non_semantic_info)
-
-#add_compile_options(-fsanitize=address)
-#add_link_options(-fsanitize=address)
+option(ENABLE_EXAMPLES "Enable building examples" ON)
 
 if (WIN32)
     set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
@@ -24,7 +8,6 @@ elseif(UNIX)
     set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_XCB_KHR)
 endif()
 
-add_subdirectory(volk)
 
 # Please set default paths for vulkan and SDL2
 set(VULKAN_PATH "$ENV{VULKAN_SDK}" CACHE STRING "Path to vulkan directory")
@@ -46,13 +29,28 @@ FetchContent_MakeAvailable(VMA)
 
 project(loft)
 
-add_subdirectory(modules)
+add_definitions(
+        -DNOMINMAX=1
+        -DVK_LAYERS_ENABLE=1
+        -DLOFT_DEBUG=1
+        -DLFT_DEBUG_LEVEL_3=1
+        # Extensions
+        -DVK_EXT_debug_utils
+        -DVK_KHR_create_renderpass2
+        -DVK_KHR_synchronization2
+        -DVK_KHR_shader_non_semantic_info
+)
 
-option(ENABLE_EXAMPLES "Enable building examples" ON)
-# if(ENABLE_EXAMPLES)
-	add_subdirectory(examples)
-	# endif()
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_subdirectory(volk)
+add_subdirectory(modules)
+
+if(ENABLE_EXAMPLES)
+	add_subdirectory(examples)
+endif()
+
 

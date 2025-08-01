@@ -6,7 +6,7 @@
 #include "resources/Image.hpp"
 
 #include <vector>
-#include <volk/volk.h>
+#include <volk.h>
 #include <stdexcept>
 
 struct ImageResourceLayout;

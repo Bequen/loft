@@ -1,6 +1,6 @@
 #include <cinttypes>
 #include <iostream>
-#include <volk/volk.h>
+#include <volk.h>
 #include <cstring>
 #include <stdexcept>
 

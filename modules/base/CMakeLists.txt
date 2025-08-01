@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.5)
-
 project(loft_base)
 
 file(GLOB FILES
@@ -8,22 +6,38 @@ file(GLOB FILES
         ./src/io/*.cpp
         ./src/resources/*.cpp)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(${PROJECT_NAME} STATIC ${FILES})
+file(GLOB HEADERS
+        ./include/*.h
+        ./include/*.hpp
+        ./include/shaders/*.h
+        ./include/shaders/*.hpp
+        ./include/resources/*.h
+        ./include/resources/*.hpp
+        ./include/io/*.h
+        ./include/io/*.hpp
+        ./include/debug/*.h
+        ./include/debug/*.hpp)
+
+add_library(loft_base OBJECT ${FILES})
+add_library(loft::base ALIAS loft_base)
+target_sources(loft_base
+    PUBLIC FILE_SET HEADERS
+    BASE_DIRS include
+    FILES ${HEADERS})
+
+set_target_properties(loft_base PROPERTIES POSITION_INDEPENDENT_CODE 1)
+
 find_package(Vulkan REQUIRED)
 
-
-target_link_libraries(${PROJECT_NAME} PRIVATE volk)
+target_link_libraries(${PROJECT_NAME} 
+    PUBLIC 
+    GPUOpen::VulkanMemoryAllocator 
+    volk::volk)
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC
         ${PROJECT_SOURCE_DIR}/include/
-        PRIVATE
-        ${Vulkan_INCLUDE_DIR}
-        ${VMA_SOURCE_DIR}/include
-        ./
-        ../common/src/
-        ../../
 )
+
+

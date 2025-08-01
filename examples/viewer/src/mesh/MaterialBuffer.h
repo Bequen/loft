@@ -1,5 +1,4 @@
 #include "resources/Buffer.hpp"
-#include "cglm/vec4.h"
 #include "resources/Image.hpp"
 #include "Gpu.hpp"
 #include "data/SceneData.hpp"

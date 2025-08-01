@@ -1,32 +1,18 @@
-project(loft_render_graph)
-
 file(GLOB CXXFILES src/*.cpp)
-add_library(${PROJECT_NAME} STATIC ${CXXFILES})
+add_library(loft_render_graph OBJECT ${CXXFILES})
+add_library(loft::render_graph ALIAS loft_render_graph)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-find_package(Vulkan QUIET)
-
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 23)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE
-        loft_base
-        loft_common
+target_link_libraries(loft_render_graph 
+        PUBLIC 
+        loft::common
+        loft::base
         loft_window
-        volk
+        volk::volk
 )
 
-target_include_directories(${PROJECT_NAME}
+target_include_directories(loft_render_graph
         PUBLIC
         include/
-        ${Vulkan_INCLUDE_DIR}
-        ${PROJECT_SOURCE_DIR}/include/
-        ${loft_base_SOURCE_DIR}/include/
-        ${loft_window_SOURCE_DIR}/include
-        ${loft_common_SOURCE_DIR}/src/
-        ${VMA_SOURCE_DIR}/include
-        ../../
 )
 
 add_subdirectory(tests)

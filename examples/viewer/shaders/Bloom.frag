@@ -30,6 +30,8 @@ vec4 downscale() {
     vec3 d = texture(inHdr, vec2(inUV.x - 2*x, inUV.y - 2*y)).rgb;
     vec3 e = texture(inHdr, vec2(inUV.x + 2*x, inUV.y - 2*y)).rgb;
 
+
+
     return vec4((a + b + c + d) * (1.0f/8.0f) + c * 1.0f/2.0f, 1.0);
 
     /* vec3 a = texture(inHdr, vec2(inUV.x - 2*x, inUV.y + 2*y)).rgb;

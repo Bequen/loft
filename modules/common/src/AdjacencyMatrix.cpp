@@ -1,4 +1,5 @@
 #include <iostream>
+
 #include "AdjacencyMatrix.hpp"
 
 AdjacencyMatrixNodeHandle& AdjacencyMatrixNodeHandle::add_dependency(uint32_t on) {

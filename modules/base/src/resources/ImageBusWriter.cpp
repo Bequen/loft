@@ -1,7 +1,7 @@
 #include "resources/ImageBusWriter.h"
 
 #include <string.h>
-#include <volk/volk.h>
+#include <volk.h>
 #include <cmath>
 
 int ImageBusWriter::create_staging_buffer(size_t size) {

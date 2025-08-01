@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <volk/volk.h>
+#include <volk.h>
 #include <memory>
 #include <exception>
 #include <assert.h>

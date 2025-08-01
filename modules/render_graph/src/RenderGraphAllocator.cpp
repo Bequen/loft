@@ -4,8 +4,7 @@
 #include <stdexcept>
 #include <vector>
 
-#define VOLK_IMPLEMENTATION
-#include <volk/volk.h>
+#include <volk.h>
 
 #include "FramebufferBuilder.hpp"
 #include "RenderPass.hpp"

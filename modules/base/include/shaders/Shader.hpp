@@ -8,7 +8,7 @@
 #include "Gpu.hpp"
 #include "io/ShaderBinary.h"
 
-#include <volk/volk.h>
+#include <volk.h>
 
 #include <utility>
 

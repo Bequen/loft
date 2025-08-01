@@ -12,7 +12,7 @@
 #include "props.hpp"
 #include "Resource.hpp"
 
-#include <volk/volk.h>
+#include <volk.h>
 #include <map>
 
 namespace lft::rg {

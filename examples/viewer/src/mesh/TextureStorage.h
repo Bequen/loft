@@ -1,6 +1,6 @@
 #pragma once
 
-#include <volk/volk.h>
+#include <volk.h>
 #include "Gpu.hpp"
 #include "resources/ImageBusWriter.h"
 #include "resources/MipmapGenerator.h"

@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include <volk/volk.h>
+#include <volk.h>
 #include <memory>
 
 #include "resources/GpuAllocation.h"

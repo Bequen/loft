@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.5)
-
 project(loft_window)
 
 file(GLOB FILES src/*.c src/*.cpp)
@@ -16,9 +14,4 @@ target_link_libraries(${PROJECT_NAME} loft_base)
 target_include_directories(${PROJECT_NAME}
 	PUBLIC
 	${PROJECT_SOURCE_DIR}/include/
-	PRIVATE
-	${loft_base_SOURCE_DIR}/include 
-	${Vulkan_INCLUDE_DIR} 
-	${VMA_SOURCE_DIR}/include 
-	${SDL2_INCLUDE_DIR} 
-	../../)
+)

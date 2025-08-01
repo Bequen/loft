@@ -5,7 +5,7 @@
 #include <memory>
 #include <chrono>
 
-#include <volk/volk.h>
+#include <volk.h>
 
 #include "Instance.hpp"
 #include "RenderPass.hpp"
@@ -14,9 +14,9 @@
 #include "RenderGraphBuilder.hpp"
 
 #include "cglm/vec3.h"
-#include "imgui/imgui.h"
-#include "imgui/backends/imgui_impl_vulkan.h"
-#include "imgui/backends/imgui_impl_sdl2.h"
+#include "imgui.h"
+#include "backends/imgui_impl_vulkan.h"
+#include "backends/imgui_impl_sdl2.h"
 #include "cglm/types.h"
 #include "io/gltfSceneLoader.hpp"
 #include "io/path.hpp"
@@ -203,7 +203,6 @@ int main(int argc, char** argv) {
 
     Buffer light_buffer;
     gpu->memory()->create_buffer(&lightInfoBuffer, &memoryInfo, &light_buffer);
-
 
     void *pPtr;
     gpu->memory()->map(light_buffer.allocation, &pPtr);
@@ -456,7 +455,6 @@ int main(int argc, char** argv) {
 				if(context->draw_pipeline == VK_NULL_HANDLE) {
     				context->draw_pipeline_layout = PipelineLayoutBuilder()
     					.input_set(0, global_input_set_layout)
-    					// .input_set(1, context->draw_input_set_layout)
     					.build(info.gpu());
 
     				context->draw_pipeline = PipelineBuilder(info.gpu(), info.viewport(),

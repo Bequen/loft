@@ -2,7 +2,7 @@
 #include "../../../../examples/viewer/src/mesh/Vertex.hpp"
 
 #include <string.h>
-#include <volk/volk.h>
+#include <volk.h>
 #include <algorithm>
 
 

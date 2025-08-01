@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <volk/volk.h>
+#include <volk.h>
 
 struct VertexAttribute {
     uint32_t location;

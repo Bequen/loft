@@ -3,7 +3,7 @@
 #include "Gpu.hpp"
 
 #include <vector>
-#include <volk/volk.h>
+#include <volk.h>
 #include <assert.h>
 #include <stdexcept>
 

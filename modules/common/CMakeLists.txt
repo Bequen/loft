@@ -1,14 +1,8 @@
-cmake_minimum_required(VERSION 3.5)
-
-project(loft_common)
-
 file(GLOB CXXFILES src/*.cpp)
-add_library(${PROJECT_NAME} STATIC ${CXXFILES})
+add_library(loft_common OBJECT ${CXXFILES})
+add_library(loft::common ALIAS loft_common)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-target_include_directories(${PROJECT_NAME}
+target_include_directories(loft_common
 	PUBLIC
 	src/
 )

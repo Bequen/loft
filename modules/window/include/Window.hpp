@@ -1,6 +1,6 @@
 #pragma once
 
-#include <volk/volk.h>
+#include <volk.h>
 #include <SDL2/SDL_events.h>
 #include "Surface.hpp"
 

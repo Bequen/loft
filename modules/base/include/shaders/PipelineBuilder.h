@@ -4,7 +4,7 @@
 #include "VertexAttribute.h"
 #include "BlendingInfo.h"
 #include "Pipeline.hpp"
-#include <volk/volk.h>
+#include <volk.h>
 #include <stdexcept>
 #include <algorithm>
 #include <utility>

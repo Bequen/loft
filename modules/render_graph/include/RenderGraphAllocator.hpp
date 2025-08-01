@@ -2,7 +2,7 @@
 #include <map>
 #include <string>
 #include <iostream>
-#include <volk/volk.h>
+#include <volk.h>
 
 #include "ImageChain.hpp"
 #include "RenderGraph.hpp"

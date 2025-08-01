@@ -5,7 +5,7 @@
 #ifndef LOFT_GPUSCHEDULER_H
 #define LOFT_GPUSCHEDULER_H
 
-#include <volk/volk.h>
+#include <volk.h>
 
 class GpuScheduler {
 public:

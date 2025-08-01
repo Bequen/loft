@@ -4,8 +4,7 @@
 #include <vector>
 #include <iostream>
 
-#include <volk/volk.h>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 #include "RenderPass.hpp"
 

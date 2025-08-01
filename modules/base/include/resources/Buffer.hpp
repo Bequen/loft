@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include <volk/volk.h>
+#include <volk.h>
 #include <memory>
 #include "GpuAllocation.h"
 

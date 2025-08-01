@@ -1,6 +1,6 @@
 #pragma once
 
-#include <volk/volk.h>
+#include <volk.h>
 #include <vector>
 #include "Gpu.hpp"
 

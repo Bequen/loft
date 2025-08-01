@@ -1,13 +1,6 @@
-#include <valarray>
-#include <stdexcept>
-#include <iostream>
-#include <volk/volk.h>
+#include <volk.h>
 #include "MaterialBuffer.h"
 #include "resources/GpuAllocator.h"
-#include "resources/ImageBusWriter.h"
-
-
-#include "resources/MipmapGenerator.h"
 
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -154,8 +147,8 @@ MaterialBuffer::upload_materials_data(const std::vector<MaterialData>& materials
         mappings[i++] = upload_material_data(material, textureMapping);
     }
 
-    uint32_t min = *std::min_element(mappings.begin(), mappings.end());
-    uint32_t max = *std::max_element(mappings.begin(), mappings.end());
+    uint32_t min = *std::min(mappings.begin(), mappings.end());
+    uint32_t max = *std::max(mappings.begin(), mappings.end());
 
     char *pData;
     m_gpu->memory()->map(m_materialBuffer.allocation, (void**)&pData);

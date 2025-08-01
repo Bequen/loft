@@ -10,6 +10,7 @@ layout(set = 0, binding = 0) uniform Camera {
 	mat4 view;
 } cam;
 
+
 struct SceneNode {
 	uint transformIdx;
 	uint meshIdx;
