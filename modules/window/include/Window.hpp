@@ -2,6 +2,9 @@
 
 #include <volk.h>
 #include <SDL2/SDL_events.h>
+#include <vector>
+#include <string>
+
 #include "Surface.hpp"
 
 /**
@@ -22,5 +25,5 @@ public:
 
     virtual int32_t poll_event(SDL_Event *pOutEvent) const = 0;
 
-    virtual void get_required_extensions(uint32_t *pOutSize, const char** pOut) = 0;
+    virtual std::vector<std::string> get_required_extensions() = 0;
 };

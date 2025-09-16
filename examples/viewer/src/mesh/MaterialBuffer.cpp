@@ -1,4 +1,8 @@
+#include <algorithm>
 #include <volk.h>
+
+#include <print>
+
 #include "MaterialBuffer.h"
 #include "resources/GpuAllocator.h"
 
@@ -35,14 +39,15 @@ void MaterialBuffer::allocate_for(const SceneData *pSceneData) {
 }
 
 MaterialBuffer::MaterialBuffer(const std::shared_ptr<const Gpu>& gpu, const SceneData *pSceneData) :
-m_gpu(gpu),
+    m_gpu(gpu),
 
-m_materials(pSceneData->num_materials()),
-m_materialsValidity(pSceneData->num_materials(), false),
+    m_materials(pSceneData->num_materials()),
+    m_materialsValidity(pSceneData->num_materials(), false),
 
-m_textures(pSceneData->num_textures()),
-m_textureValidity(pSceneData->num_textures(), false),
-m_textureStorage(gpu, pSceneData->num_textures()) {
+    m_textures(pSceneData->num_textures()),
+    m_textureValidity(pSceneData->num_textures(), false),
+    m_textureStorage(gpu, pSceneData->num_textures())
+{
     allocate_for(pSceneData);
 
     push_materials(pSceneData->materials(), pSceneData->textures());
@@ -147,12 +152,14 @@ MaterialBuffer::upload_materials_data(const std::vector<MaterialData>& materials
         mappings[i++] = upload_material_data(material, textureMapping);
     }
 
-    uint32_t min = *std::min(mappings.begin(), mappings.end());
-    uint32_t max = *std::max(mappings.begin(), mappings.end());
+    uint32_t min = *std::min_element(mappings.begin(), mappings.end());
+    uint32_t max = *std::max_element(mappings.begin(), mappings.end());
 
     char *pData;
     m_gpu->memory()->map(m_materialBuffer.allocation, (void**)&pData);
-    memcpy(pData + sizeof(Material) * min, &m_materials[min], sizeof(Material) * (max - min + 1));
+    memcpy(pData + sizeof(Material) * min,
+           &m_materials[min],
+           sizeof(Material) * (max - min + 1));
     m_gpu->memory()->unmap(m_materialBuffer.allocation);
 
     return mappings;

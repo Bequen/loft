@@ -1,9 +1,11 @@
 #include "RenderGraph.hpp"
 #include "AdjacencyMatrix.hpp"
+#include "Recording.hpp"
+#include "RenderGraphBuffer.hpp"
 #include "RenderPass.hpp"
 #include <algorithm>
-#include <iostream>
 #include <print>
+#include <vulkan/vulkan_core.h>
 
 namespace lft::rg {
 
@@ -37,10 +39,12 @@ RenderGraph& RenderGraph::invalidate(const std::string& name) {
 
 RenderGraph::RenderGraph(
 		const std::shared_ptr<Gpu>& gpu,
+        const std::string& output_name,
 		const std::vector<RenderGraphBuffer*>& buffers,
 		AdjacencyMatrix* dependencies
 ) :
 	m_gpu(gpu),
+    m_output_name(output_name),
 	m_buffers(std::move(buffers)),
 	m_buffer_idx(0),
 	m_dependency_matrix(dependencies)
@@ -81,7 +85,7 @@ void RenderGraph::record_command_buffer(
 
 	TaskRecordInfo record_info(
 		m_gpu,
-		cmdbuf,
+		lft::Recording(cmdbuf),
 		buffer_idx,
 		output_idx);
 
@@ -129,6 +133,15 @@ void RenderGraph::record_command_buffer(
 	}
 }
 
+VkSemaphoreSubmitInfoKHR create_simple_semaphore_submit(VkSemaphore signal) {
+    return {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,
+        .semaphore = signal,
+        .value = 1,
+        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+        .deviceIndex = 0
+    };
+}
 
 std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::get_wait_semaphores_for(
 		const RenderGraphBuffer* pBuffer,
@@ -145,14 +158,7 @@ std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::get_wait_semaphores_for(
 				[dependency](const Task& other) {
 				    return other.pDefinition.name() == dependency;
 				}) != pBuffer->batch(i).tasks.end()) {
-				    semaphores.push_back((VkSemaphoreSubmitInfoKHR) {
-						.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,
-						.semaphore = pBuffer->batch(i).signal,
-						.value = 1,
-						.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-						.deviceIndex = 0
-					});
-
+				    semaphores.push_back(create_simple_semaphore_submit(pBuffer->batch(i).signal));
 					break;
                 }
     		}
@@ -165,9 +171,10 @@ std::vector<VkSemaphoreSubmitInfoKHR> RenderGraph::get_wait_semaphores_for(
 void RenderGraph::submit_command_buffer(
 	uint32_t buffer_idx,
 	uint32_t batch_idx,
+    VkSemaphore wait_semaphore,
 	VkFence fence,
-	uint32_t output_idx)
-{
+	uint32_t output_idx
+) {
     RenderGraphBuffer* pBuffer = m_buffers[buffer_idx];
 
 	VkCommandBufferSubmitInfoKHR cmdbuf = {
@@ -187,6 +194,9 @@ void RenderGraph::submit_command_buffer(
 	};
 
 	auto wait_on_semaphores = get_wait_semaphores_for(pBuffer, batch_idx);
+    if(wait_semaphore) {
+        wait_on_semaphores.push_back(create_simple_semaphore_submit(wait_semaphore));
+    }
 
 	VkSubmitInfo2 submit_info = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
@@ -207,20 +217,45 @@ bool RenderGraph::is_recording_invalid(const RenderGraphBuffer& buffer,
 	// return !buffer.m_recording_validity[cmdbuf_idx];
 }
 
-void RenderGraph::run(uint32_t chainImageIdx) {
+
+bool RenderGraph::is_batch_writing_to_final_image(const Batch& buffer) const {
+    return std::any_of(buffer.tasks.begin(), buffer.tasks.end(),
+            [this](const Task& task) {
+                return task.pDefinition.has_output(m_output_name);
+            });
+}
+
+void RenderGraph::run(uint32_t chainImageIdx,
+        VkSemaphore semaphore_signal_for_final_image,
+        VkFence fence_signal_for_final_image
+) {
 	uint32_t buffer_idx = (m_buffer_idx + 1) % m_buffers.size();
 	auto& buffer = m_buffers[buffer_idx];
 
+    // the render graph manages it's resource and must therefore itself wait
+    // for them to be free for write.
 	wait_for_previous_frame(buffer_idx);
+    bool is_fence_reset = false;
 
 	for(uint32_t idx = 0; idx < buffer->num_batches(); idx++) {
 		// if(is_recording_invalid(buffer, idx - 1)) {
 			record_command_buffer(buffer_idx, idx, chainImageIdx);
 		// }
-
+        
 		VkFence fence = idx == buffer->num_batches() - 1 ?
 			m_fences[buffer_idx] : VK_NULL_HANDLE;
-		submit_command_buffer(buffer_idx, idx, fence, chainImageIdx);
+        VkSemaphore wait_semaphore = VK_NULL_HANDLE;
+        if (!is_fence_reset && fence_signal_for_final_image && is_batch_writing_to_final_image(buffer->batch(idx))) {
+            vkWaitForFences(m_gpu->dev(), 1, &fence_signal_for_final_image, VK_TRUE, UINT64_MAX);
+            vkResetFences(m_gpu->dev(), 1, &fence_signal_for_final_image);
+            is_fence_reset = true;
+        }
+
+        if(semaphore_signal_for_final_image && is_batch_writing_to_final_image(buffer->batch(idx))) {
+            wait_semaphore = semaphore_signal_for_final_image;
+        }
+
+		submit_command_buffer(buffer_idx, idx, wait_semaphore, fence, chainImageIdx);
 	}
 }
 

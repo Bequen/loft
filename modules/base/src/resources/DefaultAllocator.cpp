@@ -85,7 +85,7 @@ int DefaultAllocator::create_image(ImageCreateInfo *pImageInfo, MemoryAllocation
             .tiling = VK_IMAGE_TILING_OPTIMAL,
             .usage = pImageInfo->usage,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
 
     VmaAllocationCreateInfo allocInfo = {};
@@ -93,6 +93,9 @@ int DefaultAllocator::create_image(ImageCreateInfo *pImageInfo, MemoryAllocation
 	allocInfo.requiredFlags = pAllocInfo->requiredFlags;
 
     vmaCreateImage(m_allocator, &imageInfo, &allocInfo, &pOut->img, &pOut->allocation.allocation, nullptr);
+
+    pOut->m_layer_count = imageInfo.arrayLayers;
+    pOut->m_level_count = imageInfo.mipLevels;
 
     return 0;
 }

@@ -9,7 +9,7 @@
 #include <exception>
 #include <assert.h>
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
+#include <print>
 
 #include "resources/Buffer.hpp"
 #include "resources/Image.hpp"
@@ -118,7 +118,6 @@ public:
 };
 
 
-#include <iostream>
 /**
  * ShaderInputSetBuilder
  *
@@ -127,29 +126,26 @@ public:
 struct ShaderInputSetBuilder {
 private:
     std::vector<ShaderInputSetWrite> m_writes;
-    uint32_t m_numWrites;
 
 public:
-    explicit ShaderInputSetBuilder(uint32_t numWrites) :
-        m_writes(numWrites), m_numWrites(0) {
+    explicit ShaderInputSetBuilder() :
+        m_writes() {
 
     }
 
     ShaderInputSetBuilder& image(uint32_t binding, const ImageView& imageView, VkSampler sampler) {
         assert(imageView.view != VK_NULL_HANDLE);
-        assert(binding < m_writes.size());
         assert(sampler != VK_NULL_HANDLE);
 
-        m_writes[m_numWrites++] = ShaderInputSetWrite(ShaderInputSetImageWrite(binding, imageView, sampler));
+        m_writes.push_back(ShaderInputSetWrite(ShaderInputSetImageWrite(binding, imageView, sampler)));
 
         return *this;
     }
 
     ShaderInputSetBuilder& buffer(const VkDescriptorType type, const uint32_t binding, const Buffer& buffer, const uint32_t offset, const uint32_t size) {
-        assert(binding < m_writes.size());
         assert(buffer.buf != VK_NULL_HANDLE);
 
-        m_writes[m_numWrites++] = ShaderInputSetWrite(ShaderInputSetBufferWrite(type, binding, buffer, offset, size));
+        m_writes.push_back(ShaderInputSetWrite(ShaderInputSetBufferWrite(type, binding, buffer, offset, size)));
 
         return *this;
     }
@@ -169,7 +165,7 @@ public:
                 .pSetLayouts = &layout
         };
 
-        VkDescriptorSet set;
+        VkDescriptorSet set = VK_NULL_HANDLE;
         if(vkAllocateDescriptorSets(gpu->dev(), &descriptorInfo, &set)) {
             throw std::runtime_error("Failed to allocate descriptor set");
         }

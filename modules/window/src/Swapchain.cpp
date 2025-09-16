@@ -1,4 +1,4 @@
-#include "../include/Swapchain.hpp"
+#include "Swapchain.hpp"
 
 #include <assert.h>
 
@@ -162,8 +162,6 @@ m_gpu(gpu), m_surface(surface) {
 		m_numImages = capabilities.maxImageCount;
 	}
 	m_numFrames = m_numImages;
-
-    printf("Num images: %i\n", m_numFrames);
 
 	create_swapchain();
 

@@ -8,6 +8,7 @@
 #include <vector>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 
 /**
  * Abstract interface for a GPU
@@ -88,4 +89,31 @@ public:
     void enqueue_present(VkPresentInfoKHR *pPresentInfo) const;
     void enqueue_graphics(VkSubmitInfo2 *pSubmitInfo, VkFence fence) const;
     void enqueue_transfer(VkSubmitInfo *pSubmitInfo, VkFence fence) const;
+
+    inline VkSemaphore create_semaphore() const {
+        VkSemaphoreCreateInfo semaphore_info = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        };
+
+        VkSemaphore semaphore = VK_NULL_HANDLE;
+        if(vkCreateSemaphore(this->dev(), &semaphore_info, nullptr, &semaphore)) {
+            throw std::runtime_error("Failed to create semaphore");
+        }
+
+        return semaphore;
+    }
+
+    inline VkFence create_fence(bool is_signaled) const {
+        VkFenceCreateInfo fence_info = {
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = is_signaled ? VK_FENCE_CREATE_SIGNALED_BIT : (VkFenceCreateFlagBits)0
+        };
+
+        VkFence fence = VK_NULL_HANDLE;
+        if(vkCreateFence(this->dev(), &fence_info, nullptr, &fence)) {
+            throw std::runtime_error("Failed to create fence");
+        }
+
+        return fence;
+    }
 };

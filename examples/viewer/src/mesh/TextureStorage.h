@@ -142,18 +142,18 @@ public:
         m_writer.write(region, pData, size);
         m_writer.flush();
 
+        const VkExtent2D extent = {width, height};
+        const VkImageSubresourceRange subresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = mipmapLevels,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        };
+
         MipmapGenerator mipmapGenerator(m_gpu);
         mipmapGenerator.generate(m_images[handle], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                 {
-                                    width,
-                                    height
-                                }, {
-                                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                    .baseMipLevel = 0,
-                                    .levelCount = mipmapLevels,
-                                    .baseArrayLayer = 0,
-                                    .layerCount = 1,
-                                });
+                                 extent, subresource);
 
         return handle;
     }

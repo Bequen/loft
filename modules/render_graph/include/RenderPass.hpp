@@ -11,9 +11,11 @@
 #include "Gpu.hpp"
 #include "props.hpp"
 #include "Resource.hpp"
+#include "Recording.hpp"
 
 #include <volk.h>
 #include <map>
+#include <vulkan/vulkan_core.h>
 
 namespace lft::rg {
 
@@ -31,6 +33,10 @@ public:
 	GET(m_extent, extent);
 	GET(m_clear_value, clear_value);
 	GET(m_is_color, is_color);
+
+    inline void set_extent(VkExtent2D extent) {
+        m_extent = extent;
+    }
 
 	ImageResourceDescription(
 			const std::string& name,
@@ -83,22 +89,22 @@ public:
 
 class TaskRecordInfo {
 	std::shared_ptr<const Gpu> m_gpu;
-	VkCommandBuffer m_command_buffer;
+    lft::Recording m_recording;
 	uint32_t m_buffer_idx;
 	uint32_t m_image_idx;
 
 public:
 	GET(m_gpu, gpu);
-	GET(m_command_buffer, command_buffer);
+	REF(m_recording, recording);
 	GET(m_image_idx, image_idx);
 	GET(m_buffer_idx, buffer_idx);
 
 	TaskRecordInfo(
 			std::shared_ptr<const Gpu> gpu,
-			VkCommandBuffer command_buffer,
+			lft::Recording recording,
 			uint32_t buffer_idx,
 			uint32_t image_in_flight_idx) :
-		m_command_buffer(command_buffer),
+		m_recording(recording),
 		m_image_idx(image_in_flight_idx),
 		m_buffer_idx(buffer_idx),
 		m_gpu(gpu) {
@@ -200,6 +206,28 @@ struct TaskInfo {
 	{
 
 	}
+
+    bool has_output(const std::string& name) const {
+        if(m_depth_output.has_value() && m_depth_output->name() == name) {
+            return true;
+        }
+
+        if(std::any_of(m_buffer_outputs.begin(), m_buffer_outputs.end(),
+                [name](const BufferResourceDescription& output) {
+                    return output.name() == name;
+                })) {
+            return true;
+        }    
+
+        if(std::any_of(m_color_outputs.begin(), m_color_outputs.end(),
+                [name](const ImageResourceDescription& output) {
+                    return output.name() == name;
+                })) {
+            return true;
+        }
+
+        return false;
+    }
 
 	TaskInfo& add_color_output(const std::string& name,
 			VkFormat format,
@@ -361,8 +389,8 @@ public:
 
 	RenderTaskBuilder& add_color_output(const std::string& name,
 			VkFormat format,
-			VkExtent2D extent,
-			VkClearColorValue clear_value) {
+			VkExtent2D extent = VkExtent2D(0.0f, 0.0f),
+			VkClearColorValue clear_value = {0.0f, 0.0f, 0.0f, 0.0f}) {
 		m_task_info.m_color_outputs.emplace_back(name, format, extent,
 				VkClearValue {
 						.color = clear_value
@@ -373,8 +401,8 @@ public:
 	RenderTaskBuilder& set_depth_output(
 			const std::string& name,
 			VkFormat format,
-			VkExtent2D extent,
-			VkClearDepthStencilValue clear_value
+			VkExtent2D extent = VkExtent2D(0.0f, 0.0f),
+			VkClearDepthStencilValue clear_value = {1.0f, 0}
 	) {
 		m_task_info.m_depth_output = ImageResourceDescription(name, format, extent,
 				VkClearValue {

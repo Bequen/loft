@@ -16,9 +16,6 @@ class Pipeline {
     VkPipelineLayout m_layout;
 
 public:
-    // disable copy
-    Pipeline(const Pipeline&) = delete;
-
     /**
      * Wraps new pipeline with layout
      * @param layout pipeline layout
@@ -52,5 +49,18 @@ public:
                                 0, nullptr);
 
         return *this;
+    }
+
+    inline void set_debug_name(std::shared_ptr<Gpu> gpu, const std::string name) const {
+#if LOFT_DEBUG
+        VkDebugUtilsObjectNameInfoEXT nameInfo = {
+                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                .objectType                    = VK_OBJECT_TYPE_PIPELINE,
+                .objectHandle                  = (uint64_t)pipeline(),
+                .pObjectName                   = name.c_str(),
+        };
+
+        vkSetDebugUtilsObjectNameEXT(gpu->dev(), &nameInfo);
+#endif
     }
 };

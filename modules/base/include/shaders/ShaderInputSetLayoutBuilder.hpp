@@ -11,45 +11,80 @@
 class ShaderInputSetLayoutBuilder {
 private:
 	std::vector<VkDescriptorSetLayoutBinding> m_bindings;
-	uint32_t m_numBindings;
 
 public:
-	ShaderInputSetLayoutBuilder(uint32_t numBindings) :
-		m_bindings(numBindings), m_numBindings(0) {
+	ShaderInputSetLayoutBuilder() :
+		m_bindings() {
 	}
 
 	ShaderInputSetLayoutBuilder(std::vector<VkDescriptorSetLayoutBinding> bindings) :
-		m_bindings(bindings), m_numBindings(bindings.size()) {
+		m_bindings(bindings) {
 	}
 
-	ShaderInputSetLayoutBuilder& uniform_buffer(uint32_t binding) {
-		assert(binding < m_bindings.size());
-
-		m_bindings[m_numBindings++] = {
+	ShaderInputSetLayoutBuilder& uniform_buffer(
+            uint32_t binding, 
+            VkShaderStageFlags shader_stages = VK_SHADER_STAGE_ALL
+    ) {
+		m_bindings.push_back({
 			.binding = binding,
 			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_ALL,
-		};
+			.stageFlags = shader_stages,
+		});
 
 		return *this;
 	}
 
-    ShaderInputSetLayoutBuilder& binding(uint32_t binding, VkDescriptorType type, uint32_t count, VkShaderStageFlags stages) {
-        m_bindings[m_numBindings++] = {
+	ShaderInputSetLayoutBuilder& image(
+            uint32_t binding, 
+            VkShaderStageFlags shader_stages = VK_SHADER_STAGE_ALL
+    ) {
+		m_bindings.push_back({
+			.binding = binding,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = 1,
+			.stageFlags = shader_stages,
+		});
+
+		return *this;
+	}
+
+
+	ShaderInputSetLayoutBuilder& n_images(
+            uint32_t binding, 
+            uint32_t count,
+            VkShaderStageFlags shader_stages = VK_SHADER_STAGE_ALL
+    ) {
+		m_bindings.push_back({
+			.binding = binding,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = count,
+			.stageFlags = shader_stages,
+		});
+
+		return *this;
+	}
+
+    ShaderInputSetLayoutBuilder& binding(
+            uint32_t binding, 
+            VkDescriptorType type, 
+            uint32_t count,
+            VkShaderStageFlags stages
+    ) {
+        m_bindings.push_back({
                 .binding = binding,
                 .descriptorType = type,
                 .descriptorCount = count,
                 .stageFlags = stages,
-        };
+        });
 
         return *this;
     }
 
-	VkDescriptorSetLayout build(const std::shared_ptr<const Gpu>& gpu) {
+	VkDescriptorSetLayout build(const std::shared_ptr<const Gpu>& gpu) const {
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .bindingCount = (uint32_t)m_numBindings,
+            .bindingCount = (uint32_t)m_bindings.size(),
             .pBindings = m_bindings.data(),
         };
 

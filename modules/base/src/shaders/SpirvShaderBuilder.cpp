@@ -3,19 +3,16 @@
 //
 
 #include <stdexcept>
-#include <iostream>
-#include <utility>
-#include "shaders/SpirvShaderBuilder.hpp"
 
+#include "shaders/SpirvShaderBuilder.hpp"
 #include "io/file.hpp"
 
-SpirvShaderBuilder::SpirvShaderBuilder(const std::shared_ptr<const Gpu>& gpu) :
+SpirvShaderBuilder::SpirvShaderBuilder(const std::shared_ptr<const Gpu> gpu) :
         m_gpu(gpu) {
 
 }
 
 Shader SpirvShaderBuilder::from_file(std::string path) {
-    std::cout << "Loading shader at: " << path.c_str() << std::endl;
     auto shaderBinary = io::file::read_binary(path);
 
     VkShaderModuleCreateInfo moduleInfo = {

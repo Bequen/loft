@@ -42,9 +42,10 @@ std::vector<BatchOutput> create_batch_outputs(std::shared_ptr<Gpu> gpu, uint32_t
     auto cmdbufs = allocate_cmdbufs(gpu, count);
     std::vector<BatchOutput> outputs;
 
-    std::transform(cmdbufs.begin(), cmdbufs.end(), std::back_inserter(outputs), [](VkCommandBuffer cmdbuf) {
-        return BatchOutput(cmdbuf);
-    });
+    std::transform(cmdbufs.begin(), cmdbufs.end(),
+            std::back_inserter(outputs), [](VkCommandBuffer cmdbuf) {
+                return BatchOutput(cmdbuf);
+            });
 
     return outputs;
 }

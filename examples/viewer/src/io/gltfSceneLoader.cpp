@@ -1,6 +1,6 @@
 #include "gltfSceneLoader.hpp"
 
-#include <stdio.h>
+#include <print>
 #include <queue>
 
 #define CGLTF_IMPLEMENTATION
@@ -162,6 +162,7 @@ bool load_pbr_metallic_roughness(cgltf_data* pData, cgltf_pbr_metallic_roughness
 
 bool load_textures(cgltf_data *pData, SceneData *pOutData) {
     pOutData->resize_textures(pData->textures_count);
+    std::println("Num Textures: {}", pData->textures_count);
 
     for(uint32_t ti = 0; ti < pData->textures_count; ti++) {
         std::string path = pOutData->get_absolute_path_of(pData->textures[ti].image->uri);
@@ -173,6 +174,7 @@ bool load_textures(cgltf_data *pData, SceneData *pOutData) {
 }
 
 bool load_materials(cgltf_data *pData, SceneData *pOutData) {
+    uint32_t max_texture = 0;
     for(uint32_t m = 0; m < pData->materials_count; m++) {
         cgltf_material *material = &pData->materials[m];
         auto materialData = MaterialData(new float[]{0.0f, 0.0f, 0.0f, 0.0f});
@@ -181,9 +183,12 @@ bool load_materials(cgltf_data *pData, SceneData *pOutData) {
             load_pbr_metallic_roughness(pData, &material->pbr_metallic_roughness, &materialData);
         }
 
+        max_texture = std::max(materialData.metallic_roughness_texture().value_or(0), max_texture);
+
         if(material->normal_texture.texture != nullptr) {
             materialData.set_normal_texture(cgltf_texture_index(pData, material->normal_texture.texture));
         }
+        max_texture = std::max(materialData.normal_texture().value_or(0), max_texture);
 
         if (material->alpha_mode == cgltf_alpha_mode_mask ||
             material->alpha_mode == cgltf_alpha_mode_blend) {
@@ -191,7 +196,10 @@ bool load_materials(cgltf_data *pData, SceneData *pOutData) {
         }
 
         pOutData->set_material(cgltf_material_index(pData, material), materialData);
+        max_texture = std::max(materialData.color_texture().value_or(0), max_texture);
     }
+
+    std::println("MAX TEXTURE: {}", max_texture);
 	return true;
 }
 

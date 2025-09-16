@@ -1,5 +1,8 @@
 #include "resources/MipmapGenerator.h"
 #include "Gpu.hpp"
+#include "Recording.hpp"
+#include "TransferTaskPipeline.hpp"
+#include <vulkan/vulkan_core.h>
 
 MipmapGenerator::MipmapGenerator(const std::shared_ptr<const Gpu>& gpu) :
 m_gpu(gpu), m_commandBuffer(create_command_buffer(gpu)), m_fence(create_fence(gpu)) {
@@ -37,6 +40,7 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
     vkWaitForFences(m_gpu->dev(), 1, &m_fence, VK_TRUE, UINT64_MAX);
     vkResetFences(m_gpu->dev(), 1, &m_fence);
 
+
     VkCommandBufferBeginInfo beginInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
@@ -55,7 +59,7 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
             .image = image.img,
             .subresourceRange = {
                     .aspectMask = range.aspectMask,
-                    .baseMipLevel = 0,
+                    .baseMipLevel = 1,
                     .levelCount = VK_REMAINING_MIP_LEVELS,
                     .baseArrayLayer = 0,
                     .layerCount = range.layerCount,
@@ -71,12 +75,16 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
     barrier.subresourceRange.levelCount = 1;
 
     int32_t width = extent.width;
-    auto layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    auto layout = oldLayout;
+
     for (uint32_t i = 1; i < range.levelCount; i++) {
+        uint32_t from_level = i - 1;
+        uint32_t to_level = i;
+
         std::vector<VkImageMemoryBarrier> barriers(2, barrier);
         barriers[0].oldLayout = layout;
         barriers[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barriers[0].subresourceRange.baseMipLevel = i - 1;
+        barriers[0].subresourceRange.baseMipLevel = from_level;
 
         vkCmdPipelineBarrier(m_commandBuffer,
                              VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
@@ -87,7 +95,7 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
         VkImageBlit blit = {
                 .srcSubresource = {
                         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                        .mipLevel = i - 1,
+                        .mipLevel = from_level,
                         .baseArrayLayer = 0,
                         .layerCount = range.layerCount,
                 },
@@ -97,7 +105,7 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
                 },
                 .dstSubresource = {
                         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                        .mipLevel = i,
+                        .mipLevel = to_level,
                         .baseArrayLayer = 0,
                         .layerCount = range.layerCount
                 },
@@ -105,7 +113,8 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
                         { 0, 0, 0 },
                         {
                             width > 1 ? width / 2 : 1,
-                            width > 1 ? width / 2 : 1, 1
+                            width > 1 ? width / 2 : 1, 
+                            1
                         }
                 },
         };
@@ -116,7 +125,8 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
                        1, &blit,
                        VK_FILTER_LINEAR);
 
-        barriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        // transfer back to old layout
+        /* barriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         barriers[0].newLayout = oldLayout;
         barriers[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
         barriers[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -125,11 +135,37 @@ uint32_t MipmapGenerator::generate(Image image, VkImageLayout oldLayout, VkExten
                              VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
                              0, nullptr,
                              0, nullptr,
-                             1, barriers.data());
+                             1, barriers.data()); */
 
         width /= 2;
-        // layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     }
+
+    std::vector<VkImageMemoryBarrier> barriers(2, barrier);
+
+    barriers[0].subresourceRange.baseMipLevel = 0;
+    barriers[0].subresourceRange.levelCount = range.levelCount - 1;
+
+    barriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barriers[0].newLayout = oldLayout;
+    barriers[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barriers[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+
+    barriers[1].subresourceRange.baseMipLevel = range.levelCount - 1;
+    barriers[1].subresourceRange.levelCount = 1;
+
+    barriers[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barriers[1].newLayout = oldLayout;
+    barriers[1].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barriers[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(m_commandBuffer,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                         0, nullptr,
+                         0, nullptr,
+                         2, barriers.data());
+
 
     vkEndCommandBuffer(m_commandBuffer);
 

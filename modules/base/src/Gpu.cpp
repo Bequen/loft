@@ -134,9 +134,9 @@ Result Gpu::create_logical_device(std::optional<VkSurfaceKHR> supportedSurface) 
             .synchronization2 = true
     };
 
-	VkPhysicalDeviceFeatures gpuFeatures = {
-
-	};
+	VkPhysicalDeviceFeatures gpuFeatures = { };
+    
+    vkGetPhysicalDeviceFeatures(m_gpu, &gpuFeatures);
 
 	VkPhysicalDeviceCoherentMemoryFeaturesAMD coherentMemoryFeatures {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD,

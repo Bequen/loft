@@ -1,3 +1,14 @@
+#include <algorithm>
+#include <cstdio>
+#include <format>
+#include <ostream>
+#include <iostream>
+#include <queue>
+#include <stdexcept>
+#include <unordered_map>
+#include <unordered_set>
+#include <cstring>
+
 #include "RenderGraphBuilder.hpp"
 #include "AdjacencyMatrix.hpp"
 #include "FramebufferBuilder.hpp"
@@ -6,30 +17,20 @@
 #include "RenderPass.hpp"
 #include "RenderPassLayout.hpp"
 #include "Resource.hpp"
-#include <algorithm>
-#include <cstdio>
-#include <format>
-#include <ostream>
-#include <iostream>
-#include <print>
-#include <queue>
-#include <stdexcept>
-#include <unordered_map>
-#include <unordered_set>
-#include <vulkan/vulkan_core.h>
-#include <cstring>
 
 namespace lft::rg {
 
 std::vector<std::string> get_task_names(
 		const std::vector<TaskInfo>& tasks
 ) {
-	std::vector<std::string> result(tasks.size());
-	for(auto& task : tasks) {
-		result.push_back(task.name());
-	}
+    std::vector<std::string> names;
+    std::transform(tasks.begin(), tasks.end(),
+            names.begin(),
+            [](const TaskInfo& i) {
+                return i.name();
+            });
 
-	return result;
+	return names;
 }
 
 
@@ -278,6 +279,20 @@ BufferResource BuilderAllocator::allocate_buffer_resource(
 
 }
 
+ImageResourceDescription BuilderAllocator::correct_resource_description(ImageResourceDescription desc) {
+    // correct extent
+    VkExtent2D extent = desc.extent();
+    if(extent.width == 0) {
+        extent.width = m_output_chain.extent().width;
+    }
+
+    if(extent.height == 0) {
+        extent.height = m_output_chain.extent().height;
+    }
+
+    desc.set_extent(extent);
+    return desc;
+}
 
 ImageView BuilderAllocator::get_attachment(
     const ImageResourceDescription& desc,
@@ -290,7 +305,8 @@ ImageView BuilderAllocator::get_attachment(
 
 	auto attachment = pBuffer->get_image_resource(desc.name());
 	if(!attachment.has_value()) {
-	    auto resource = allocate_image_resource(desc);
+	    auto resource = allocate_image_resource(correct_resource_description(desc));
+
 		VkDebugUtilsObjectNameInfoEXT img_dbg_info = {
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .objectType = VK_OBJECT_TYPE_IMAGE,
@@ -390,10 +406,11 @@ Task BuilderAllocator::create_task(
 ) {
     if(task_info.type() == GRAPHICS_TASK) {
         auto render_pass = allocate_renderpass(task_info, resource_count_down, cleared_resources);
-
         return create_graphics_task(task_info, pBuffer, render_pass);
-    } else {
+    } else if(task_info.type() == COMPUTE_TASK) {
         return create_compute_task(task_info, pBuffer);
+    } else {
+        throw std::runtime_error(std::format("Unknown task type for {}", task_info.name()));
     }
 }
 
@@ -475,7 +492,7 @@ void BuilderAllocator::update_task_queue(
          			pBuffer->insert_batch(next_batch_idx, m_output_chain.count())
                                 // insert the new task
                					.insert_task(0, task);
-                        // notify about update
+                    // notify about update
          			update_task_buffer(task, pBuffer);
 
                     // now the next_task and task_infos[queue_idx] should match, let us move on to the next
@@ -550,7 +567,7 @@ RenderGraph BuilderAllocator::allocate(
 
 	m_updated_tasks.clear();
 
-	return RenderGraph(m_gpu, buffers, dependencies);
+	return RenderGraph(m_gpu, m_output_name, buffers, dependencies);
 }
 
 bool BuilderAllocator::equals(const BuilderAllocator& other) const {

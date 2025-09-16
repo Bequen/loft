@@ -242,18 +242,6 @@ std::vector<VkCommandBuffer> allocate_command_buffers(std::shared_ptr<Gpu> gpu, 
 	return cmd_bufs;
 }
 
-VkSemaphore create_semaphore(std::shared_ptr<Gpu> gpu) {
-	VkSemaphoreCreateInfo semaphore_info = {
-		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-	};
-
-	VkSemaphore semaphore;
-	if(vkCreateSemaphore(gpu->dev(), &semaphore_info, nullptr, &semaphore)) {
-		throw std::runtime_error("Failed to create semaphore");
-	}
-
-	return semaphore;
-}
 
 void Allocator::collect_resources(const std::vector<TaskInfo>& tasks) {
 	m_resources.resize(num_buffers());

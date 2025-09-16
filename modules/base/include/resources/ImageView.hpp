@@ -3,6 +3,7 @@
 #include <volk.h>
 #include <string>
 #include <memory>
+#include <vulkan/vulkan_core.h>
 
 class Gpu;
 

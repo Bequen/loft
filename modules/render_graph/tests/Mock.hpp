@@ -30,8 +30,8 @@ void lft_dbg_callback(lft::dbg::LogMessageSeverity severity,
 std::shared_ptr<Gpu> create_mock_gpu() {
     auto instance = std::make_shared<const Instance>(
 			"loft", "loft",
-			std::vector<const char*>({VK_KHR_SURFACE_EXTENSION_NAME}),
-			std::vector<const char*>(),
+			std::vector<std::string>({VK_KHR_SURFACE_EXTENSION_NAME}),
+			std::vector<std::string>(),
 			lft_dbg_callback);
 
     volkLoadInstance(instance->instance());

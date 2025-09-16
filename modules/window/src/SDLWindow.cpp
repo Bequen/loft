@@ -56,7 +56,20 @@ int32_t SDLWindow::poll_event(SDL_Event *pOutEvent) const {
     return SDL_PollEvent(pOutEvent);
 }
 
-void SDLWindow::get_required_extensions(uint32_t *pOutSize, const char** pOut)
+std::vector<std::string> SDLWindow::get_required_extensions()
 {
-    SDL_Vulkan_GetInstanceExtensions(m_pWindow, pOutSize, (const char**)pOut);
+    uint32_t count = 0;
+    SDL_Vulkan_GetInstanceExtensions(m_pWindow, &count, nullptr);
+
+    std::vector<const char*> extensions(count);
+    SDL_Vulkan_GetInstanceExtensions(m_pWindow, &count, extensions.data());
+
+    std::vector<std::string> extension_strings(count);
+    std::transform(extensions.begin(), extensions.end(),
+            extension_strings.begin(),
+            [](const char* str) {
+                return std::string(str);
+            });
+    
+    return extension_strings;
 }

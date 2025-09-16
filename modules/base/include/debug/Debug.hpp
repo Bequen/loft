@@ -8,6 +8,7 @@
 #define LOFT_DEBUG_HPP
 
 #include <string>
+#include <stdarg.h>
 
 namespace lft::dbg {
     enum LogMessageSeverity {

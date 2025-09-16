@@ -16,6 +16,7 @@ namespace lft::rg {
 class BuilderAllocator {
 private:
 	std::shared_ptr<Gpu> m_gpu;
+
 	ImageChain m_output_chain;
 	std::string m_output_name;
 
@@ -53,6 +54,8 @@ private:
 	) const;
 
 	BufferResource allocate_buffer_resource(const BufferResourceDescription& desc) const;
+
+    ImageResourceDescription correct_resource_description(ImageResourceDescription desc);
 
 	/**
 	 * Looks for an image resource in buffer at buffer_idx. Returns if found. Allocates if not found.
@@ -280,9 +283,10 @@ public:
 			throw std::runtime_error("Task " + task.name() + " output to one of it's dependencies. That is prohibited. To simulate this behaviour, for instance in compute shader, allocate the resource yourself and add it with `add_image_resource` or `add_buffer_resource`.");
 		}
 
+        std::string task_name = task.name();
 		auto found = std::find_if(m_tasks.begin(), m_tasks.end(),
-    	    [task](const TaskInfo& i) {
-    		    return i.name() == task.name();
+    	    [&task_name](const TaskInfo& i) {
+    		    return i.name() == task_name;
     		});
 
 		if(found != m_tasks.end()) {

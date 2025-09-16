@@ -4,6 +4,7 @@
 
 #include <volk.h>
 #include <memory>
+#include <vulkan/vulkan_core.h>
 
 #include "resources/GpuAllocation.h"
 #include "ImageView.hpp"
@@ -12,6 +13,11 @@ class Gpu;
 
 struct Image {
 	VkImage img;
+
+    VkImageAspectFlagBits m_aspect_mask;
+    uint32_t m_layer_count;
+    uint32_t m_level_count;
+
 	GpuAllocation allocation;
 
 public:

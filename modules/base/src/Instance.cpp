@@ -1,8 +1,9 @@
-#include <cinttypes>
 #include <iostream>
-#include <volk.h>
+#include <numeric>
+#include <sstream>
 #include <cstring>
 #include <stdexcept>
+#include <iterator>
 
 #include "Instance.hpp"
 #include "result.hpp"
@@ -55,21 +56,55 @@ vk_dbg_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     return VK_FALSE;
 }
 
-Instance::Instance(const std::string& applicationName,
-                   const std::string& engineName,
-                   std::vector<const char*> extensions,
-                   std::vector<const char*> layers,
+std::string get_unsupported_layers_error_mesg(std::vector<std::string> unsupported_layers) {
+    std::stringstream str;
+    std::copy(unsupported_layers.begin(), unsupported_layers.end(),
+            std::ostream_iterator<std::string>(str, "\n"));
+    return "Unsupported layers: \n" + str.str();
+}
+
+std::string get_unsupported_extensions_error_mesg(std::vector<std::string> unsupported_extensions) {
+    std::stringstream str;
+    std::copy(unsupported_extensions.begin(), unsupported_extensions.end(),
+            std::ostream_iterator<std::string>(str, "\n"));
+    return "Unsupported extensions: \n" + str.str();
+}
+
+std::vector<char*> transform_strings_to_c_strings(std::vector<std::string> strings) {
+    std::vector<char*> result(strings.size());
+    std::transform(strings.begin(), strings.end(),
+            result.begin(),
+            [](const std::string& str) {
+                return strndup(str.c_str(), str.length());
+            });
+
+    return result;
+}
+
+Instance::Instance(const std::string applicationName,
+                   const std::string engineName,
+                   std::vector<std::string> extensions,
+                   std::vector<std::string> layers,
                    lft::dbg::lft_log_callback callback) {
     if(volkInitialize()) {
         throw std::runtime_error("Failed to initialize volk");
     }
 
-    std::cout << "Volk initialized" << std::endl;
-
     // check unsupported extensions
     auto unsupportedExtensions = check_extensions(extensions);
+    auto unsupportedLayers = find_unsupported_layers(layers);
+    if(!unsupportedExtensions.empty()) {
+        throw std::runtime_error(get_unsupported_extensions_error_mesg(unsupportedExtensions));
+    }
+
+    if(!unsupportedLayers.empty()) {
+        throw std::runtime_error(get_unsupported_layers_error_mesg(unsupportedLayers));
+    }
     // EXPECT(!unsupportedExtensions.empty(), "Unsupported extensions");
-    std::cout << "All extensions supported" << std::endl;
+
+    if(callback) {
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
 
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -96,15 +131,8 @@ Instance::Instance(const std::string& applicationName,
         .pUserData = nullptr
     };
 
-    // collect extensions
-    char** pExtensions = new char*[extensions.size() + NUM_EXTENSIONS];
-    uint32_t i = 0;
-    for(; i < extensions.size(); i++) {
-        pExtensions[i] = strdup(extensions[i]);
-        std::cout << pExtensions[i] << std::endl;
-    }
-    memcpy(pExtensions + i, EXTENSIONS, sizeof(char*) * NUM_EXTENSIONS);
-    i += NUM_EXTENSIONS;
+    std::vector<char*> extension_cstrs = transform_strings_to_c_strings(extensions);
+    std::vector<char*> layer_cstrs = transform_strings_to_c_strings(layers);
 
     VkInstanceCreateInfo instanceInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -113,11 +141,11 @@ Instance::Instance(const std::string& applicationName,
 #endif
         .pApplicationInfo = &appInfo,
 #if LOFT_DEBUG
-        .enabledLayerCount = NUM_LAYERS,
-        .ppEnabledLayerNames = LAYERS,
+        .enabledLayerCount = (uint32_t)layer_cstrs.size(),
+        .ppEnabledLayerNames = layer_cstrs.data(),
 #endif
-        .enabledExtensionCount = i,
-        .ppEnabledExtensionNames = pExtensions,
+        .enabledExtensionCount = (uint32_t)extension_cstrs.size(),
+        .ppEnabledExtensionNames = extension_cstrs.data(),
     };
 
     if(callback != nullptr) {
@@ -132,10 +160,13 @@ Instance::Instance(const std::string& applicationName,
     lft::log::warn("Instance created successfully");
 
     // cleanup
-    for(; i > 0; i--) {
-        // free(pExtensions[i]);
+    for(char* str : extension_cstrs) {
+        delete [] str;
     }
-    delete [] pExtensions;
+
+    for(char* str : layer_cstrs) {
+        delete [] str;
+    }
 
     IS_INITIALIZED = true;
 }

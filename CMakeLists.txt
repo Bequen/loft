@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.26)
 
-option(ENABLE_EXAMPLES "Enable building examples" ON)
+option(LFT_ENABLE_EXAMPLES "Enable building examples" ON)
 
 if (WIN32)
     set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
@@ -49,8 +49,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory(volk)
 add_subdirectory(modules)
 
-if(ENABLE_EXAMPLES)
+if(LFT_ENABLE_EXAMPLES)
 	add_subdirectory(examples)
 endif()
-
 

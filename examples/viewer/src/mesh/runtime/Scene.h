@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "Gpu.hpp"
+#include "Recording.hpp"
 #include "mesh/data/SceneData.hpp"
 #include "mesh/TextureStorage.h"
 #include "mesh/MeshBuffer.h"
@@ -11,6 +12,7 @@
 #include "Material.h"
 #include "mesh/MaterialBuffer.h"
 #include "mesh/Transform.hpp"
+#include "mesh/TransformBuffer.hpp"
 
 struct SceneObject {
     uint32_t m_transformIdx;
@@ -51,19 +53,19 @@ public:
     }
 };
 
+/**
+ * Stores the rendered scene.
+ */
 class Scene {
 private:
-    std::shared_ptr<const Gpu> m_gpu;
+    std::shared_ptr<Gpu> m_gpu;
 
     std::vector<MeshScene> m_meshBuffers;
 
     /* material buffer */
     MaterialBuffer m_materialBuffer;
 
-    /* transform buffer */
-    Buffer m_transformBuffer;
-    uint32_t m_numTransforms;
-    std::vector<bool> m_transformBits;
+    lft::scene::TransformBuffer m_transform_buffer;
 
     Buffer m_lightBuffer;
     uint32_t m_numLights;
@@ -80,7 +82,7 @@ private:
     std::vector<uint32_t> load_materials(const SceneData* pData);
 
 public:
-    Scene(const std::shared_ptr<const Gpu>& gpu, const SceneData *pData);
+    Scene(std::shared_ptr<Gpu> gpu, const SceneData *pData);
 
     uint32_t push_material(const SceneData *pData, const MaterialData& material);
 
@@ -88,15 +90,15 @@ public:
 
     void add_scene_data(const SceneData *pData);
 
-    void draw(VkCommandBuffer cmdbuf, VkPipelineLayout layout);
+    void draw(const lft::Recording& recording, const lft::RecordingBindPoint bind_point);
 
-    void draw_depth(VkCommandBuffer cmdbuf, VkPipelineLayout layout, mat4 transform);
+    void draw_depth(const lft::Recording& recording, const lft::RecordingBindPoint bind_point, mat4 transform);
 
     static ShaderInputSetLayoutBuilder input_layout() {
-        return ShaderInputSetLayoutBuilder(2)
+        return ShaderInputSetLayoutBuilder()
                 /* material buffer */
-                .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .uniform_buffer(0, VK_SHADER_STAGE_FRAGMENT_BIT)
                 /* color texture */
-                .binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 128, VK_SHADER_STAGE_FRAGMENT_BIT);
+                .n_images(1, 128, VK_SHADER_STAGE_FRAGMENT_BIT);
     }
 };

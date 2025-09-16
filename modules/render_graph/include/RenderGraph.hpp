@@ -16,6 +16,8 @@ namespace lft::rg {
 class RenderGraph {
 private:
 	std::shared_ptr<Gpu> m_gpu;
+    
+    std::string m_output_name;
 
 	AdjacencyMatrix* m_dependency_matrix;
 	std::vector<RenderGraphBuffer*> m_buffers;
@@ -42,9 +44,13 @@ private:
 	void submit_command_buffer(
 			uint32_t buffer_idx,
 			uint32_t cmdbuf_idx,
+            VkSemaphore wait_semaphore,
 			VkFence fence,
 			uint32_t output_idx
 	);
+
+
+    bool is_batch_writing_to_final_image(const Batch& buffer) const;
 
 
 public:
@@ -55,11 +61,17 @@ public:
 	RenderGraph& invalidate(const std::string& name);
 
 	RenderGraph(const std::shared_ptr<Gpu>& gpu,
+                const std::string& output_name,
 	            const std::vector<RenderGraphBuffer*>& buffers,
 				AdjacencyMatrix* dependencies
     );
 
-    void run(uint32_t chainImageIdx);
+    /**
+     * Runs the render graph. Outputs to final image.
+     * @param chainImageIdx index of image in the final image chain
+     * @param final_image_fence fence to wait on for final image. The render graph will attempt to run as much tasks before waiting as possible.
+     */
+    void run(uint32_t chainImageIdx, VkSemaphore semaphore, VkFence final_image_fence);
 };
 
 }

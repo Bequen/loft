@@ -1,11 +1,14 @@
 #pragma once
 
+#include <iterator>
 #include <volk.h>
 
+#include <iostream>
 #include <string>
 #include <vector>
-#include <memory>
-#include <cstdarg>
+#include <set>
+#include <algorithm>
+#include <vulkan/vulkan_core.h>
 
 #include "props.hpp"
 #include "debug/Debug.hpp"
@@ -31,28 +34,61 @@ public:
      * @param extensions Additional Vulkan extensions you might want to enable
      * @param callback Debug log callback
      */
-    explicit Instance(const std::string& applicationName,
-                      const std::string& engineName,
-                      std::vector<const char*> extensions,
-                      std::vector<const char*> layers,
-                      lft::dbg::lft_log_callback callback);
+    Instance(const std::string applicationName,
+            const std::string engineName,
+            std::vector<std::string> extensions,
+            std::vector<std::string> layers,
+            lft::dbg::lft_log_callback callback);
+
+    static std::vector<std::string> find_unsupported_layers(
+            std::vector<std::string>& required_layers
+    ) {
+        uint32_t available_layers_count = 0;
+        vkEnumerateInstanceLayerProperties(&available_layers_count, nullptr);
+
+        if(available_layers_count == 0) {
+            return required_layers;
+        }
+
+        std::vector<VkLayerProperties> available_layers(available_layers_count);
+        vkEnumerateInstanceLayerProperties(&available_layers_count, available_layers.data());
+
+        std::vector<std::string> available_layer_names(available_layers_count);
+        std::transform(available_layers.begin(), available_layers.end(),
+                available_layer_names.begin(), 
+                [](const VkLayerProperties& props) {
+                    std::cout << "Supported: [" << props.layerName << "]" << std::endl;
+                    return std::string(props.layerName);
+                });
+
+        std::sort(available_layer_names.begin(), available_layer_names.end());
+        std::sort(required_layers.begin(), required_layers.end());
+
+        for(auto layer : required_layers) {
+            std::cout << "Required: [" << layer << "]" << std::endl;
+        }
+
+        std::vector<std::string> unsupported_layers;
+        std::set_difference(required_layers.begin(), required_layers.end(),
+                available_layer_names.begin(), available_layer_names.end(),
+                std::back_inserter(unsupported_layers));
+
+        return unsupported_layers;
+    }
 
     /**
      * Checks if the required extensions are available
      * @return A vector of indices of not available extensionse
      */
-    static std::vector<uint32_t> check_extensions(const std::vector<const char*>& requiredExtensions) {
+    static std::vector<std::string> check_extensions(const std::vector<std::string>& requiredExtensions) {
         auto supportedExtensions = list_extensions();
 
-        std::vector<uint32_t> missingExtensions;
-        for (const auto& extension : requiredExtensions) {
-            auto it = std::ranges::find(supportedExtensions, extension);
-            if (it == supportedExtensions.end()) {
-                missingExtensions.push_back(it - supportedExtensions.begin());
-            }
-        }
+        std::vector<std::string> unsupported_extensions;
+        std::set_difference(requiredExtensions.begin(), requiredExtensions.end(),
+                supportedExtensions.begin(), supportedExtensions.end(),
+                std::back_inserter(unsupported_extensions));
 
-        return missingExtensions;
+        return unsupported_extensions;
     }
 
 
@@ -74,19 +110,20 @@ public:
      * Gets a list of available instance extensions
      * @return A vector of strings representing available instance extensions
      */
-    [[nodiscard]] static inline std::vector<const char*> list_extensions() {
+    [[nodiscard]] static inline std::vector<std::string> list_extensions() {
         uint32_t numExtensions = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &numExtensions, nullptr);
 
         std::vector<VkExtensionProperties> extensions(numExtensions);
         vkEnumerateInstanceExtensionProperties(nullptr, &numExtensions, extensions.data());
 
-        std::vector<const char*> exts;
-        exts.reserve(extensions.size());
-        for (const auto& extension : extensions) {
-            exts.emplace_back(extension.extensionName);
-        }
+        std::vector<std::string> extension_names(numExtensions);
+        std::transform(extensions.begin(), extensions.end(),
+                extension_names.begin(),
+                [](const VkExtensionProperties& props) {
+                    return std::string(props.extensionName);
+                });
 
-        return exts;
+        return extension_names;
     }
 };
