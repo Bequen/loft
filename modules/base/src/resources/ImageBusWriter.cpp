@@ -48,7 +48,7 @@ int ImageBusWriter::create_fence() {
     return 0;
 }
 
-ImageBusWriter::ImageBusWriter(const std::shared_ptr<const Gpu>& gpu, Image *pTarget,
+ImageBusWriter::ImageBusWriter(const Gpu* gpu, Image *pTarget,
 							   VkExtent2D extent, uint32_t formatSize,
 							   size_t maxWrites) :
 m_gpu(gpu),

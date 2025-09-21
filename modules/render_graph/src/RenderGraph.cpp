@@ -38,7 +38,7 @@ RenderGraph& RenderGraph::invalidate(const std::string& name) {
 }
 
 RenderGraph::RenderGraph(
-		const std::shared_ptr<Gpu>& gpu,
+		const Gpu* gpu,
         const std::string& output_name,
 		const std::vector<RenderGraphBuffer*>& buffers,
 		AdjacencyMatrix* dependencies

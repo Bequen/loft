@@ -40,7 +40,7 @@ public:
         return *this;
     }
 
-	VkPipelineLayout build(const std::shared_ptr<const Gpu>& gpu) {
+	VkPipelineLayout build(const Gpu* gpu) {
         VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                 .setLayoutCount = m_numLayouts,
@@ -60,7 +60,7 @@ public:
 
 class PipelineBuilder {
 private:
-    const std::shared_ptr<const Gpu> m_gpu;
+    const Gpu* m_gpu;
 
     VkPipelineLayout m_layout;
     VkRenderPass m_renderpass;
@@ -82,10 +82,10 @@ private:
 public:
     inline size_t num_attachments() { return m_blendingInfo.size(); }
 
-    PipelineBuilder(const std::shared_ptr<const Gpu>& gpu, const VkViewport& viewport,
+    PipelineBuilder(const Gpu* gpu, const VkViewport& viewport,
                     VkPipelineLayout layout, VkRenderPass outputLayout,
                     uint32_t numAttachments,
-                    const Shader& vertexShader, const Shader& fragmentShader);
+                    const Shader* vertexShader, const Shader* fragmentShader);
 
     inline PipelineBuilder& set_vertex_input_info(std::vector<VertexBinding> bindings,
                                                   std::vector<VertexAttribute> attributes) {

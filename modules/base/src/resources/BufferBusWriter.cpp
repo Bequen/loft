@@ -1,5 +1,4 @@
 #include "resources/BufferBusWriter.h"
-#include "../../../../examples/viewer/src/mesh/Vertex.hpp"
 
 #include <string.h>
 #include <volk.h>
@@ -43,7 +42,7 @@ BufferBusWriter::create_staging_command_buffer() {
 
 
 
-BufferBusWriter::BufferBusWriter(const std::shared_ptr<const Gpu>& gpu, size_t size) :
+BufferBusWriter::BufferBusWriter(const Gpu* gpu, size_t size) :
 m_gpu(gpu), m_unflushedSize(0), m_busSize(size), m_numWrites(0) {
 	create_staging_buffer(size);
 

@@ -6,7 +6,7 @@
 namespace lft::scene {
 
 class TransformBuffer {
-    std::shared_ptr<Gpu> m_gpu;
+    const Gpu* m_gpu;
 
     Buffer m_transform_buffer;
 
@@ -16,7 +16,7 @@ class TransformBuffer {
     void allocate_buffer(size_t num_transforms);
 
 public:
-    TransformBuffer(std::shared_ptr<Gpu> gpu, size_t num_transforms);
+    TransformBuffer(const Gpu* gpu, size_t num_transforms);
 };
 
 }

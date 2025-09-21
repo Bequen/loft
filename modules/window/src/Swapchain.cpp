@@ -146,7 +146,7 @@ Result Swapchain::create_swapchain() {
 	return RESULT_OK;
 }
 
-Swapchain::Swapchain(const std::shared_ptr<const Gpu>& gpu, VkExtent2D extent, VkSurfaceKHR surface) :
+Swapchain::Swapchain(const Gpu* gpu, VkExtent2D extent, VkSurfaceKHR surface) :
 m_gpu(gpu), m_surface(surface) {
 	VkSurfaceCapabilitiesKHR capabilities = {};
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu->gpu(), m_surface, &capabilities);

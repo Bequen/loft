@@ -15,7 +15,7 @@ namespace lft::rg {
 
 class BuilderAllocator {
 private:
-	std::shared_ptr<Gpu> m_gpu;
+	const Gpu* m_gpu;
 
 	ImageChain m_output_chain;
 	std::string m_output_name;
@@ -124,7 +124,7 @@ public:
 
 	GET(m_num_buffers, num_buffers);
 
-	BuilderAllocator(std::shared_ptr<Gpu> gpu,
+	BuilderAllocator(const Gpu* gpu,
 			ImageChain output_chain,
 			const std::string& output_name,
 			uint32_t num_buffers) :
@@ -228,7 +228,7 @@ public:
         m_store_all_images = true;
     }
 
-	Builder(std::shared_ptr<Gpu> gpu,
+	Builder(const Gpu* gpu,
 			ImageChain output_chain,
 			const std::string& output_name
 	) :

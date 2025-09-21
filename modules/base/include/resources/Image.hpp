@@ -4,7 +4,6 @@
 
 #include <volk.h>
 #include <memory>
-#include <vulkan/vulkan_core.h>
 
 #include "resources/GpuAllocation.h"
 #include "ImageView.hpp"
@@ -30,8 +29,8 @@ public:
 
     }
 
-	ImageView create_view(const std::shared_ptr<const Gpu>& gpu, VkFormat format,
+	ImageView create_view(const Gpu* gpu, VkFormat format,
 						  VkImageSubresourceRange subresource);
 
-    void set_debug_name(const std::shared_ptr<const Gpu>& gpu, const std::string& name) const;
+    void set_debug_name(const Gpu* gpu, const std::string& name) const;
 };

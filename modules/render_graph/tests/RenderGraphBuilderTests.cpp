@@ -27,9 +27,9 @@ void test_render_graph_push() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(
@@ -76,7 +76,7 @@ void test_render_graph_push() {
     ASSERT(deps2.size() == 1);
     ASSERT(deps2[0] == "task1");
 
-    lft::rg::Builder builder2(gpu, image_chain, "output");
+    lft::rg::Builder builder2(gpu.get(), image_chain, "output");
     builder2.add_task(task1);
     builder2.add_task(task2);
     std::cout << "Compare build" << std::endl;
@@ -96,9 +96,9 @@ void test_render_graph_insert_begin() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(
@@ -148,9 +148,9 @@ void test_render_graph_insert_middle() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(
@@ -200,9 +200,9 @@ void test_render_graph_extent() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(
@@ -247,9 +247,9 @@ void test_render_graph_update_renderpass() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(
@@ -305,9 +305,9 @@ void test_render_graph_remove() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(
@@ -359,9 +359,9 @@ void test_render_graph_remove_and_add() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 4, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 4, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(
@@ -418,9 +418,9 @@ void test_buffer_idxs() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 4, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 4, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(
@@ -463,9 +463,9 @@ void test_compute() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 4, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 4, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     bool is_build_func_called = false;
@@ -509,9 +509,9 @@ void test_render_graph2() {
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu, 4, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 4, extent, fmt);
 
-    lft::rg::Builder builder(gpu, image_chain, "output");
+    lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
     Struct data = {};
     auto task1 = lft::rg::render_task<Struct>(

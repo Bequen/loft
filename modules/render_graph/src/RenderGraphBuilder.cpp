@@ -571,7 +571,7 @@ RenderGraph BuilderAllocator::allocate(
 }
 
 bool BuilderAllocator::equals(const BuilderAllocator& other) const {
-    if(m_gpu.get() != other.m_gpu.get()) {
+    if(m_gpu != other.m_gpu) {
         std::cout << "GPU mismatch" << std::endl;
         return false;
     }

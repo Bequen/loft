@@ -32,7 +32,7 @@ endForeach()
 add_custom_target(viewer_shaders ALL DEPENDS ${SPV_SHADERS})
 
 file(GLOB FILES
-		src/main.cpp
+		src/*.cpp
 		src/mesh/*.cpp
 		src/mesh/runtime/*.cpp
 		src/mesh/data/*.cpp
@@ -50,14 +50,14 @@ include(FetchContent)
 FetchContent_Declare(cgltf
         GIT_REPOSITORY https://github.com/jkuhlmann/cgltf
         GIT_TAG        master
-        SOURCE_DIR     ./external/cgltf/
+        SOURCE_DIR     ${CMAKE_CURRENT_BINARY_DIR}/external/cgltf/
 		GIT_SHALLOW 1
 )
 
 FetchContent_Declare(cglm
         GIT_REPOSITORY https://github.com/recp/cglm
         GIT_TAG        master
-        SOURCE_DIR     ./external/cglm/
+        SOURCE_DIR     ${CMAKE_CURRENT_BINARY_DIR}/external/cglm/
 		GIT_SHALLOW 1
 )
 

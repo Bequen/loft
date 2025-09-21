@@ -16,8 +16,8 @@ private:
     void load_shader(const std::string& name);
 
 public:
-    ShaderManager(std::shared_ptr<Gpu> gpu, 
+    ShaderManager(const Gpu* gpu, 
             std::string base_path = "");
 
-    const Shader& get(const std::string& name);
+    const Shader* get(const std::string& name);
 };

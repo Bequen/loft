@@ -5,7 +5,7 @@
 #include <iostream>
 #include <algorithm>
 
-std::vector<VkCommandBuffer> allocate_cmdbufs(std::shared_ptr<Gpu> gpu, uint32_t count) {
+std::vector<VkCommandBuffer> allocate_cmdbufs(const Gpu* gpu, uint32_t count) {
     VkCommandBufferAllocateInfo cmdbuf_info = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 			.commandPool = gpu->graphics_command_pool(),
@@ -22,23 +22,9 @@ std::vector<VkCommandBuffer> allocate_cmdbufs(std::shared_ptr<Gpu> gpu, uint32_t
 }
 
 
-
-VkSemaphore create_semaphore(std::shared_ptr<Gpu> gpu) {
-   	VkSemaphoreCreateInfo semaphore_info = {
-   		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-   	};
-
-   	VkSemaphore semaphore;
-   	if(vkCreateSemaphore(gpu->dev(), &semaphore_info, nullptr, &semaphore)) {
-   		throw std::runtime_error("Failed to create semaphore");
-   	}
-
-    return semaphore;
-}
-
 namespace lft::rg {
 
-std::vector<BatchOutput> create_batch_outputs(std::shared_ptr<Gpu> gpu, uint32_t count) {
+std::vector<BatchOutput> create_batch_outputs(const Gpu* gpu, uint32_t count) {
     auto cmdbufs = allocate_cmdbufs(gpu, count);
     std::vector<BatchOutput> outputs;
 
@@ -117,18 +103,18 @@ std::vector<BatchOutput> create_batch_outputs(std::shared_ptr<Gpu> gpu, uint32_t
     }
 
     RenderGraphBuffer::RenderGraphBuffer(
-        std::shared_ptr<Gpu> gpu,
+        const Gpu* gpu,
         uint32_t index,
         uint32_t num_outputs
     ) : m_gpu(gpu), m_index(index), m_final_semaphores(num_outputs) {
         for(uint32_t i = 0; i < num_outputs; i++) {
-            m_final_semaphores[i] = create_semaphore(m_gpu);
+            m_final_semaphores[i] = m_gpu->create_semaphore();
         }
     }
 
     Batch& RenderGraphBuffer::insert_batch(uint32_t idx, uint32_t num_outputs) {
         m_batches.insert(m_batches.begin() + idx,
-            Batch(create_batch_outputs(m_gpu, num_outputs), create_semaphore(m_gpu)));
+            Batch(create_batch_outputs(m_gpu, num_outputs), m_gpu->create_semaphore()));
         return m_batches[idx];
     }
 

@@ -125,10 +125,10 @@ int main(int argc, char** argv) {
     /**
      * Opens up a window
      */
-    std::shared_ptr<Window> window = std::make_shared<SDLWindow>(SDLWindow(application_name, {
+    std::unique_ptr<Window> window = std::make_unique<SDLWindow>(application_name, (VkRect2D){
             0, 0,
             extent.width, extent.height
-    }));
+    });
 
     /**
      * Different platforms has different extension needs.
@@ -142,13 +142,11 @@ int main(int argc, char** argv) {
     /**
      * Instance initializes a connection with Vulkan driver
      */
-    auto instance = std::make_shared<const Instance>(
+    auto instance = std::make_unique<const Instance>(
 			application_name, engine_name,
 			required_extensions,
 			required_layers,
 			lft_dbg_callback);
-
-    volkLoadInstance(instance->instance());
 
     /*
      * Surface is a way to tell window:
@@ -159,33 +157,31 @@ int main(int argc, char** argv) {
     /**
      * Gpu manages stuff around rendering. Needed for most graphics operations.
      */
-    auto gpu = std::make_shared<Gpu>(instance, surface);
+    auto gpu = std::make_unique<Gpu>(std::move(instance), surface);
 
     /**
      * Create camera for scene
      */
-    Camera camera(gpu, (float)extent.width / extent.height);
+    Camera camera(gpu.get(), (float)extent.width / extent.height);
 
     /**
      * Swapchain is a queue storage of images to render to for the Window we opened.
      */
-    Swapchain swapchain = Swapchain(gpu, extent, surface);
+    Swapchain swapchain = Swapchain(gpu.get(), extent, surface);
 
 
     auto global_input_set_layout = ShaderInputSetLayoutBuilder()
             .uniform_buffer(0)
-            .build(gpu);
+            .build(gpu.get());
 
     auto global_input_set = ShaderInputSetBuilder()
             .buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, camera.buffer(), 0, sizeof(mat4) * 2 + sizeof(vec4))
-            .build(gpu, global_input_set_layout);
+            .build(gpu.get(), global_input_set_layout);
 
 	std::vector<VkDescriptorSet> input_sets(1);
 
     auto sceneData = GltfSceneLoader().from_file(argv[1]);
-	Scene scene(gpu, &sceneData);
-
-    return 0;
+	Scene scene(gpu.get(), &sceneData);
 
     vec3 position = {20.0f, 250.0f, 50.0f};
     vec3 direction = {0.0f, 0.0f, 0.0f};
@@ -212,25 +208,16 @@ int main(int argc, char** argv) {
     memcpy(pPtr, lights.data(), lightInfoBuffer.size);
     gpu->memory()->unmap(light_buffer.allocation);
 
-    ShaderManager shader_manager(gpu, io::path::shader(""));
-
-    SpirvShaderBuilder shaderBuilder(gpu);
-
-    auto offscr = shaderBuilder.from_file(io::path::shader("Offscreen.vert.spirv"));
-    auto shade = shaderBuilder.from_file(io::path::shader("Shading.frag.spirv"));
-
-	auto particle_shader = shaderBuilder.from_file(io::path::shader("Particles.comp.spirv"));
-	auto particle_vert = shaderBuilder.from_file(io::path::shader("ParticleDraw.vert.spirv"));
-	auto particle_frag = shaderBuilder.from_file(io::path::shader("ParticleDraw.frag.spirv"));
+    ShaderManager shader_manager(gpu.get(), io::path::shader(""));
 
     VkSampler sampler = lft::SamplerBuilder()
         .address_mode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
         .filter(VK_FILTER_LINEAR)
         .mipmap_mode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
         .border_color(VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE)
-        .build(gpu);
+        .build(gpu.get());
 
-	lft::rg::Builder builder(gpu, ImageChain::from_swapchain(swapchain), "swapchain");
+	lft::rg::Builder builder(gpu.get(), ImageChain::from_swapchain(swapchain), "swapchain");
 
 	// keeps all the drawn images -> to be available for debuggers like RenderDoc
 	builder.store_all_images();
@@ -238,9 +225,9 @@ int main(int argc, char** argv) {
 	GBufferContext* context = new GBufferContext();
 	context->global_input_set = &global_input_set;
 	context->scene = &scene;
-	context->input_layout = ShaderInputSetLayoutBuilder().build(gpu);
+	context->input_layout = ShaderInputSetLayoutBuilder().build(gpu.get());
 	context->scene_input_layout = scene.input_layout()
-		.build(gpu);
+		.build(gpu.get());
 
 	auto task1 = lft::rg::render_task<GBufferContext>(
 			"task1", context,
@@ -271,7 +258,7 @@ int main(int argc, char** argv) {
                 .set_vertex_input_info(Vertex::bindings(), Vertex::attributes())
     			.build();
 
-            context->pipeline.set_debug_name(gpu, "offscreen_pipeline");
+            context->pipeline.set_debug_name(gpu.get(), "offscreen_pipeline");
 		}
 
 	}, [](const lft::rg::TaskRecordInfo& info, GBufferContext* context) {
@@ -299,7 +286,7 @@ int main(int argc, char** argv) {
 		.image(2, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.image(3, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.image(4, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.build(gpu);
+		.build(gpu.get());
 
 	auto shading_task = lft::rg::render_task<ShadingContext>(
 			"shading", shading_context,
@@ -320,13 +307,16 @@ int main(int argc, char** argv) {
     					.input_set(1, context->shading_set_layout)
     					.build(info.gpu());
 
+                    const Shader* offscreen_vertex = shader_manager.get("Offscreen.vert.spirv");
+                    const Shader* shading_fragment = shader_manager.get("Shading.frag.spirv");
+
     				context->pipeline = PipelineBuilder(info.gpu(), info.viewport(),
     						layout, info.renderpass(),
-    						1, offscr, shade)
+    						1, offscreen_vertex, shading_fragment)
     					.set_vertex_input_info({}, {})
     					.build();
                     
-                    context->pipeline.set_debug_name(gpu, "shading_pipeline");
+                    context->pipeline.set_debug_name(gpu.get(), "shading_pipeline");
 				}
 			},
 			[&](const lft::rg::TaskRecordInfo& info, ShadingContext* context) {
@@ -404,12 +394,14 @@ int main(int argc, char** argv) {
 						.build(info.gpu(), context->compute_input_set_layout));
 				}
 
+                const Shader* particle_move_shader = shader_manager.get("Particles.comp.spirv");
+
                 VkPipelineLayout pipeline_layout = PipelineLayoutBuilder()
                     .input_set(0, context->compute_input_set_layout)
-                    .build(gpu);
+                    .build(info.gpu());
 
-                context->compute_pipeline = lft::ComputePipelineBuilder(particle_shader, pipeline_layout)
-                    .build(gpu);
+                context->compute_pipeline = lft::ComputePipelineBuilder(particle_move_shader, pipeline_layout)
+                    .build(info.gpu());
 			}, [&](const lft::rg::TaskRecordInfo& info, ParticleContext* context) {
                 info.recording()
                     .bind_compute_pipeline(context->compute_pipeline)
@@ -430,10 +422,13 @@ int main(int argc, char** argv) {
     				VkPipelineLayout draw_pipeline_layout = PipelineLayoutBuilder()
     					.input_set(0, global_input_set_layout)
     					.build(info.gpu());
+                        
+                    const Shader* particle_draw_vertex = shader_manager.get("ParticleDraw.vert.spirv");
+                    const Shader* particle_draw_fragment = shader_manager.get("ParticleDraw.frag.spirv");
 
     				context->draw_pipeline = PipelineBuilder(info.gpu(), info.viewport(),
     						draw_pipeline_layout, info.renderpass(),
-    						1, particle_vert, particle_frag)
+    						1, particle_draw_vertex, particle_draw_fragment)
     					.set_vertex_input_info({
                             {
                                 .binding = 0,
@@ -466,7 +461,7 @@ int main(int argc, char** argv) {
 	builder.add_task(particle_draw_task);
 
 
-    auto ins = instance->instance();
+    auto ins = gpu->instance()->instance();
     ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
         return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
     }, &ins);
@@ -483,7 +478,7 @@ int main(int argc, char** argv) {
 
     			ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
     			ImGui_ImplVulkan_InitInfo init_info = {
-    				.Instance = instance->instance(),
+    				.Instance = info.gpu()->instance()->instance(),
     				.PhysicalDevice = gpu->gpu(),
     				.Device = gpu->dev(),
     				.QueueFamily = 0,

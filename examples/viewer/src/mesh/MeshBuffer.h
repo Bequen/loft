@@ -25,7 +25,7 @@ public:
 
     }
 
-    MeshBuffer(const std::shared_ptr<const Gpu>& gpu,
+    MeshBuffer(const Gpu* gpu,
                BufferBusWriter *pWriter,
                const std::vector<Vertex>& vertices,
                const std::vector<Index>& indices) {

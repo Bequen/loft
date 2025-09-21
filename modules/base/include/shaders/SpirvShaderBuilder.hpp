@@ -10,10 +10,10 @@
 
 class SpirvShaderBuilder : public ShaderBuilder {
 private:
-    std::shared_ptr<const Gpu> m_gpu;
+    const Gpu* m_gpu;
 
 public:
-    SpirvShaderBuilder(const std::shared_ptr<const Gpu> gpu);
+    SpirvShaderBuilder(const Gpu* gpu);
 
     Shader from_file(std::string path) override;
 };

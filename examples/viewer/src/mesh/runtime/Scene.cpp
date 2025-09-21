@@ -7,7 +7,7 @@
 
 #include <utility>
 
-VkDescriptorSetLayout create_layout(const std::shared_ptr<const Gpu>& gpu) {
+VkDescriptorSetLayout create_layout(const Gpu* gpu) {
     return ShaderInputSetLayoutBuilder()
             /* material buffer */
             .binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -16,7 +16,7 @@ VkDescriptorSetLayout create_layout(const std::shared_ptr<const Gpu>& gpu) {
             .build(gpu);
 }
 
-Scene::Scene(std::shared_ptr<Gpu> gpu, const SceneData* pSceneData) :
+Scene::Scene(const Gpu* gpu, const SceneData* pSceneData) :
     m_gpu(gpu),
     m_materialBuffer(gpu, pSceneData),
     m_transform_buffer(gpu, 100),

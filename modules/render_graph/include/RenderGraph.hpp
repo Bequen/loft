@@ -15,7 +15,7 @@ namespace lft::rg {
  */
 class RenderGraph {
 private:
-	std::shared_ptr<Gpu> m_gpu;
+	const Gpu* m_gpu;
     
     std::string m_output_name;
 
@@ -60,7 +60,7 @@ public:
 
 	RenderGraph& invalidate(const std::string& name);
 
-	RenderGraph(const std::shared_ptr<Gpu>& gpu,
+	RenderGraph(const Gpu* gpu,
                 const std::string& output_name,
 	            const std::vector<RenderGraphBuffer*>& buffers,
 				AdjacencyMatrix* dependencies

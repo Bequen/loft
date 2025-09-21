@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "Gpu.hpp"
 #include "ImageChain.hpp"
@@ -27,8 +28,8 @@ void lft_dbg_callback(lft::dbg::LogMessageSeverity severity,
     printf("\n");
 }
 
-std::shared_ptr<Gpu> create_mock_gpu() {
-    auto instance = std::make_shared<const Instance>(
+std::unique_ptr<Gpu> create_mock_gpu() {
+    auto instance = std::make_unique<const Instance>(
 			"loft", "loft",
 			std::vector<std::string>({VK_KHR_SURFACE_EXTENSION_NAME}),
 			std::vector<std::string>(),
@@ -36,11 +37,11 @@ std::shared_ptr<Gpu> create_mock_gpu() {
 
     volkLoadInstance(instance->instance());
 
-    return std::make_shared<Gpu>(instance, std::nullopt);
+    return std::make_unique<Gpu>(std::move(instance), std::nullopt);
 }
 
 ImageChain create_mock_image_chain(
-    std::shared_ptr<Gpu> gpu,
+    const Gpu* gpu,
     uint32_t num_images,
     VkExtent2D extent,
     VkFormat format

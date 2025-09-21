@@ -1,10 +1,10 @@
 #include "shaders/PipelineBuilder.h"
 #include "shaders/Shader.hpp"
 
-PipelineBuilder::PipelineBuilder(const std::shared_ptr<const Gpu>& gpu, const VkViewport& viewport,
+PipelineBuilder::PipelineBuilder(const Gpu* gpu, const VkViewport& viewport,
         VkPipelineLayout layout, VkRenderPass outputLayout,
         uint32_t numAttachments,
-        const Shader& vertexShader, const Shader& fragmentShader) :
+        const Shader* vertexShader, const Shader* fragmentShader) :
 m_gpu(gpu),
 m_viewport(viewport),
 m_scissor({
@@ -44,14 +44,14 @@ m_blendingInfo(numAttachments)
     stages[0] = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_VERTEX_BIT,
-            .module = vertexShader.module(),
+            .module = vertexShader->module(),
             .pName = "main"
     };
 
     stages[1] = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .module = fragmentShader.module(),
+            .module = fragmentShader->module(),
             .pName = "main",
     };
 

@@ -51,7 +51,7 @@ public:
         return *this;
     }
 
-    inline void set_debug_name(std::shared_ptr<Gpu> gpu, const std::string name) const {
+    inline void set_debug_name(const Gpu* gpu, const std::string name) const {
 #if LOFT_DEBUG
         VkDebugUtilsObjectNameInfoEXT nameInfo = {
                 .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,

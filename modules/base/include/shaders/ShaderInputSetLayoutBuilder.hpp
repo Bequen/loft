@@ -81,7 +81,7 @@ public:
         return *this;
     }
 
-	VkDescriptorSetLayout build(const std::shared_ptr<const Gpu>& gpu) const {
+	VkDescriptorSetLayout build(const Gpu* gpu) const {
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .bindingCount = (uint32_t)m_bindings.size(),

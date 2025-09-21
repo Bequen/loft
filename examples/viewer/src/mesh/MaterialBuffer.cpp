@@ -38,7 +38,7 @@ void MaterialBuffer::allocate_for(const SceneData *pSceneData) {
     m_materialBuffer.set_debug_name(m_gpu, "material_buffer");
 }
 
-MaterialBuffer::MaterialBuffer(const std::shared_ptr<const Gpu>& gpu, const SceneData *pSceneData) :
+MaterialBuffer::MaterialBuffer(const Gpu* gpu, const SceneData *pSceneData) :
     m_gpu(gpu),
 
     m_materials(pSceneData->num_materials()),

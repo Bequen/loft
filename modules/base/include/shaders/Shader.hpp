@@ -19,12 +19,17 @@ private:
     ShaderBinary m_code;
 
 public:
-    Shader(VkShaderModule module, ShaderBinary binary) :
-        m_module(module), m_code(std::move(binary)) {
+    Shader(Shader&& s) :
+    m_module(s.m_module),
+    m_code(s.m_code) {
+    }
+
+    Shader(VkShaderModule m, ShaderBinary binary) :
+        m_module(m), m_code(std::move(binary)) {
 
     }
 
-    const inline Shader& set_name(const std::shared_ptr<const Gpu>& gpu, const std::string &name) {
+    const inline Shader& set_name(const Gpu* gpu, const std::string &name) {
 #if LOFT_DEBUG
         VkDebugUtilsObjectNameInfoEXT nameInfo = {
                 .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,

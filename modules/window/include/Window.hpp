@@ -16,6 +16,9 @@
 
 class Window : public Surface {
 public:
+    virtual ~Window() {
+    }
+
     virtual void resize() = 0;
 
     [[nodiscard("Getter should not be discarded")]]

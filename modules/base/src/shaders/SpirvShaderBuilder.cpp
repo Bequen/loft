@@ -7,7 +7,7 @@
 #include "shaders/SpirvShaderBuilder.hpp"
 #include "io/file.hpp"
 
-SpirvShaderBuilder::SpirvShaderBuilder(const std::shared_ptr<const Gpu> gpu) :
+SpirvShaderBuilder::SpirvShaderBuilder(const Gpu* gpu) :
         m_gpu(gpu) {
 
 }

@@ -36,7 +36,7 @@ struct Buffer {
     }
 
 
-    void set_debug_name(const std::shared_ptr<const Gpu>& gpu, const std::string& name) const;
+    void set_debug_name(const Gpu* gpu, const std::string& name) const;
 
     /* disable copy */
 };

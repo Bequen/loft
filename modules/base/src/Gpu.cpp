@@ -289,7 +289,7 @@ Result Gpu::create_descriptor_pool() {
 }
 
 
-Gpu::Gpu(std::shared_ptr<const Instance> instance, std::optional<VkSurfaceKHR> supportedSurface) :
+Gpu::Gpu(std::unique_ptr<const Instance> instance, std::optional<VkSurfaceKHR> supportedSurface) :
     m_instance(std::move(instance)), m_pAllocator(nullptr) {
 
     lft::log::warn("Warning");

@@ -13,7 +13,7 @@
  */
 class MaterialBuffer {
 public:
-    std::shared_ptr<const Gpu> m_gpu;
+    const Gpu* m_gpu;
 
     std::vector<Material> m_materials;
     std::vector<bool> m_materialsValidity;
@@ -49,7 +49,7 @@ public:
      * @param pGpu
      * @param pSceneData
      */
-    MaterialBuffer(const std::shared_ptr<const Gpu>& gpu, const SceneData *pSceneData);
+    MaterialBuffer(const Gpu* gpu, const SceneData *pSceneData);
 
     /**
      * @brief Copy constructor is disabled

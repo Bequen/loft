@@ -2,17 +2,17 @@
 
 namespace lft {
 
-ComputePipelineBuilder::ComputePipelineBuilder(const Shader& shader, VkPipelineLayout layout) :
+ComputePipelineBuilder::ComputePipelineBuilder(const Shader* shader, VkPipelineLayout layout) :
     m_shader(shader),
     m_layout(layout) {
 
 }
 
-Pipeline ComputePipelineBuilder::build(std::shared_ptr<Gpu> gpu) {
+Pipeline ComputePipelineBuilder::build(const Gpu* gpu) {
     VkPipelineShaderStageCreateInfo computeShaderStageInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-        .module = m_shader.module(),
+        .module = m_shader->module(),
         .pName = "main",
     };
 

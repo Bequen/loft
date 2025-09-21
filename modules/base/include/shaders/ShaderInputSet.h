@@ -157,7 +157,7 @@ public:
      * @param layout Descriptor set layout
      * @return Allocated descriptor set with all the writes.
      */
-    VkDescriptorSet build(const std::shared_ptr<const Gpu>& gpu, VkDescriptorSetLayout layout) {
+    VkDescriptorSet build(const Gpu* gpu, VkDescriptorSetLayout layout) {
         VkDescriptorSetAllocateInfo descriptorInfo = {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                 .descriptorPool = gpu->descriptor_pool(),
@@ -196,7 +196,7 @@ public:
 
     }
 
-    ShaderInputSet(const std::shared_ptr<const Gpu>& gpu, VkDescriptorSetLayout layout) :
+    ShaderInputSet(const Gpu* gpu, VkDescriptorSetLayout layout) :
         m_descriptorSet(VK_NULL_HANDLE) {
 
         VkDescriptorSetAllocateInfo descriptorInfo = {
@@ -218,14 +218,14 @@ enum ShaderInputWriteType {
 
 class ShaderInputSetWriter {
 private:
-    std::shared_ptr<const Gpu> m_gpu;
+    const Gpu* m_gpu;
     std::vector<VkWriteDescriptorSet> m_writes;
 
     std::vector<std::vector<VkDescriptorImageInfo>> m_imageWrites;
     std::vector<std::vector<VkDescriptorBufferInfo>> m_bufferWrites;
 
 public:
-    explicit ShaderInputSetWriter(const std::shared_ptr<const Gpu>& gpu) :
+    explicit ShaderInputSetWriter(const Gpu* gpu) :
             m_gpu(gpu) {
 
     }

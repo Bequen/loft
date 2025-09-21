@@ -6,7 +6,7 @@ framebuffer(framebuffer) {
 
 }
 
-Framebuffer::Framebuffer(std::shared_ptr<const Gpu> gpu, const VkRenderPass renderpass, const VkExtent2D extent,
+Framebuffer::Framebuffer(const Gpu* gpu, const VkRenderPass renderpass, const VkExtent2D extent,
                          const std::vector<VkImageView>& attachments) {
     VkFramebufferCreateInfo framebufferInfo = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -38,7 +38,7 @@ FramebufferBuilder::FramebufferBuilder(VkRenderPass renderpass, VkExtent2D exten
 
 }
 
-Framebuffer FramebufferBuilder::build(const std::shared_ptr<const Gpu>& gpu) {
+Framebuffer FramebufferBuilder::build(const Gpu* gpu) {
     VkFramebufferCreateInfo framebufferInfo = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass = m_renderpass,

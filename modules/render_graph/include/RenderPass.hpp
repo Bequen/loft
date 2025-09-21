@@ -88,7 +88,7 @@ public:
 };
 
 class TaskRecordInfo {
-	std::shared_ptr<const Gpu> m_gpu;
+	const Gpu* m_gpu;
     lft::Recording m_recording;
 	uint32_t m_buffer_idx;
 	uint32_t m_image_idx;
@@ -100,7 +100,7 @@ public:
 	GET(m_buffer_idx, buffer_idx);
 
 	TaskRecordInfo(
-			std::shared_ptr<const Gpu> gpu,
+			const Gpu* gpu,
 			lft::Recording recording,
 			uint32_t buffer_idx,
 			uint32_t image_in_flight_idx) :
@@ -112,7 +112,7 @@ public:
 };
 
 class TaskBuildInfo {
-	std::shared_ptr<const Gpu> m_gpu;
+	const Gpu* m_gpu;
 	uint32_t m_buffer_idx;
 	uint32_t m_num_buffers;
 
@@ -135,7 +135,7 @@ public:
 	}
 
 	TaskBuildInfo(
-			std::shared_ptr<const Gpu> gpu,
+			const Gpu* gpu,
 			uint32_t buffer_idx,
 			uint32_t num_buffers,
 			VkViewport viewport,

@@ -4,12 +4,12 @@
 #include "TransferTaskPipeline.hpp"
 #include <vulkan/vulkan_core.h>
 
-MipmapGenerator::MipmapGenerator(const std::shared_ptr<const Gpu>& gpu) :
+MipmapGenerator::MipmapGenerator(const Gpu* gpu) :
 m_gpu(gpu), m_commandBuffer(create_command_buffer(gpu)), m_fence(create_fence(gpu)) {
 
 }
 
-VkFence MipmapGenerator::create_fence(const std::shared_ptr<const Gpu>& gpu) {
+VkFence MipmapGenerator::create_fence(const Gpu* gpu) {
     VkFenceCreateInfo fenceInfo = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
             .flags = VK_FENCE_CREATE_SIGNALED_BIT
@@ -21,7 +21,7 @@ VkFence MipmapGenerator::create_fence(const std::shared_ptr<const Gpu>& gpu) {
     return fence;
 }
 
-VkCommandBuffer MipmapGenerator::create_command_buffer(const std::shared_ptr<const Gpu>& gpu) {
+VkCommandBuffer MipmapGenerator::create_command_buffer(const Gpu* gpu) {
     VkCommandBufferAllocateInfo allocInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool = gpu->transfer_command_pool(),

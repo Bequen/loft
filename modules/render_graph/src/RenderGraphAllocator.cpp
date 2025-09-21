@@ -226,7 +226,7 @@ VkFramebuffer Allocator::create_framebuffer(
 	return fb.framebuffer;
 }
 
-std::vector<VkCommandBuffer> allocate_command_buffers(std::shared_ptr<Gpu> gpu, uint32_t count) {
+std::vector<VkCommandBuffer> allocate_command_buffers(const Gpu* gpu, uint32_t count) {
 	VkCommandBufferAllocateInfo cmdbuf_info = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 			.commandPool = gpu->graphics_command_pool(),

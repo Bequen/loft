@@ -7,7 +7,7 @@
 #include <utility>
 #include "resources/GpuAllocator.h"
 
-Camera::Camera(const std::shared_ptr<const Gpu>& gpu, float aspect):
+Camera::Camera(const Gpu* gpu, float aspect):
         m_gpu(gpu)/* , m_resource("camera", VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) */ {
 
     glm_mat4_identity(data.view);

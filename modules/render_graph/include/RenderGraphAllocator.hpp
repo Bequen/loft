@@ -19,7 +19,7 @@ struct CommandBufferDefinition {
 };
 
 struct GraphAllocationInfo {
-	std::shared_ptr<Gpu> gpu;
+	const Gpu* gpu;
 	ImageChain output_chain;
 	std::string output_name;
 
@@ -29,12 +29,12 @@ struct GraphAllocationInfo {
 	std::vector<CommandBufferDefinition> command_buffers;
 };
 
-std::vector<VkCommandBuffer> allocate_command_buffers(std::shared_ptr<Gpu> gpu, uint32_t count);
+std::vector<VkCommandBuffer> allocate_command_buffers(const Gpu* gpu, uint32_t count);
 
 
 class Allocator {
 private:
-	std::shared_ptr<Gpu> m_gpu;
+	const Gpu* m_gpu;
 
 	std::vector<std::map<std::string, ImageResource>> m_resources;
 

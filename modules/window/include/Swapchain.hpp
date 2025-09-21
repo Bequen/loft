@@ -13,7 +13,7 @@ struct ImageResourceLayout;
 
 class Swapchain {
 private:
-	std::shared_ptr<const Gpu> m_gpu;
+	const Gpu* m_gpu;
 	VkSurfaceKHR m_surface;
 	VkSwapchainKHR m_swapchain;
 
@@ -73,5 +73,5 @@ public:
         m_gpu->enqueue_present(&presentInfo);
     }
 
-	Swapchain(const std::shared_ptr<const Gpu>& gpu, VkExtent2D extent, VkSurfaceKHR surface);
+	Swapchain(const Gpu* gpu, VkExtent2D extent, VkSurfaceKHR surface);
 };

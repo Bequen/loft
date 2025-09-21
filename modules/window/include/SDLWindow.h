@@ -19,7 +19,7 @@ private:
 public:
     SDL_Window* get_handle() { return m_pWindow; }
 
-    SDLWindow(std::string name, VkRect2D rect);
+    SDLWindow(const std::string name, VkRect2D rect);
 
     void resize() override;
 

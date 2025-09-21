@@ -9,13 +9,13 @@ namespace lft {
 
 class ComputePipelineBuilder {
 private:
-    const Shader m_shader;
+    const Shader* m_shader;
     VkPipelineLayout m_layout;
 
 public:
-    ComputePipelineBuilder(const Shader& shader, VkPipelineLayout layout);
+    ComputePipelineBuilder(const Shader* shader, VkPipelineLayout layout);
 
-    Pipeline build(std::shared_ptr<Gpu> gpu);
+    Pipeline build(const Gpu* gpu);
 };
 
 }

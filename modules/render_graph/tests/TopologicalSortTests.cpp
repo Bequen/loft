@@ -14,9 +14,9 @@ void test_topological_sort_01() {
 
 	VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
 
-	auto image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+	auto image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 	lft::rg::Builder builder(
-		gpu, image_chain, "output"
+		gpu.get(), image_chain, "output"
 	);
 
 	struct Context {
@@ -58,9 +58,9 @@ void test_topological_sort_02() {
 
 	VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
 
-	auto image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+	auto image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 	lft::rg::Builder builder(
-		gpu, image_chain, "output"
+		gpu.get(), image_chain, "output"
 	);
 
 	struct Context {
@@ -103,7 +103,7 @@ void test_topological_sort_03() {
 
 	VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
 
-	auto image_chain = create_mock_image_chain(gpu, 1, extent, fmt);
+	auto image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
 
 	struct Context {
 	};
@@ -134,7 +134,7 @@ void test_topological_sort_03() {
 	 .build();
 
 	lft::rg::Builder builder1(
-		gpu, image_chain, "output"
+		gpu.get(), image_chain, "output"
 	);
 
 	builder1.add_task(task1);

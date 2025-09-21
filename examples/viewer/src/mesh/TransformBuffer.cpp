@@ -20,7 +20,7 @@ void TransformBuffer::allocate_buffer(size_t num_transforms) {
     m_transform_buffer.set_debug_name(m_gpu, "transform_buffer");
 }
 
-TransformBuffer::TransformBuffer(std::shared_ptr<Gpu> gpu, size_t num_transforms) :
+TransformBuffer::TransformBuffer(const Gpu* gpu, size_t num_transforms) :
     m_gpu(gpu),
     m_transform_buffer(),
     m_writer(gpu, 100 * sizeof(Transform))

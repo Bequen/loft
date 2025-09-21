@@ -40,7 +40,7 @@ struct Batch {
 };
 
 class RenderGraphBuffer {
-    std::shared_ptr<Gpu> m_gpu;
+    const Gpu* m_gpu;
     uint32_t m_index;
 public:
     std::unordered_map<std::string, BufferResource> m_buffer_resources;
@@ -54,7 +54,7 @@ public:
     GET(m_index, index);
 
     RenderGraphBuffer(
-        std::shared_ptr<Gpu> gpu,
+        const Gpu* gpu,
         uint32_t index,
         uint32_t num_outputs);
 

@@ -71,7 +71,7 @@ public:
         return *this;
     }
 
-    inline VkSampler build(std::shared_ptr<Gpu> gpu) {
+    inline VkSampler build(const Gpu* gpu) {
         VkSampler sampler = VK_NULL_HANDLE;
         if(vkCreateSampler(gpu->dev(), &m_create_info, nullptr, &sampler)) {
             throw std::runtime_error("Failed to create sampler");

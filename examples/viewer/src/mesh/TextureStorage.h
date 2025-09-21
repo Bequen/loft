@@ -15,7 +15,7 @@ typedef uint32_t TextureHandle;
  */
 class TextureStorage {
 private:
-    std::shared_ptr<const Gpu> m_gpu;
+    const Gpu* m_gpu;
     std::vector<uint32_t> m_textures;
     std::vector<Image> m_images;
     std::vector<ImageView> m_views;
@@ -59,7 +59,7 @@ public:
 
     TextureStorage(const TextureStorage&) = delete;
 
-    TextureStorage(const std::shared_ptr<const Gpu>& gpu, uint32_t numTextures) :
+    TextureStorage(const Gpu* gpu, uint32_t numTextures) :
             m_gpu(gpu),
             m_images(numTextures),
             m_views(numTextures),
