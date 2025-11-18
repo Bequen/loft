@@ -13,7 +13,8 @@ static const char *DEVICE_EXTENSIONS[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
         VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-        VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
+        VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+        VK_EXT_ROBUSTNESS_2_EXTENSION_NAME
 };
 
 static const int NUM_DEVICE_EXTENSIONS = sizeof(DEVICE_EXTENSIONS) / sizeof(*DEVICE_EXTENSIONS);
@@ -48,7 +49,7 @@ int32_t get_present_score(VkQueueFamilyProperties props, bool isPresentSupported
     return isPresentSupported;
 }
 
-std::vector<int32_t> Gpu::get_queues(std::optional<VkSurfaceKHR> surface) {
+std::vector<int32_t> Gpu::get_queues(std::optional<Surface*> surface) {
     uint32_t numQueues = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, &numQueues, 0x0);
     auto properties = std::vector<VkQueueFamilyProperties>(numQueues);
@@ -71,7 +72,7 @@ std::vector<int32_t> Gpu::get_queues(std::optional<VkSurfaceKHR> surface) {
     for(auto& prop : properties) {
         VkBool32 isPresentSupported = false;
         if(surface.has_value()) {
-            vkGetPhysicalDeviceSurfaceSupportKHR(m_gpu, i, surface.value(), &isPresentSupported);
+            vkGetPhysicalDeviceSurfaceSupportKHR(m_gpu, i, surface.value()->surface(), &isPresentSupported);
         } else {
             isPresentSupported = true;
         }
@@ -102,7 +103,7 @@ std::vector<int32_t> Gpu::get_queues(std::optional<VkSurfaceKHR> surface) {
     return { graphicsQueue, transferQueue, presentQueue };
 }
 
-Result Gpu::create_logical_device(std::optional<VkSurfaceKHR> supportedSurface) {
+Result Gpu::create_logical_device(std::optional<Surface*> supportedSurface) {
     auto queueFamilies = get_queues(supportedSurface);
 
     std::vector<VkDeviceQueueCreateInfo> queueInfos(queueFamilies.size());
@@ -129,33 +130,39 @@ Result Gpu::create_logical_device(std::optional<VkSurfaceKHR> supportedSurface) 
         x++;
     }
 
+	VkPhysicalDeviceFeatures gpuFeatures = { };
+    vkGetPhysicalDeviceFeatures(m_gpu, &gpuFeatures);
+
     VkPhysicalDeviceSynchronization2Features syncFeatures = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
-            .synchronization2 = true
+            .pNext = nullptr,
+            .synchronization2 = true,
     };
 
-	VkPhysicalDeviceFeatures gpuFeatures = { };
-    
-    vkGetPhysicalDeviceFeatures(m_gpu, &gpuFeatures);
+    VkPhysicalDeviceRobustness2FeaturesEXT robustness = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
+        .pNext = &syncFeatures,
+        .robustBufferAccess2 = true,
+        .robustImageAccess2 = true,
+        .nullDescriptor = true
+    };
 
 	VkPhysicalDeviceCoherentMemoryFeaturesAMD coherentMemoryFeatures {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD,
-        .pNext = &syncFeatures,
+        .pNext = &robustness,
 		.deviceCoherentMemory = true
 	};
 
 	VkDeviceCreateInfo deviceInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &syncFeatures, //&coherentMemoryFeatures,
+        .pNext = &coherentMemoryFeatures,
 		.queueCreateInfoCount = (uint32_t)x,
 		.pQueueCreateInfos = queueInfos.data(),
-#if LOFT_DEBUG
 		.enabledLayerCount = NUM_LAYERS,
 		.ppEnabledLayerNames = LAYERS,
-#endif
 		.enabledExtensionCount = NUM_DEVICE_EXTENSIONS,
 		.ppEnabledExtensionNames = DEVICE_EXTENSIONS,
-		.pEnabledFeatures = &gpuFeatures
+		.pEnabledFeatures = &gpuFeatures,
 	};
 
 	if(vkCreateDevice(m_gpu, &deviceInfo, NULL, &m_dev)) {
@@ -289,10 +296,8 @@ Result Gpu::create_descriptor_pool() {
 }
 
 
-Gpu::Gpu(std::unique_ptr<const Instance> instance, std::optional<VkSurfaceKHR> supportedSurface) :
-    m_instance(std::move(instance)), m_pAllocator(nullptr) {
-
-    lft::log::warn("Warning");
+Gpu::Gpu(const Instance* instance, std::optional<Surface*> supportedSurface) :
+    m_instance(instance), m_pAllocator(nullptr) {
 
 	if(choose_gpu(&m_gpu)) {
 		throw std::runtime_error("Failed to choose gpu");

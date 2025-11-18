@@ -16,16 +16,14 @@
 struct Shader {
 private:
     VkShaderModule m_module;
-    ShaderBinary m_code;
 
 public:
     Shader(Shader&& s) :
-    m_module(s.m_module),
-    m_code(s.m_code) {
+    m_module(s.m_module) {
     }
 
-    Shader(VkShaderModule m, ShaderBinary binary) :
-        m_module(m), m_code(std::move(binary)) {
+    Shader(VkShaderModule m) :
+        m_module(m) {
 
     }
 

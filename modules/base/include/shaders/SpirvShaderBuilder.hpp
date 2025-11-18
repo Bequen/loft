@@ -15,6 +15,8 @@ private:
 public:
     SpirvShaderBuilder(const Gpu* gpu);
 
+    Shader from_binary(const std::vector<uint32_t>& code) const;
+
     Shader from_file(std::string path) override;
 };
 

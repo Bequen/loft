@@ -6,6 +6,9 @@
 #include <string>
 
 #include "Surface.hpp"
+#include "Instance.hpp"
+
+namespace lft::win {
 
 /**
  * Universal interface for windows.
@@ -14,19 +17,20 @@
  * when ready.
  */
 
-class Window : public Surface {
+class Window {
 public:
-    virtual ~Window() {
-    }
-
     virtual void resize() = 0;
 
     [[nodiscard("Getter should not be discarded")]]
-    virtual VkExtent2D get_size() = 0;
+    virtual VkExtent2D get_size() const = 0;
 
     [[nodiscard]] virtual bool is_open() const = 0;
 
     virtual int32_t poll_event(SDL_Event *pOutEvent) const = 0;
 
-    virtual std::vector<std::string> get_required_extensions() = 0;
+    virtual std::vector<std::string> get_required_extensions() const = 0;
+
+    virtual Surface create_surface(const Instance* instance) const = 0;
 };
+
+}

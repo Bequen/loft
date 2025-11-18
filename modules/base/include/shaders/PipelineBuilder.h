@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Gpu.hpp"
 #include "Shader.hpp"
 #include "VertexBinding.h"

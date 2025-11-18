@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+#include <print>
 
 #include "AdjacencyMatrix.hpp"
 
@@ -55,6 +56,14 @@ private:
 
 	BufferResource allocate_buffer_resource(const BufferResourceDescription& desc) const;
 
+    ImageResourceDescription get_output_image_description() const {
+        return ImageResourceDescription(m_output_name, 
+                m_output_chain.format(), 
+                m_output_chain.extent(), 
+                (VkClearValue){.color = {0.0f, 0.0f, 0.0f, 0.0f}},
+                true);
+    }
+
     ImageResourceDescription correct_resource_description(ImageResourceDescription desc);
 
 	/**
@@ -103,9 +112,9 @@ private:
 
 	VkViewport get_viewport() {
 	    return (VkViewport) {
-                .x = 0, .y = 0,
+                .x = 0, .y = (float)m_output_chain.extent().height,
                 .width = (float)m_output_chain.extent().width,
-                .height = (float)m_output_chain.extent().height,
+                .height = -(float)m_output_chain.extent().height,
                 .minDepth = 0, .maxDepth = 1.0
             };
 	}
@@ -123,6 +132,7 @@ public:
     }
 
 	GET(m_num_buffers, num_buffers);
+    REF(m_output_chain, image_chain);
 
 	BuilderAllocator(const Gpu* gpu,
 			ImageChain output_chain,
@@ -278,7 +288,7 @@ public:
 		return true;
 	}
 
-	void add_task(const TaskInfo& task) {
+	void add_task(TaskInfo task) {
 		if(!is_task_ok(task)) {
 			throw std::runtime_error("Task " + task.name() + " output to one of it's dependencies. That is prohibited. To simulate this behaviour, for instance in compute shader, allocate the resource yourself and add it with `add_image_resource` or `add_buffer_resource`.");
 		}
@@ -292,6 +302,16 @@ public:
 		if(found != m_tasks.end()) {
 		    m_tasks.erase(found);
 		}
+
+        if(task.is_output_to_final()) {
+            if(!task.has_output(m_output_name)) {
+                task.add_color_output(m_output_name, 
+                    m_allocator.image_chain().format(), 
+                    m_allocator.image_chain().extent(), 
+                    {0.0f, 0.0f, 0.0f, 1.0f}
+                );
+            }
+        }
 
 		m_tasks.push_back(task);
 		m_name_to_task_idx[task.m_name] = m_tasks.size() - 1;

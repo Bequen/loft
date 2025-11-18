@@ -17,7 +17,8 @@ file(GLOB HEADERS
         ./include/io/*.h
         ./include/io/*.hpp
         ./include/debug/*.h
-        ./include/debug/*.hpp)
+        ./include/debug/*.hpp
+)
 
 add_library(loft_base OBJECT ${FILES})
 add_library(loft::base ALIAS loft_base)
@@ -31,9 +32,10 @@ set_target_properties(loft_base PROPERTIES POSITION_INDEPENDENT_CODE 1)
 find_package(Vulkan REQUIRED)
 
 target_link_libraries(${PROJECT_NAME} 
-    PUBLIC 
-    GPUOpen::VulkanMemoryAllocator 
-    volk::volk)
+        PUBLIC 
+        GPUOpen::VulkanMemoryAllocator 
+        volk::volk
+)
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC

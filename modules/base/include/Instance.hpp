@@ -27,6 +27,10 @@ public:
     Instance(const Instance&) = delete;
     Instance() = delete;
 
+    Instance(const Instance&& other) {
+        this->m_instance = other.m_instance;
+    }
+
     /**
      * Creates new instance and initializes a connection to a GPU driver
      * @param applicationName Name of the application
@@ -57,16 +61,11 @@ public:
         std::transform(available_layers.begin(), available_layers.end(),
                 available_layer_names.begin(), 
                 [](const VkLayerProperties& props) {
-                    std::cout << "Supported: [" << props.layerName << "]" << std::endl;
                     return std::string(props.layerName);
                 });
 
         std::sort(available_layer_names.begin(), available_layer_names.end());
         std::sort(required_layers.begin(), required_layers.end());
-
-        for(auto layer : required_layers) {
-            std::cout << "Required: [" << layer << "]" << std::endl;
-        }
 
         std::vector<std::string> unsupported_layers;
         std::set_difference(required_layers.begin(), required_layers.end(),

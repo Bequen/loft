@@ -221,7 +221,7 @@ bool RenderGraph::is_recording_invalid(const RenderGraphBuffer& buffer,
 bool RenderGraph::is_batch_writing_to_final_image(const Batch& buffer) const {
     return std::any_of(buffer.tasks.begin(), buffer.tasks.end(),
             [this](const Task& task) {
-                return task.pDefinition.has_output(m_output_name);
+                return task.pDefinition.is_output_to_final() || task.pDefinition.has_output(m_output_name);
             });
 }
 

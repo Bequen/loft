@@ -2,8 +2,6 @@
 
 #include <assert.h>
 
-#include <utility>
-
 VkSurfaceFormatKHR Swapchain::choose_format() {
 	uint32_t formatCount = 0;
 	vkGetPhysicalDeviceSurfaceFormatsKHR(m_gpu->gpu(), m_surface, &formatCount, nullptr);
@@ -73,7 +71,8 @@ VkExtent2D Swapchain::choose_extent(VkExtent2D actualExtent) {
 
 Result Swapchain::get_images(uint32_t *pOutNumImages, VkImage *pOutImages) {
 	/* Get images to render to, rendertargets */
-	EXPECT(vkGetSwapchainImagesKHR(m_gpu->dev(), m_swapchain, pOutNumImages, pOutImages) == VK_SUCCESS, "Failed to get swapchain images");
+	EXPECT(vkGetSwapchainImagesKHR(m_gpu->dev(), m_swapchain, pOutNumImages, pOutImages) == VK_SUCCESS, 
+            "Failed to get swapchain images");
 	return RESULT_OK;
 }
 
@@ -146,8 +145,8 @@ Result Swapchain::create_swapchain() {
 	return RESULT_OK;
 }
 
-Swapchain::Swapchain(const Gpu* gpu, VkExtent2D extent, VkSurfaceKHR surface) :
-m_gpu(gpu), m_surface(surface) {
+Swapchain::Swapchain(const Gpu* gpu, VkExtent2D extent, Surface* surface) :
+m_gpu(gpu), m_surface(surface->surface()) {
 	VkSurfaceCapabilitiesKHR capabilities = {};
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu->gpu(), m_surface, &capabilities);
 

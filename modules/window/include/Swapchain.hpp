@@ -73,5 +73,5 @@ public:
         m_gpu->enqueue_present(&presentInfo);
     }
 
-	Swapchain(const Gpu* gpu, VkExtent2D extent, VkSurfaceKHR surface);
+	Swapchain(const Gpu* gpu, VkExtent2D extent, Surface* surface);
 };

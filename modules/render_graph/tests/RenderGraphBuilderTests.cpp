@@ -1,33 +1,49 @@
-#include "ImageChain.hpp"
-#include "RenderPass.hpp"
-#include <optional>
-#include <vulkan/vulkan_core.h>
+#pragma once
+
+#include <catch2/catch_test_macros.hpp>
 
 #define private public
-
-#include "Assert.h"
-
-#include "RenderGraphBuilder.hpp"
-#include "Swapchain.hpp"
-#include "SDLWindow.h"
-
 #include "Mock.hpp"
+
+const VkFormat FMT = VK_FORMAT_R8G8B8A8_UNORM;
+const VkExtent2D EXTENT = {
+    .width = 1024,
+    .height = 1024
+};
 
 
 struct Struct {
 };
 
-void test_render_graph_push() {
-   	VkExtent2D extent = {
-            .width = 1024,
-            .height = 1024
-    };
+TEST_CASE("BothFinalOutputAndColorOutput", "[rg]") {
+	auto gpu = create_mock_gpu();
 
+	auto image_chain = create_mock_image_chain(gpu.get(), 1, EXTENT, FMT);
+	lft::rg::Builder builder(
+		gpu.get(), image_chain, "output"
+	);
+
+    EmptyContext ctx;
+
+	auto task1 = create_empty_task("task1")
+        .set_output_to_final()
+        .add_color_output("output", FMT)
+        .build();
+
+	builder.add_task(task1);
+
+    auto rg = builder.build();
+
+    REQUIRE(rg.m_buffers[0]->num_batches() == 1);
+    REQUIRE(rg.m_buffers[0]->batch(0).tasks[0].pDefinition.name() == "task1");
+}
+
+void test_render_graph_push() {
     auto gpu = create_mock_gpu();
 
     VkImageView a;
     VkFormat fmt = VK_FORMAT_R8G8B8A8_UNORM;
-    ImageChain image_chain = create_mock_image_chain(gpu.get(), 1, extent, fmt);
+    ImageChain image_chain = create_mock_image_chain(gpu.get(), 1, EXTENT, FMT);
 
     lft::rg::Builder builder(gpu.get(), image_chain, "output");
 
@@ -36,9 +52,9 @@ void test_render_graph_push() {
             "task1", &data,
             [](const lft::rg::TaskBuildInfo& info, Struct* ctx) {},
             [](const lft::rg::TaskRecordInfo& info, Struct* ctx) {})
-            .add_color_output("output", fmt, extent, {})
-            .add_color_output("resource1", fmt, extent, {})
-            .set_extent(extent)
+            .add_color_output("output", FMT, EXTENT, {})
+            .add_color_output("resource1", FMT, EXTENT, {})
+            .set_extent(EXTENT)
             .build();
     builder.add_task(task1);
 
@@ -49,14 +65,11 @@ void test_render_graph_push() {
     ASSERT(rg.m_buffers[0]->batch(0).tasks.size() == 1);
     ASSERT(rg.m_buffers[0]->batch(0).tasks[0].pDefinition.equals(task1));
 
-    auto task2 = lft::rg::render_task<Struct>(
-            "task2", &data,
-            [](const lft::rg::TaskBuildInfo& info, Struct* ctx) {},
-            [](const lft::rg::TaskRecordInfo& info, Struct* ctx) {})
-            .add_color_output("output", fmt, extent, {})
-            .add_dependency("resource1")
-            .set_extent(extent)
-            .build();
+    auto task2 = create_empty_task("task2")
+        .add_color_output("output", FMT, EXTENT, {})
+        .add_dependency("resource1")
+        .set_extent(EXTENT)
+        .build();
     builder.add_task(task2);
 
     std::cout << "Second build" << std::endl;
@@ -587,14 +600,14 @@ void test_render_graph2() {
         wait5[1].semaphore == rg.buffer(0).batch(2).signal);
 }
 
-int main() {
-    /* test_render_graph_extent();
-	test_render_graph_push();
-	test_render_graph_insert_begin();
-    test_render_graph_insert_middle();
-	test_render_graph_update_renderpass();
-	test_render_graph_remove();
-	test_buffer_idxs();
-	test_compute(); */
-	test_render_graph2();
-}
+// int main() {
+//     /* test_render_graph_extent();
+// 	test_render_graph_push();
+// 	test_render_graph_insert_begin();
+//     test_render_graph_insert_middle();
+// 	test_render_graph_update_renderpass();
+// 	test_render_graph_remove();
+// 	test_buffer_idxs();
+// 	test_compute(); */
+// 	test_render_graph2();
+// }

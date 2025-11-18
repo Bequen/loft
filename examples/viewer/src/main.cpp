@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
     /**
      * Opens up a window
      */
-    std::unique_ptr<Window> window = std::make_unique<SDLWindow>(application_name, (VkRect2D){
+    std::unique_ptr<lft::win::Window> window = std::make_unique<lft::win::SDLWindow>(application_name, (VkRect2D){
             0, 0,
             extent.width, extent.height
     });
@@ -152,12 +152,12 @@ int main(int argc, char** argv) {
      * Surface is a way to tell window:
      * Hey, I am going to render to you from GPU. I need some surface to render to.
      */
-    auto surface = window->create_surface(instance->instance());
+    auto surface = window->create_surface(instance.get());
 
     /**
      * Gpu manages stuff around rendering. Needed for most graphics operations.
      */
-    auto gpu = std::make_unique<Gpu>(std::move(instance), surface);
+    auto gpu = std::make_unique<Gpu>(instance.get(), &surface);
 
     /**
      * Create camera for scene
@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
     /**
      * Swapchain is a queue storage of images to render to for the Window we opened.
      */
-    Swapchain swapchain = Swapchain(gpu.get(), extent, surface);
+    Swapchain swapchain(gpu.get(), extent, &surface);
 
 
     auto global_input_set_layout = ShaderInputSetLayoutBuilder()
@@ -476,7 +476,7 @@ int main(int argc, char** argv) {
     			ImGuiIO& io = ImGui::GetIO(); (void)io;
     			io.Fonts->AddFontFromFileTTF(io::path::asset("fonts/ProggyClean.ttf").c_str(), 32.0f);
 
-    			ImGui_ImplSDL2_InitForVulkan(((SDLWindow*)window.get())->get_handle());
+    			ImGui_ImplSDL2_InitForVulkan(((lft::win::SDLWindow*)(window.get()))->get_handle());
     			ImGui_ImplVulkan_InitInfo init_info = {
     				.Instance = info.gpu()->instance()->instance(),
     				.PhysicalDevice = gpu->gpu(),
@@ -501,8 +501,8 @@ int main(int argc, char** argv) {
 			ImGui_ImplVulkan_RenderDrawData(draw_data, info.recording().cmdbuf());
         });
 
-	imgui_task.add_color_output("swapchain", swapchain.format().format, swapchain.extent(), {0.0f, 0.0f, 0.0f, 1.0f});
-	imgui_task.add_dependency("shading");
+	imgui_task.set_output_to_final();
+    imgui_task.add_dependency("shading");
 	imgui_task.add_dependency("particle_draw");
 	auto imgui = imgui_task.build();
 	builder.add_task(imgui_task.build());

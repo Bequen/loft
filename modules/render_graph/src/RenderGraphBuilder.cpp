@@ -225,6 +225,7 @@ TaskRenderPass BuilderAllocator::allocate_renderpass(
 	if(vkCreateRenderPass2KHR(m_gpu->dev(), &renderpass_info, nullptr, &renderpass)) {
 		throw std::runtime_error("Failed to create render pass");
 	}
+
 	VkDebugUtilsObjectNameInfoEXT render_pass_dbg_info = {
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
         .objectType = VK_OBJECT_TYPE_RENDER_PASS,
@@ -482,7 +483,7 @@ void BuilderAllocator::update_task_queue(
                 continue;
             }
         } else {
-            // if next_task and next_queue_item does not match, we have to
+            // if next_task and next_queue_item does not match, we found error
             if(task_infos[queue_idx].name() != next_task->pDefinition.name()) {
                 // if task that should be there is updated, it means it was inserted
                 // if it would be updated, there would not be a name mismatch
@@ -549,6 +550,8 @@ RenderGraph BuilderAllocator::allocate(
     std::vector<TaskInfo>& task_infos,
     AdjacencyMatrix *dependencies
 ) {
+    std::println("Task count: {}", task_infos.size());
+
     for(TaskInfo& task_info : task_infos) {
         if(task_info.m_extent.width == 0.0f) {
             task_info.m_extent.width = m_output_chain.extent().width;

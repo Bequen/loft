@@ -1,11 +1,8 @@
 project(loft_render_graph_tests)
 
-add_executable(TopologicalSortTests TopologicalSortTests.cpp)
-add_executable(RenderGraphBuilderTests RenderGraphBuilderTests.cpp)
-add_executable(DependencyGraphTests DependencyGraphTests.cpp)
-
 find_package(Vulkan QUIET)
 find_package(SDL2 REQUIRED)
+find_package(Catch2 REQUIRED)
 
 set(LIBS
     loft_render_graph
@@ -15,10 +12,30 @@ set(LIBS
     ${SDL2_LIBRARIES}
     volk)
 
-target_link_libraries(TopologicalSortTests PRIVATE ${LIBS})
-target_link_libraries(RenderGraphBuilderTests PRIVATE ${LIBS})
-target_link_libraries(DependencyGraphTests PRIVATE ${LIBS})
+set(FILES 
+    # ./DependencyGraphTests.cpp 
+    ./RenderGraphBuilderTests.cpp 
+    ./TopologicalSortTests.cpp
+)
 
-target_include_directories(TopologicalSortTests PUBLIC ${INCLUDE})
-target_include_directories(RenderGraphBuilderTests PUBLIC ${INCLUDE})
-target_include_directories(DependencyGraphTests PUBLIC ${INCLUDE})
+add_library(render_graph_unit_tests_sources OBJECT Mock.cpp ${FILES})
+target_link_libraries(render_graph_unit_tests_sources
+    Catch2::Catch2WithMain
+    ${LIBS}
+)
+
+add_executable(render_graph_unit_tests)
+
+target_link_libraries(render_graph_unit_tests 
+    PRIVATE 
+    ${LIBS} 
+    render_graph_unit_tests_sources
+    Catch2::Catch2WithMain
+)
+
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+
+include(CTest)
+include(Catch)
+
+catch_discover_tests(render_graph_unit_tests)

@@ -9,7 +9,7 @@ m_gpu(gpu),
 m_viewport(viewport),
 m_scissor({
                   .offset = {0, 0},
-                  .extent = {(uint32_t)viewport.width, (uint32_t)viewport.height}
+                  .extent = {(uint32_t)viewport.width, (uint32_t)std::abs(viewport.height)}
           }),
 m_layout(layout), m_renderpass(outputLayout),
 m_inputAssemblyInfo({

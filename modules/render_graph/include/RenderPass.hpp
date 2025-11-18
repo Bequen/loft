@@ -15,7 +15,6 @@
 
 #include <volk.h>
 #include <map>
-#include <vulkan/vulkan_core.h>
 
 namespace lft::rg {
 
@@ -175,6 +174,8 @@ struct TaskInfo {
 	std::vector<ImageResourceDescription> m_color_outputs;
 	std::optional<ImageResourceDescription> m_depth_output;
 
+    bool m_is_output_to_final;
+
 	VkExtent2D m_extent;
 
 	REF(m_name, name);
@@ -186,6 +187,7 @@ struct TaskInfo {
 	REF(m_buffer_outputs, buffer_outputs);
 	REF(m_color_outputs, color_outputs);
 	REF(m_depth_output, depth_output);
+    GET(m_is_output_to_final, is_output_to_final);
 
 	TaskInfo() {
 	}
@@ -410,6 +412,11 @@ public:
 				}, false);
 		return *this;
 	}
+
+    RenderTaskBuilder& set_output_to_final() {
+        m_task_info.m_is_output_to_final = true;
+        return *this;
+    }
 
 	RenderTaskBuilder& add_dependency(const std::string& dependency) {
 		m_task_info.m_dependencies.emplace_back(dependency);

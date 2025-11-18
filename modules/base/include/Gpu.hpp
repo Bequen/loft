@@ -3,6 +3,7 @@
 #include "result.hpp"
 #include "props.hpp"
 #include "Instance.hpp"
+#include "Surface.hpp"
 #include "resources/GpuAllocator.h"
 
 #include <vector>
@@ -15,7 +16,7 @@
  */
 class Gpu {
 private:
-    std::unique_ptr<const Instance> m_instance;
+    const Instance* m_instance;
 	VkPhysicalDevice m_gpu = VK_NULL_HANDLE;
 	VkDevice m_dev = VK_NULL_HANDLE;
     VkDescriptorPool m_descriptorPool{};
@@ -37,9 +38,9 @@ private:
 
     VkCommandBuffer m_tracyCommandBuffer;
 
-    std::vector<int32_t> get_queues(std::optional<VkSurfaceKHR> surface);
+    std::vector<int32_t> get_queues(std::optional<Surface*> surface);
 
-    Result create_logical_device(std::optional<VkSurfaceKHR> surface);
+    Result create_logical_device(std::optional<Surface*> surface);
 
 	Result choose_gpu(VkPhysicalDevice *pOut);
 
@@ -52,7 +53,7 @@ public:
 	GET(m_dev, dev);
 
     [[nodiscard]] const Instance* instance() const {
-        return m_instance.get();
+        return m_instance;
     }
 
 	GET(m_descriptorPool, descriptor_pool);
@@ -68,7 +69,7 @@ public:
     GET(m_pAllocator.get(), memory);
 
 	explicit
-	Gpu(std::unique_ptr<const Instance> instance, std::optional<VkSurfaceKHR> surface);
+	Gpu(const Instance* instance, std::optional<Surface*> surface);
 
     ~Gpu();
 
